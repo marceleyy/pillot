@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { localDate } from "../lib/dates";
 
 const C = {
   brand:"#2563EB",brandLight:"#EFF6FF",navy:"#0F172A",
@@ -58,24 +59,27 @@ export function Planning({ restaurantId, profileId, toast }) {
   const [addEmp, setAddEmp] = useState(false);
   const [newEmp, setNewEmp] = useState({ nom:"", prenom:"", heures_contrat:35, salaire_horaire:11.65 });
   const [saving, setSaving] = useState(false);
-  const [published, setPublished] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null); // id du créneau à confirmer
+  const published = shifts.length > 0 && shifts.every(s => s.published);
 
   const days = getWeekDates(week);
-  const weekLabel = `${days[0].getDate()} – ${days[6].getDate()} ${days[6].toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}`;
+  const weekLabel = days[0].getMonth() === days[6].getMonth()
+    ? `${days[0].getDate()} – ${days[6].getDate()} ${days[6].toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}`
+    : `${days[0].toLocaleDateString("fr-FR",{day:"numeric",month:"short"})} – ${days[6].toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric"})}`;
 
   useEffect(() => {
     loadAll();
   }, [restaurantId, week]);
 
   const loadAll = async () => {
-    if (!restaurantId) return;
+    if (!restaurantId) { setLoading(false); return; }
     setLoading(true);
     const [{ data: emps }, { data: sts }, { data: sh }] = await Promise.all([
       supabase.from("employees").select("*").eq("restaurant_id", restaurantId).eq("actif", true).order("nom"),
       supabase.from("shift_types").select("*").eq("restaurant_id", restaurantId),
       supabase.from("shifts").select("*").eq("restaurant_id", restaurantId)
-        .gte("date", days[0].toISOString().split("T")[0])
-        .lte("date", days[6].toISOString().split("T")[0])
+        .gte("date", localDate(days[0]))
+        .lte("date", localDate(days[6]))
     ]);
     setEmployees(emps || []);
     setShiftTypes(sts || []);
@@ -84,26 +88,30 @@ export function Planning({ restaurantId, profileId, toast }) {
   };
 
   const getShifts = (empId, date) => {
-    const ds = date.toISOString().split("T")[0];
+    const ds = localDate(date);
     return shifts.filter(s => s.employee_id === empId && s.date === ds);
   };
 
   const addShift = async (type) => {
-    if (!modal) return;
+    if (!modal || saving) return;
     setSaving(true);
-    const ds = modal.date.toISOString().split("T")[0];
+    const ds = localDate(modal.date);
+    let error;
     if (type === "repos") {
-      await supabase.from("shifts").insert({ restaurant_id: restaurantId, employee_id: modal.empId, date: ds, heure_debut:"00:00", heure_fin:"00:00", type_nom:"Repos", couleur:"#E2E8F0", repos: true });
+      ({ error } = await supabase.from("shifts").insert({ restaurant_id: restaurantId, employee_id: modal.empId, date: ds, heure_debut:"00:00", heure_fin:"00:00", type_nom:"Repos", couleur:"#E2E8F0", repos: true }));
     } else {
-      await supabase.from("shifts").insert({ restaurant_id: restaurantId, employee_id: modal.empId, date: ds, heure_debut: type.heure_debut, heure_fin: type.heure_fin, type_nom: type.nom, couleur: type.couleur, repos: false });
+      ({ error } = await supabase.from("shifts").insert({ restaurant_id: restaurantId, employee_id: modal.empId, date: ds, heure_debut: type.heure_debut, heure_fin: type.heure_fin, type_nom: type.nom, couleur: type.couleur, repos: false }));
     }
+    if (error) { toast("Erreur : le service n'a pas été ajouté", "error"); setSaving(false); return; }
     await loadAll();
     setModal(null);
     setSaving(false);
   };
 
   const removeShift = async (id) => {
-    await supabase.from("shifts").delete().eq("id", id);
+    setPendingDelete(null);
+    const { error } = await supabase.from("shifts").delete().eq("id", id);
+    if (error) { toast("Erreur : le service n'a pas été supprimé", "error"); return; }
     setShifts(prev => prev.filter(s => s.id !== id));
   };
 
@@ -117,12 +125,13 @@ export function Planning({ restaurantId, profileId, toast }) {
   };
 
   const publishPlanning = async () => {
-    await supabase.from("shifts").update({ published: true })
+    const { error } = await supabase.from("shifts").update({ published: true })
       .eq("restaurant_id", restaurantId)
-      .gte("date", days[0].toISOString().split("T")[0])
-      .lte("date", days[6].toISOString().split("T")[0]);
-    setPublished(true);
-    toast("Planning publié — équipe notifiée");
+      .gte("date", localDate(days[0]))
+      .lte("date", localDate(days[6]));
+    if (error) { toast("Erreur : le planning n'a pas été publié", "error"); return; }
+    setShifts(prev => prev.map(s => ({ ...s, published: true })));
+    toast("Planning publié");
   };
 
   // Total masse salariale
@@ -144,8 +153,8 @@ export function Planning({ restaurantId, profileId, toast }) {
             <p style={{margin:"0 0 10px",fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Choisir un service</p>
             <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:14}}>
               {shiftTypes.map(st => (
-                <button key={st.id} onClick={() => addShift(st)}
-                  style={{padding:"10px 14px",borderRadius:10,border:"none",background:st.couleur+"22",cursor:"pointer",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
+                <button key={st.id} onClick={() => addShift(st)} disabled={saving}
+                  style={{padding:"10px 14px",borderRadius:10,border:"none",background:st.couleur+"22",cursor:saving?"wait":"pointer",opacity:saving?.6:1,display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
                   <span style={{width:12,height:12,borderRadius:"50%",background:st.couleur,flexShrink:0,display:"inline-block"}}/>
                   <div style={{flex:1}}>
                     <p style={{margin:0,fontSize:13,fontWeight:700,color:C.text}}>{st.nom} ({st.abrev})</p>
@@ -153,8 +162,8 @@ export function Planning({ restaurantId, profileId, toast }) {
                   </div>
                 </button>
               ))}
-              <button onClick={() => addShift("repos")}
-                style={{padding:"10px 14px",borderRadius:10,border:`1px solid ${C.border}`,background:"#F8FAFC",cursor:"pointer",display:"flex",alignItems:"center",gap:10,color:C.textSec}}>
+              <button onClick={() => addShift("repos")} disabled={saving}
+                style={{padding:"10px 14px",borderRadius:10,border:`1px solid ${C.border}`,background:"#F8FAFC",cursor:saving?"wait":"pointer",opacity:saving?.6:1,display:"flex",alignItems:"center",gap:10,color:C.textSec}}>
                 <span style={{width:12,height:12,borderRadius:"50%",background:"#CBD5E1",flexShrink:0,display:"inline-block"}}/>
                 <span style={{fontSize:13}}>Repos hebdomadaire</span>
               </button>
@@ -169,9 +178,9 @@ export function Planning({ restaurantId, profileId, toast }) {
         <div>
           <h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Planning</h1>
           <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
-            <button onClick={() => setWeek(w => w-1)} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:14}}>‹</button>
+            <button onClick={() => setWeek(w => w-1)} aria-label="Semaine précédente" style={{minWidth:44,minHeight:44,padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:14}}>‹</button>
             <p style={{margin:0,fontSize:14,fontWeight:600}}>{weekLabel}</p>
-            <button onClick={() => setWeek(w => w+1)} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:14}}>›</button>
+            <button onClick={() => setWeek(w => w+1)} aria-label="Semaine suivante" style={{minWidth:44,minHeight:44,padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:14}}>›</button>
             <button onClick={() => setWeek(0)} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:11,color:C.textSec}}>Aujourd'hui</button>
             {published && <span style={{fontSize:11,fontWeight:700,background:C.successLight,color:C.success,padding:"2px 8px",borderRadius:10}}>Publié</span>}
           </div>
@@ -228,7 +237,7 @@ export function Planning({ restaurantId, profileId, toast }) {
               <p style={{margin:0,fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Employés</p>
             </div>
             {days.map((d, i) => {
-              const today = new Date().toISOString().split("T")[0] === d.toISOString().split("T")[0];
+              const today = localDate() === localDate(d);
               return (
                 <div key={i} style={{padding:"10px 8px",textAlign:"center",background: today?"#EFF6FF":"#F8FAFC",borderRight:i<6?`1px solid ${C.border}`:"none",borderBottom:`2px solid ${today?C.brand:C.border}`}}>
                   <p style={{margin:0,fontSize:11,fontWeight:500,color:today?C.brand:C.textSec}}>{JOURS[i]}</p>
@@ -252,7 +261,7 @@ export function Planning({ restaurantId, profileId, toast }) {
                 </div>
                 {/* Cellules jours */}
                 {days.map((d, di) => {
-                  const ds = d.toISOString().split("T")[0];
+                  const ds = localDate(d);
                   const dayShifts = empShifts.filter(s => s.date === ds);
                   return (
                     <div key={di} onClick={() => setModal({ empId: emp.id, empName: `${emp.prenom} ${emp.nom}`, date: d })}
@@ -264,10 +273,13 @@ export function Planning({ restaurantId, profileId, toast }) {
                         </div>
                       )}
                       {dayShifts.map(s => (
-                        <div key={s.id} onClick={e=>{e.stopPropagation();removeShift(s.id);}}
-                          style={{marginBottom:3,padding:"3px 6px",borderRadius:6,background:s.repos?"#F1F5F9":s.couleur+"22",border:`1px solid ${s.repos?"#E2E8F0":s.couleur}50`,cursor:"pointer",position:"relative"}}
-                          title="Cliquer pour supprimer">
-                          {s.repos ? (
+                        <div key={s.id} role="button" aria-label={pendingDelete===s.id?"Confirmer la suppression du service":"Supprimer le service"}
+                          onClick={e=>{e.stopPropagation();if (pendingDelete===s.id) removeShift(s.id); else setPendingDelete(s.id);}}
+                          style={{marginBottom:3,padding:"3px 6px",borderRadius:6,background:pendingDelete===s.id?C.dangerLight:s.repos?"#F1F5F9":s.couleur+"22",border:`1px solid ${pendingDelete===s.id?C.danger:(s.repos?"#E2E8F0":s.couleur)+"50"}`,cursor:"pointer",position:"relative"}}
+                          title="Toucher pour supprimer">
+                          {pendingDelete===s.id ? (
+                            <p style={{margin:0,fontSize:10,fontWeight:700,color:C.danger}}>Supprimer ?</p>
+                          ) : s.repos ? (
                             <p style={{margin:0,fontSize:10,color:C.textMuted}}>Repos</p>
                           ) : (
                             <>
@@ -298,20 +310,32 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
   const [addModal, setAddModal] = useState(false);
   const [newTask, setNewTask] = useState({ nom:"", description:"", categorie:"general", frequence:"daily", priorite:"normale" });
   const [saving, setSaving] = useState(false);
+  const [onceDone, setOnceDone] = useState([]); // ids des tâches ponctuelles complétées un autre jour
+  const [pendingTaskDelete, setPendingTaskDelete] = useState(null);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = localDate();
   const todayDow = new Date().getDay() || 7; // 1=lun, 7=dim
+  const [jourSemaine, setJourSemaine] = useState(todayDow);
 
   useEffect(() => { loadAll(); }, [restaurantId]);
 
   const loadAll = async () => {
-    if (!restaurantId) return;
+    if (!restaurantId) { setLoading(false); return; }
     setLoading(true);
     const [{ data: ts }, { data: cs }] = await Promise.all([
-      supabase.from("tasks").select("*").eq("restaurant_id", restaurantId).eq("actif", true).order("priorite", { ascending:false }),
+      supabase.from("tasks").select("*").eq("restaurant_id", restaurantId).eq("actif", true),
       supabase.from("task_completions").select("*").eq("restaurant_id", restaurantId).eq("date", today)
     ]);
-    setTasks(ts || []);
+    const RANG = { haute:0, normale:1, basse:2 };
+    const sorted = (ts || []).slice().sort((a, b) => (RANG[a.priorite] ?? 1) - (RANG[b.priorite] ?? 1));
+    const onceIds = sorted.filter(t => t.frequence === "once").map(t => t.id);
+    let prev = [];
+    if (onceIds.length) {
+      const { data: oc } = await supabase.from("task_completions").select("task_id,date").in("task_id", onceIds).neq("date", today);
+      prev = (oc || []).map(c => c.task_id);
+    }
+    setTasks(sorted);
+    setOnceDone(prev);
     setCompletions(cs || []);
     setLoading(false);
   };
@@ -319,6 +343,7 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
   const todayTasks = tasks.filter(t => {
     if (t.frequence === "daily") return true;
     if (t.frequence === "weekly") return (t.jours_semaine || []).includes(todayDow);
+    if (t.frequence === "once") return !onceDone.includes(t.id);
     return false;
   });
 
@@ -331,25 +356,28 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
       task_id: task.id, restaurant_id: restaurantId, completed_by: profileId, date: today
     });
     if (!error) { setCompletions(prev => [...prev, { task_id: task.id }]); toast("Tâche complétée ✓"); }
-    else toast("Erreur", "error");
+    else toast("Erreur : la tâche n'a pas été complétée", "error");
   };
 
   const uncomplete = async (task) => {
-    await supabase.from("task_completions").delete().eq("task_id", task.id).eq("date", today);
+    const { error } = await supabase.from("task_completions").delete().eq("task_id", task.id).eq("date", today);
+    if (error) { toast("Erreur : l'annulation a échoué", "error"); return; }
     setCompletions(prev => prev.filter(c => c.task_id !== task.id));
   };
 
   const saveTask = async () => {
     if (!newTask.nom.trim()) return;
     setSaving(true);
-    const { error } = await supabase.from("tasks").insert({ restaurant_id: restaurantId, ...newTask, created_by: profileId, jours_semaine: [1,2,3,4,5,6,7] });
+    const { error } = await supabase.from("tasks").insert({ restaurant_id: restaurantId, ...newTask, created_by: profileId, jours_semaine: newTask.frequence === "weekly" ? [jourSemaine] : [1,2,3,4,5,6,7] });
     if (!error) { await loadAll(); toast("Tâche créée"); setAddModal(false); setNewTask({ nom:"", description:"", categorie:"general", frequence:"daily", priorite:"normale" }); }
-    else toast("Erreur", "error");
+    else toast("Erreur : la tâche n'a pas été créée", "error");
     setSaving(false);
   };
 
   const deleteTask = async (id) => {
-    await supabase.from("tasks").update({ actif: false }).eq("id", id);
+    setPendingTaskDelete(null);
+    const { error } = await supabase.from("tasks").update({ actif: false }).eq("id", id);
+    if (error) { toast("Erreur : la tâche n'a pas été supprimée", "error"); return; }
     setTasks(prev => prev.filter(t => t.id !== id));
     toast("Tâche supprimée");
   };
@@ -380,6 +408,16 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
                     <option value="once">Ponctuelle</option>
                   </select></div>
               </div>
+              {newTask.frequence === "weekly" && (
+                <div><label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>Jour</label>
+                  <div style={{display:"flex",gap:4}}>
+                    {["L","M","M","J","V","S","D"].map((l,i)=>(
+                      <button key={i} onClick={()=>setJourSemaine(i+1)} aria-label={JOURS_FULL[i]} aria-pressed={jourSemaine===i+1}
+                        style={{flex:1,minHeight:36,borderRadius:8,border:`1.5px solid ${jourSemaine===i+1?C.brand:C.border}`,background:jourSemaine===i+1?C.brandLight:"transparent",fontSize:12,fontWeight:jourSemaine===i+1?700:400,color:jourSemaine===i+1?C.brand:C.textSec,cursor:"pointer"}}>{l}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div><label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>Priorité</label>
                 <div style={{display:"flex",gap:6}}>
                   {["haute","normale","basse"].map(p=><button key={p} onClick={()=>setNewTask(prev=>({...prev,priorite:p}))} style={{flex:1,padding:"7px 6px",borderRadius:8,border:`1.5px solid ${newTask.priorite===p?PRIO_COLOR[p]:C.border}`,background:newTask.priorite===p?PRIO_COLOR[p]+"15":"transparent",fontSize:12,fontWeight:newTask.priorite===p?700:400,color:newTask.priorite===p?PRIO_COLOR[p]:C.textSec,cursor:"pointer",textTransform:"capitalize"}}>{p}</button>)}
@@ -477,9 +515,16 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
                 <p style={{margin:0,fontSize:13,fontWeight:600}}>{t.nom}</p>
                 <p style={{margin:0,fontSize:11,color:C.textSec}}>{t.frequence==="daily"?"Chaque jour":t.frequence==="weekly"?"Hebdomadaire":"Ponctuelle"} · Priorité {t.priorite}</p>
               </div>
-              <button onClick={() => deleteTask(t.id)} style={{padding:"6px",background:C.dangerLight,border:"none",borderRadius:8,cursor:"pointer",display:"flex",alignItems:"center"}}>
-                <span style={{fontSize:14}}>🗑️</span>
-              </button>
+              {pendingTaskDelete === t.id ? (
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={() => deleteTask(t.id)} style={{padding:"6px 10px",background:C.danger,color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:700}}>Supprimer ?</button>
+                  <button onClick={() => setPendingTaskDelete(null)} style={{padding:"6px 10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,cursor:"pointer",fontSize:12}}>Annuler</button>
+                </div>
+              ) : (
+                <button onClick={() => setPendingTaskDelete(t.id)} aria-label={`Supprimer la tâche ${t.nom}`} style={{padding:"6px",background:C.dangerLight,border:"none",borderRadius:8,cursor:"pointer",display:"flex",alignItems:"center"}}>
+                  <span style={{fontSize:14}} aria-hidden="true">🗑️</span>
+                </button>
+              )}
             </div>
           ))}
         </div>

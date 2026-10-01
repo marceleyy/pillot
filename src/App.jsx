@@ -10,12 +10,12 @@ import { supabase } from "./lib/supabase";
 const C = {
   navy:"#0F172A",brand:"#2563EB",brandLight:"#EFF6FF",brandDark:"#1D4ED8",
   success:"#16A34A",successLight:"#F0FDF4",
-  warning:"#D97706",warningLight:"#FFFBEB",
+  warning:"#B45309",warningLight:"#FFFBEB",
   danger:"#DC2626",dangerLight:"#FEF2F2",
   purple:"#7C3AED",purpleLight:"#F5F3FF",
   bg:"#F1F5F9",surface:"#FFFFFF",
   border:"#E2E8F0",borderStrong:"#CBD5E1",
-  text:"#0F172A",textSec:"#64748B",textMuted:"#94A3B8",
+  text:"#0F172A",textSec:"#64748B",textMuted:"#64748B",
   fourn:{"TAD MARKET":"#065F46","METRO":"#1E3A8A","ALPAGEL":"#92400E","ODYSSÉE DES GLACES":"#5B21B6","LAVAZZA":"#7F1D1D"}
 };
 
@@ -42,6 +42,11 @@ const ICONS = {
   key:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>,
   x:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   trend:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>,
+  calendar:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="5" width="16" height="16" rx="2"/><line x1="16" y1="3" x2="16" y2="7"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="4" y1="11" x2="20" y2="11"/></svg>,
+  "ice-cream":<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21.5V21"/><path d="M8 11.5l4 9.5 4-9.5"/><path d="M6.5 11.5a5.5 5.5 0 1111 0z"/></svg>,
+  camera:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 7h1a2 2 0 002-2 1 1 0 011-1h6a1 1 0 011 1 2 2 0 002 2h1a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2"/><circle cx="12" cy="13" r="3"/></svg>,
+  "device-desktop":<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="12" rx="1"/><line x1="7" y1="20" x2="17" y2="20"/><line x1="9" y1="16" x2="9" y2="20"/><line x1="15" y1="16" x2="15" y2="20"/></svg>,
+  menu:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>,
   droplet:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg>,
 };
 const Icon = ({n,sz=18,c="currentColor"})=><span style={{display:"inline-flex",width:sz,height:sz,color:c,flexShrink:0}}>{ICONS[n]}</span>;
@@ -66,7 +71,7 @@ function Gauge({ratio,obj=0.25}){
   const a=(-180+fill*180)*Math.PI/180,ex=cx+R*Math.cos(a),ey=cy+R*Math.sin(a),lg=fill>0.5?1:0;
   const col=ratio<=obj?C.success:ratio<=obj*1.4?C.warning:C.danger;
   const fp=fill>0.005?`M${cx-R} ${cy} A${R} ${R} 0 ${lg} 1 ${ex.toFixed(1)} ${ey.toFixed(1)}`:"";
-  return<svg width="180" height="108" viewBox="0 0 180 108">
+  return<svg width="100%" viewBox="0 0 180 108" style={{maxWidth:180,height:"auto",display:"block",margin:"0 auto"}}>
     <path d={`M${cx-R} ${cy} A${R} ${R} 0 0 1 ${cx+R} ${cy}`} fill="none" stroke="#E2E8F0" strokeWidth="14" strokeLinecap="round"/>
     {fp&&<path d={fp} fill="none" stroke={col} strokeWidth="14" strokeLinecap="round"/>}
     {fill>0.005&&<circle cx={ex.toFixed(1)} cy={ey.toFixed(1)} r={7} fill={col} stroke="white" strokeWidth="2"/>}
@@ -83,7 +88,7 @@ function Toast({msg,type="success",onClose}){
   const bg=type==="success"?C.success:type==="error"?C.danger:C.warning;
   return<div style={{position:"fixed",top:20,right:20,zIndex:9999,background:bg,color:"#fff",padding:"12px 16px",borderRadius:10,display:"flex",alignItems:"center",gap:10,boxShadow:"0 4px 20px rgba(0,0,0,.2)",fontSize:14,fontWeight:500,maxWidth:320}}>
     <Icon n={type==="success"?"check":"alert"} sz={16}/>{msg}
-    <button onClick={onClose} style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",marginLeft:"auto"}}><Icon n="x" sz={14}/></button>
+    <button onClick={onClose} aria-label="Fermer" style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",marginLeft:"auto"}}><Icon n="x" sz={14}/></button>
   </div>;
 }
 
@@ -158,7 +163,7 @@ function Dashboard({profile,products,onTab}){
       <StatCard icon="check" label="OK" value={ok.length} sub="stocks suffisants" color={C.success} bg={C.successLight}/>
       <StatCard icon="box" label="Non saisis" value={ns.length} sub="à mettre à jour" color={C.textSec} bg="#F8FAFC" onClick={()=>onTab("stocks")}/>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:12,marginBottom:20}}>
       {[["SALE","Côté Salé",rs,ca_s],["SUCRE","Côté Sucré",rsu,ca_su]].map(([k,l,r,ca])=>(
         <Card key={k} style={{padding:"18px",textAlign:"center"}}>
           <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</p>
@@ -200,7 +205,8 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
 
   const loadHistory=async()=>{
     setLoadingHist(true);
-    const{data}=await supabase.from("stock_entries").select("*,products(nom,unite,fournisseur)").eq("restaurant_id",restaurantId).order("created_at",{ascending:false}).limit(60);
+    const{data,error}=await supabase.from("stock_entries").select("*,products(nom,unite,fournisseur)").eq("restaurant_id",restaurantId).order("created_at",{ascending:false}).limit(60);
+    if(error)toast("Erreur de chargement de l'historique","error");
     setHist(data||[]);setLoadingHist(false);
   };
 
@@ -211,8 +217,8 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
     setSaving(true);const v=parseFloat(editVal);
     if(!isNaN(v)&&v>=0){
       const{error}=await supabase.from("stock_entries").insert({product_id:product.id,restaurant_id:restaurantId,stock_reel:v});
-      if(!error){onStockUpdate(product.id,v);toast("Stock mis à jour");}else toast("Erreur","error");
-    }
+      if(!error){onStockUpdate(product.id,v);toast("Stock mis à jour");}else toast("Erreur lors de l'enregistrement du stock","error");
+    }else toast("Valeur de stock invalide","error");
     setEditId(null);setSaving(false);
   };
 
@@ -272,7 +278,7 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
                 <span style={{fontSize:13,color:C.textSec,fontWeight:500}}>{p.unite}</span>
                 <button onClick={()=>saveStock(p)} disabled={saving} style={{padding:"9px 18px",background:C.brand,color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
                   <Icon n="check" sz={14}/>{saving?"...":"OK"}</button>
-                <button onClick={()=>setEditId(null)} style={{padding:"9px 10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,cursor:"pointer"}}>✕</button>
+                <button onClick={()=>setEditId(null)} aria-label="Annuler" style={{padding:"9px 10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,cursor:"pointer"}}>✕</button>
               </div>
             </div>;
             return<div key={p.id} onClick={()=>{setEditId(p.id);setEditVal(String(p.stock??""));}}
@@ -310,7 +316,7 @@ function Commandes({products,profile,toast}){
     if(c.length){m+="À commander :\n";c.forEach(p=>m+=`- ${p.nom} : ${gqt(p)} ${p.unite}\n`);m+="\n";}
     return m+"Merci d'avance,\n"+(profile?.restaurants?.name||"Le restaurant");
   };
-  const copy=(f,msg)=>{navigator.clipboard?.writeText(msg);setCopied(f);toast("Message copié !");setTimeout(()=>setCopied(null),2000);};
+  const copy=async(f,msg)=>{try{if(!navigator.clipboard)throw new Error();await navigator.clipboard.writeText(msg);setCopied(f);toast("Message copié !");setTimeout(()=>setCopied(null),2000);}catch{toast("Copie impossible — sélectionnez le texte manuellement","error");}};
   if(!fourns.length)return<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:300,gap:12}}>
     <div style={{width:64,height:64,borderRadius:"50%",background:C.successLight,display:"flex",alignItems:"center",justifyContent:"center"}}><Icon n="check" sz={28} c={C.success}/></div>
     <h3 style={{margin:0,fontSize:18,fontWeight:700}}>Tout est en ordre</h3>
@@ -398,7 +404,7 @@ function Historique({restaurantId}){
   return<div>
     <div style={{marginBottom:20}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Historique</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{hist.length} période{hist.length>1?"s":""}</p></div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
-      {[["CA total",fmt(totCA),C.brand,"trend"],["Coût total",fmt(totCout),C.warning,"box"],["Ratio moyen",avg>0?(avg*100).toFixed(1)+"%":"—",avg<=0.25?C.success:C.danger,"chart"]].map(([l,v,c,ic])=>(
+      {[["CA total",fmt(totCA),C.brand],["Coût total",fmt(totCout),C.warning],["Ratio moyen",avg>0?(avg*100).toFixed(1)+"%":"—",avg<=0.25?C.success:C.danger]].map(([l,v,c])=>(
         <Card key={l} style={{padding:"14px 16px"}}>
           <p style={{margin:"0 0 6px",fontSize:10,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</p>
           <p style={{margin:0,fontSize:18,fontWeight:800,color:c}}>{v}</p>
@@ -411,7 +417,7 @@ function Historique({restaurantId}){
     </Card>}
     <Card style={{overflow:"hidden"}}>
       {hist.map((h,i)=>{
-        const rs=h.ratio_sale||0,ru=h.ratio_sucre||0,col=rs<=0.25?C.success:rs<=0.35?C.warning:C.danger;
+        const rs=h.ratio_sale||0,ru=h.ratio_sucre||0;
         return<div key={h.id} style={{padding:"14px 18px",borderBottom:i<hist.length-1?`1px solid ${C.border}`:"none"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -431,139 +437,25 @@ function Historique({restaurantId}){
   </div>;
 }
 
-// ── HACCP ────────────────────────────────────────────────────
-const EQUIPEMENTS=[
-  {nom:"Frigo 1",min:0,max:4,icon:"❄️"},{nom:"Frigo 2",min:0,max:4,icon:"❄️"},
-  {nom:"Congélateur",min:-22,max:-18,icon:"🧊"},{nom:"Zone prépa",min:-5,max:12,icon:"🌡️"},
-  {nom:"Vitrine froide",min:0,max:6,icon:"❄️"},
-];
-const NETTOYAGE_QUOTIDIEN=["Plans de travail","Sol cuisine","Frigos (extérieur)","Plonge & robinetterie","Poubelles","Grille-pains & appareils","Lave-mains"];
-const NETTOYAGE_HEBDO=["Hottes et filtres","Intérieur frigos","Congélateur (dégivrage)","Four & équipements cuisson","Derrière les appareils","Vitres & surfaces verticales"];
-
-function HACCP({restaurantId,profileId,toast}){
-  const [onglet,setOnglet]=useState("temp"),[logs,setLogs]=useState([]),[loading,setLoading]=useState(true),[adding,setAdding]=useState(null),[inputTemp,setInputTemp]=useState(""),[saving,setSaving]=useState(false),[checks,setChecks]=useState({}),[savingClean,setSavingClean]=useState(false);
-
-  useEffect(()=>{const load=async()=>{const{data}=await supabase.from("temperature_logs").select("*").eq("restaurant_id",restaurantId).order("created_at",{ascending:false}).limit(50);setLogs(data||[]);setLoading(false);};if(restaurantId)load();},[restaurantId]);
-
-  const getLastTemp=(equip)=>logs.find(l=>l.equipement===equip);
-  const isTempOk=(equip,temp)=>{const e=EQUIPEMENTS.find(x=>x.nom===equip);if(!e)return true;return temp>=e.min&&temp<=e.max;};
-
-  const saveTemp=async()=>{
-    const v=parseFloat(inputTemp);if(isNaN(v)){toast("Température invalide","error");return;}
-    setSaving(true);
-    const e=EQUIPEMENTS.find(x=>x.nom===adding);
-    const{error}=await supabase.from("temperature_logs").insert({restaurant_id:restaurantId,saisi_par:profileId,equipement:adding,temperature:v,temperature_min:e?.min,temperature_max:e?.max});
-    if(!error){const{data}=await supabase.from("temperature_logs").select("*").eq("restaurant_id",restaurantId).order("created_at",{ascending:false}).limit(50);setLogs(data||[]);toast("Température enregistrée");setAdding(null);setInputTemp("");}
-    else toast("Erreur","error");setSaving(false);
-  };
-
-  const toggleCheck=(task)=>setChecks(p=>({...p,[task]:!p[task]}));
-  const saveChecklist=async()=>{
-    setSavingClean(true);
-    const tasks=Object.entries(checks).filter(([,v])=>v).map(([k])=>k);
-    for(const t of tasks){await supabase.from("cleaning_logs").insert({restaurant_id:restaurantId,saisi_par:profileId,tache:t,fait:true});}
-    toast(tasks.length+" tâche"+(tasks.length>1?"s":"")+" enregistrée"+(tasks.length>1?"s":""));
-    setChecks({});setSavingClean(false);
-  };
-
-  return<div>
-    <div style={{marginBottom:20}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>HACCP</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>Traçabilité hygiène · {new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</p></div>
-    <div style={{display:"flex",gap:4,background:"#F1F5F9",padding:4,borderRadius:10,marginBottom:16}}>
-      {[["temp","🌡️ Températures"],["clean","🧹 Nettoyage"]].map(([k,l])=><button key={k} onClick={()=>setOnglet(k)} style={{flex:1,padding:"8px 12px",borderRadius:8,border:"none",fontSize:13,fontWeight:600,cursor:"pointer",background:onglet===k?C.surface:"transparent",color:onglet===k?C.text:C.textSec,boxShadow:onglet===k?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{l}</button>)}
-    </div>
-
-    {onglet==="temp"&&<div>
-      {adding&&<div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-        <div style={{background:C.surface,borderRadius:16,padding:28,maxWidth:360,width:"100%",boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
-          <h3 style={{margin:"0 0 4px",fontSize:16,fontWeight:800}}>{adding}</h3>
-          <p style={{margin:"0 0 16px",fontSize:13,color:C.textSec}}>{EQUIPEMENTS.find(e=>e.nom===adding)?.icon} Saisir la température relevée</p>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
-            <input type="number" value={inputTemp} onChange={e=>setInputTemp(e.target.value)} placeholder="Ex: 3" autoFocus step="0.1"
-              style={{flex:1,padding:"12px 14px",borderRadius:10,border:`1.5px solid ${C.brand}`,fontSize:22,fontWeight:800,outline:"none",textAlign:"center"}}/>
-            <span style={{fontSize:20,fontWeight:700}}>°C</span>
-          </div>
-          {inputTemp&&!isNaN(parseFloat(inputTemp))&&<div style={{padding:"10px 14px",borderRadius:10,background:isTempOk(adding,parseFloat(inputTemp))?C.successLight:C.dangerLight,marginBottom:16}}>
-            <p style={{margin:0,fontSize:13,fontWeight:700,color:isTempOk(adding,parseFloat(inputTemp))?C.success:C.danger}}>
-              {isTempOk(adding,parseFloat(inputTemp))?"✅ Température dans la norme":"⚠️ HORS NORME — vérifier l'équipement !"}
-            </p>
-          </div>}
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={saveTemp} disabled={saving||!inputTemp} style={{flex:1,padding:"12px",background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>{saving?"...":"Enregistrer"}</button>
-            <button onClick={()=>{setAdding(null);setInputTemp("");}} style={{padding:"12px 16px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:10,cursor:"pointer"}}>Annuler</button>
-          </div>
-        </div>
-      </div>}
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {EQUIPEMENTS.map(e=>{
-          const last=getLastTemp(e.nom);const ok=last?isTempOk(e.nom,last.temperature):null;
-          return<Card key={e.nom} style={{padding:"16px 18px",display:"flex",alignItems:"center",gap:14}}>
-            <div style={{width:48,height:48,borderRadius:14,background:ok===null?"#F1F5F9":ok?C.successLight:C.dangerLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-              <span style={{fontSize:22}}>{e.icon}</span>
-            </div>
-            <div style={{flex:1}}>
-              <p style={{margin:"0 0 2px",fontSize:14,fontWeight:700}}>{e.nom}</p>
-              <p style={{margin:0,fontSize:11,color:C.textSec}}>Norme : {e.min}°C à {e.max}°C</p>
-              {last&&<p style={{margin:"2px 0 0",fontSize:11,color:C.textMuted}}>{fmtDate(last.created_at)}</p>}
-            </div>
-            <div style={{textAlign:"right",flexShrink:0}}>
-              {last?<>
-                <p style={{margin:"0 0 4px",fontSize:22,fontWeight:800,color:ok?C.success:C.danger}}>{last.temperature}°C</p>
-                <span style={{fontSize:10,fontWeight:700,color:ok?C.success:C.danger,background:ok?C.successLight:C.dangerLight,padding:"2px 8px",borderRadius:10}}>{ok?"OK":"HORS NORME"}</span>
-              </>:<p style={{margin:0,fontSize:12,color:C.textMuted}}>Non relevé</p>}
-            </div>
-            <button onClick={()=>setAdding(e.nom)} style={{padding:"9px 14px",background:C.brandLight,color:C.brand,border:`1px solid ${C.border}`,borderRadius:10,fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>+ Relever</button>
-          </Card>;
-        })}
-      </div>
-      {logs.length>0&&<div style={{marginTop:16}}>
-        <p style={{margin:"0 0 10px",fontSize:13,fontWeight:700,color:C.textSec}}>Derniers relevés</p>
-        <Card style={{overflow:"hidden"}}>
-          {logs.slice(0,8).map((l,i)=><div key={l.id} style={{padding:"10px 16px",borderBottom:i<7?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontSize:12,fontWeight:800,color:isTempOk(l.equipement,l.temperature)?C.success:C.danger,minWidth:48,textAlign:"right"}}>{l.temperature}°C</span>
-            <div style={{flex:1}}><p style={{margin:0,fontSize:12,fontWeight:500}}>{l.equipement}</p><p style={{margin:0,fontSize:10,color:C.textMuted}}>{fmtDate(l.created_at)}</p></div>
-            <span style={{fontSize:11,fontWeight:700,color:isTempOk(l.equipement,l.temperature)?C.success:C.danger}}>{isTempOk(l.equipement,l.temperature)?"✓":"⚠"}</span>
-          </div>)}
-        </Card>
-      </div>}
-    </div>}
-
-    {onglet==="clean"&&<div>
-      {[["Tâches quotidiennes",NETTOYAGE_QUOTIDIEN],["Tâches hebdomadaires",NETTOYAGE_HEBDO]].map(([title,tasks])=>(
-        <Card key={title} style={{marginBottom:14,overflow:"hidden"}}>
-          <div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,background:"#F8FAFC"}}>
-            <p style={{margin:0,fontSize:13,fontWeight:700}}>{title}</p>
-          </div>
-          {tasks.map(t=><div key={t} onClick={()=>toggleCheck(t)} style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12,cursor:"pointer",background:checks[t]?C.successLight:"transparent"}}>
-            <div style={{width:22,height:22,borderRadius:6,border:`2px solid ${checks[t]?C.success:C.border}`,background:checks[t]?C.success:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-              {checks[t]&&<Icon n="check" sz={12} c="#fff"/>}
-            </div>
-            <span style={{fontSize:13,fontWeight:checks[t]?600:400,color:checks[t]?C.success:C.text,textDecoration:checks[t]?"line-through":"none"}}>{t}</span>
-          </div>)}
-        </Card>
-      ))}
-      {Object.values(checks).some(Boolean)&&<button onClick={saveChecklist} disabled={savingClean} style={{width:"100%",padding:13,background:C.success,color:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:`0 4px 12px ${C.success}40`}}>
-        {savingClean?"Enregistrement...":"✅ Enregistrer les tâches effectuées"}
-      </button>}
-    </div>}
-  </div>;
-}
-
 // ── FICHES TECHNIQUES ─────────────────────────────────────────
 function Recettes({restaurantId,products,toast}){
-  const [recettes,setRecettes]=useState([]),[loading,setLoading]=useState(true),[sel,setSel]=useState(null),[adding,setAdding]=useState(false),[newNom,setNewNom]=useState(""),[newPrix,setNewPrix]=useState(""),[items,setItems]=useState([]),[saving,setSaving]=useState(false),[addItem,setAddItem]=useState({prodId:"",qte:"",unite:""});
+  const [recettes,setRecettes]=useState([]),[loading,setLoading]=useState(true),[sel,setSel]=useState(null),[adding,setAdding]=useState(false),[newNom,setNewNom]=useState(""),[newPrix,setNewPrix]=useState(""),[items,setItems]=useState([]),[saving,setSaving]=useState(false),[addItem,setAddItem]=useState({prodId:"",qte:"",unite:""}),[confirmDel,setConfirmDel]=useState(false);
 
-  useEffect(()=>{const load=async()=>{const{data}=await supabase.from("recipes").select("*,recipe_items(*,products(nom,unite,prix_achat))").eq("restaurant_id",restaurantId).order("created_at",{ascending:false});setRecettes(data||[]);setLoading(false);};if(restaurantId)load();},[restaurantId]);
+  useEffect(()=>{const load=async()=>{const{data,error}=await supabase.from("recipes").select("*,recipe_items(*,products(nom,unite,prix_achat))").eq("restaurant_id",restaurantId).order("created_at",{ascending:false});if(error)toast("Erreur de chargement des fiches","error");setRecettes(data||[]);setLoading(false);};if(restaurantId)load();},[restaurantId,toast]);
 
   const calcCout=(recipe)=>(recipe.recipe_items||[]).reduce((a,it)=>a+(it.quantite||0)*(it.products?.prix_achat||0),0);
 
   const saveRecette=async()=>{
     if(!newNom.trim())return;setSaving(true);
     const{data,error}=await supabase.from("recipes").insert({restaurant_id:restaurantId,nom:newNom.trim(),prix_vente:parseFloat(newPrix)||0}).select().single();
-    if(!error&&data){
-      if(items.length>0){for(const it of items){await supabase.from("recipe_items").insert({recipe_id:data.id,product_id:it.prodId||null,product_nom:it.nom,quantite:it.qte,unite:it.unite});}}
-      const{data:rec}=await supabase.from("recipes").select("*,recipe_items(*,products(nom,unite,prix_achat))").eq("restaurant_id",restaurantId).order("created_at",{ascending:false});
-      setRecettes(rec||[]);toast("Fiche créée !");setAdding(false);setNewNom("");setNewPrix("");setItems([]);
-    }else toast("Erreur","error");setSaving(false);
+    if(error||!data){toast("Erreur lors de la création de la fiche","error");setSaving(false);return;}
+    if(items.length>0){
+      const{error:e2}=await supabase.from("recipe_items").insert(items.map(it=>({recipe_id:data.id,product_id:it.prodId||null,product_nom:it.nom,quantite:it.qte,unite:it.unite})));
+      if(e2){await supabase.from("recipes").delete().eq("id",data.id);toast("Erreur lors de l'enregistrement des ingrédients","error");setSaving(false);return;}
+    }
+    const{data:rec,error:e3}=await supabase.from("recipes").select("*,recipe_items(*,products(nom,unite,prix_achat))").eq("restaurant_id",restaurantId).order("created_at",{ascending:false});
+    if(e3)setRecettes(p=>[{...data,recipe_items:[]},...p]);else setRecettes(rec||[]);
+    toast("Fiche créée !");setAdding(false);setNewNom("");setNewPrix("");setItems([]);setSaving(false);
   };
 
   const addIngredient=()=>{
@@ -573,16 +465,22 @@ function Recettes({restaurantId,products,toast}){
     setAddItem({prodId:"",qte:"",unite:""});
   };
 
-  const deleteRecette=async(id)=>{await supabase.from("recipes").delete().eq("id",id);setRecettes(p=>p.filter(r=>r.id!==id));setSel(null);toast("Fiche supprimée");};
+  const deleteRecette=async(id)=>{
+    if(!confirmDel){setConfirmDel(true);return;}
+    const{error}=await supabase.from("recipes").delete().eq("id",id);setConfirmDel(false);
+    if(error){toast("Erreur lors de la suppression","error");return;}
+    setRecettes(p=>p.filter(r=>r.id!==id));setSel(null);toast("Fiche supprimée");
+  };
 
   if(sel){
     const r=recettes.find(x=>x.id===sel);if(!r)return null;
-    const cout=calcCout(r),marge=r.prix_vente>0?((r.prix_vente-cout)/r.prix_vente*100):0,ratio=r.prix_vente>0?cout/r.prix_vente:0;
+    const cout=calcCout(r),ratio=r.prix_vente>0?cout/r.prix_vente:0;
     return<div>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
-        <button onClick={()=>setSel(null)} style={{padding:"8px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:13}}>← Retour</button>
-        <div style={{flex:1}}><h1 style={{margin:0,fontSize:20,fontWeight:800}}>{r.nom}</h1></div>
-        <button onClick={()=>deleteRecette(r.id)} style={{padding:"8px",borderRadius:8,border:`1px solid ${C.dangerLight}`,background:C.dangerLight,cursor:"pointer",display:"flex"}}><Icon n="trash" sz={16} c={C.danger}/></button>
+        <button onClick={()=>{setSel(null);setConfirmDel(false);}} style={{padding:"8px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:13}}>← Retour</button>
+        <div style={{flex:1,minWidth:0}}><h1 style={{margin:0,fontSize:20,fontWeight:800}}>{r.nom}</h1></div>
+        {confirmDel&&<button onClick={()=>setConfirmDel(false)} style={{minHeight:44,padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:13}}>Annuler</button>}
+        <button onClick={()=>deleteRecette(r.id)} aria-label={confirmDel?"Confirmer la suppression de la fiche":"Supprimer la fiche"} style={{minWidth:44,minHeight:44,padding:"8px",borderRadius:8,border:`1px solid ${confirmDel?C.danger:C.dangerLight}`,background:confirmDel?C.danger:C.dangerLight,color:confirmDel?"#fff":C.danger,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,fontWeight:700}}><Icon n="trash" sz={16} c={confirmDel?"#fff":C.danger}/>{confirmDel&&"Confirmer"}</button>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:16}}>
         {[["Coût matière",fmt(cout),C.warning],["Prix vente",fmt(r.prix_vente),C.text],["Ratio",ratio>0?(ratio*100).toFixed(1)+"%":"—",ratio<=0.25?C.success:C.danger]].map(([l,v,c])=>(
@@ -647,7 +545,7 @@ function Recettes({restaurantId,products,toast}){
       <p style={{margin:0,color:C.textSec,fontSize:13}}>Créez vos premières recettes pour calculer vos coûts matière.</p>
     </Card>:
     <div style={{display:"flex",flexDirection:"column",gap:10}}>
-      {recettes.map(r=>{const cout=calcCout(r),ratio=r.prix_vente>0?cout/r.prix_vente:0;return<Card key={r.id} onClick={()=>setSel(r.id)} style={{padding:"16px 18px",display:"flex",alignItems:"center",gap:14}}>
+      {recettes.map(r=>{const cout=calcCout(r),ratio=r.prix_vente>0?cout/r.prix_vente:0;return<Card key={r.id} onClick={()=>{setSel(r.id);setConfirmDel(false);}} style={{padding:"16px 18px",display:"flex",alignItems:"center",gap:14}}>
         <div style={{width:44,height:44,borderRadius:12,background:C.purpleLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon n="book" sz={20} c={C.purple}/></div>
         <div style={{flex:1}}><p style={{margin:"0 0 2px",fontSize:14,fontWeight:700}}>{r.nom}</p><p style={{margin:0,fontSize:12,color:C.textSec}}>{(r.recipe_items||[]).length} ingrédient{(r.recipe_items||[]).length>1?"s":""} · coût {fmt(cout)}</p></div>
         <div style={{textAlign:"right"}}>
@@ -660,17 +558,19 @@ function Recettes({restaurantId,products,toast}){
 }
 
 // ── RÉGLAGES ─────────────────────────────────────────────────
-function Reglages({profile,toast}){
-  const [ca_s,setCaS]=useState(""),[ ca_su,setCaSu]=useState(""),[ saving,setSaving]=useState(false);
+function Reglages({profile,toast,onSaved}){
   const rest=profile?.restaurants;
+  const [ca_s,setCaS]=useState(rest?.ca_sale!=null?String(rest.ca_sale):""),[ ca_su,setCaSu]=useState(rest?.ca_sucre!=null?String(rest.ca_sucre):""),[ saving,setSaving]=useState(false);
   const saveCa=async()=>{
+    const upd={};
+    for(const[k,v]of[["ca_sale",ca_s],["ca_sucre",ca_su]]){if(String(v).trim()==="")continue;const n=parseFloat(v);if(isNaN(n)||n<0){toast("Montant de CA invalide","error");return;}upd[k]=n;}
+    if(!Object.keys(upd).length){toast("Saisissez au moins un CA","error");return;}
+    if(!rest?.id){toast("Restaurant introuvable","error");return;}
     setSaving(true);
-    const cout_s=products_cost_estimate(rest?.id);
-    const{error}=await supabase.from("restaurants").update({ca_sale:parseFloat(ca_s)||0,ca_sucre:parseFloat(ca_su)||0}).eq("id",rest?.id);
-    if(!error)toast("CA mis à jour — rechargez le tableau de bord");else toast("Erreur","error");
+    const{error}=await supabase.from("restaurants").update(upd).eq("id",rest.id);
+    if(error)toast("Erreur lors de l'enregistrement du CA","error");else{toast("CA mis à jour");await onSaved?.();}
     setSaving(false);
   };
-  const products_cost_estimate=()=>0;
   const inp={width:"100%",boxSizing:"border-box",padding:"11px 14px",borderRadius:10,border:`1.5px solid ${C.border}`,fontSize:15,fontWeight:700,outline:"none"};
   return<div>
     <div style={{marginBottom:24}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Réglages</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{rest?.name}</p></div>
@@ -689,7 +589,7 @@ function Reglages({profile,toast}){
     <Card style={{padding:20}}>
       <h3 style={{margin:"0 0 12px",fontSize:15,fontWeight:800}}>Informations du compte</h3>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
-        {[["Restaurant",rest?.name],["Plan",rest?.plan],["Email",profile?.email],["Rôle",profile?.role],["Domaine","pillot-restaurant.fr"]].map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"9px 12px",background:"#F8FAFC",borderRadius:8}}>
+        {[["Restaurant",rest?.name],["Plan",rest?.plan],["Email",profile?.email],["Rôle",roleLabel(profile?.role)],["Domaine","pillot-restaurant.fr"]].map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"9px 12px",background:"#F8FAFC",borderRadius:8}}>
           <span style={{fontSize:13,color:C.textSec,fontWeight:500}}>{l}</span><span style={{fontSize:13,fontWeight:700}}>{v||"—"}</span>
         </div>)}
       </div>
@@ -700,10 +600,10 @@ function Reglages({profile,toast}){
 // ── ADMIN ─────────────────────────────────────────────────────
 function Admin({adminProfile,toast}){
   const [clients,setClients]=useState([]),[loading,setLoading]=useState(true),[askId,setAskId]=useState(null),[raison,setRaison]=useState(""),[sent,setSent]=useState(new Set());
-  useEffect(()=>{const load=async()=>{const{data}=await supabase.from("restaurants").select("*");setClients(data||[]);setLoading(false);};load();},[]);
+  useEffect(()=>{const load=async()=>{const{data,error}=await supabase.from("restaurants").select("*");if(error)toast("Erreur de chargement des clients","error");setClients(data||[]);setLoading(false);};load();},[toast]);
   const send=async()=>{
     const{error}=await supabase.from("access_requests").insert({admin_id:adminProfile?.id,restaurant_id:askId,raison,message:"Intervention : "+raison,statut:"en_attente"});
-    if(!error){setSent(p=>new Set([...p,askId]));setAskId(null);toast("Demande envoyée au propriétaire");}else toast("Erreur","error");
+    if(!error){setSent(p=>new Set([...p,askId]));setAskId(null);toast("Demande envoyée au propriétaire");}else toast("Erreur lors de l'envoi de la demande","error");
   };
   return<div>
     {askId&&<div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
@@ -746,25 +646,27 @@ function Admin({adminProfile,toast}){
   </div>;
 }
 
+// ── NAVIGATION (source unique Sidebar + menu mobile) ─────────
+const navTabs=isAdmin=>isAdmin
+  ?[["dashboard","Tableau de bord","home"],["users","Clients","users"],["settings","Réglages","settings"]]
+  :[["dashboard","Tableau de bord","home"],["stocks","Inventaire","box"],["commandes","Commandes","cart"],["historique","Historique","chart"],["haccp","HACCP","thermometer"],["recettes","Fiches techniques","book"],["settings","Réglages","settings"],["planning","Planning","calendar"],["taches","Tâches","clipboard"],["glaces","Pillot Glaces","ice-cream"],["scan","Scan facture","camera"],["appareils","Équipements","device-desktop"]];
+const ROLE_LABELS={owner:"Gérant",admin:"Administrateur",manager:"Manager",employee:"Employé"};
+const roleLabel=r=>ROLE_LABELS[r]||r;
+
 // ── SIDEBAR ──────────────────────────────────────────────────
 function Sidebar({tab,onTab,profile,onLogout}){
-  const isAdmin=profile?.role==="admin";
-  const tabs=isAdmin
-    ?[["dashboard","Tableau de bord","home"],["users","Clients","users"],["settings","Réglages","settings"]]
-    :[["dashboard","Tableau de bord","home"],["stocks","Inventaire","box"],["commandes","Commandes","cart"],["historique","Historique","chart"],["haccp","HACCP","thermometer"],["recettes","Fiches techniques","book"],["settings","Réglages","settings"],["planning","Planning","calendar"],["taches","Tâches","clipboard"],["glaces",    "Pillot Glaces",  "ice-cream"],
-    ["scan",      "Scan facture",   "camera"],
-    ["appareils", "Équipements",    "device-desktop"],];
+  const tabs=navTabs(profile?.role==="admin");
   return<div style={{width:230,background:C.navy,display:"flex",flexDirection:"column",minHeight:"100vh",flexShrink:0,position:"sticky",top:0,maxHeight:"100vh",overflowY:"auto"}}>
     <div style={{padding:"22px 18px 14px"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
         <div style={{width:38,height:38,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <span style={{color:"#fff",fontSize:18,fontWeight:800}}>P</span>
         </div>
-        <div><p style={{margin:0,fontSize:16,fontWeight:800,color:"#fff"}}>Pillot</p><p style={{margin:0,fontSize:10,color:"#475569"}}>pillot-restaurant.fr</p></div>
+        <div><p style={{margin:0,fontSize:16,fontWeight:800,color:"#fff"}}>Pillot</p><p style={{margin:0,fontSize:10,color:"#94A3B8"}}>pillot-restaurant.fr</p></div>
       </div>
       <div style={{padding:"8px 10px",background:"rgba(255,255,255,.06)",borderRadius:8}}>
         <p style={{margin:0,fontSize:12,fontWeight:700,color:"#94A3B8",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{profile?.restaurants?.name||profile?.email}</p>
-        <p style={{margin:0,fontSize:11,color:"#475569",textTransform:"capitalize"}}>{profile?.role}</p>
+        <p style={{margin:0,fontSize:11,color:"#94A3B8"}}>{roleLabel(profile?.role)}</p>
       </div>
     </div>
     <nav style={{flex:1,padding:"4px 10px"}}>
@@ -775,8 +677,8 @@ function Sidebar({tab,onTab,profile,onLogout}){
       </button>;})}
     </nav>
     <div style={{padding:"10px 18px 22px"}}>
-      <button onClick={onLogout} style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:10,background:"transparent",color:"#64748B",fontSize:13}}
-        onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,.15)";e.currentTarget.style.color="#F87171";}} onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#64748B";}}>
+      <button onClick={onLogout} style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:10,background:"transparent",color:"#94A3B8",fontSize:13}}
+        onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,.15)";e.currentTarget.style.color="#F87171";}} onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94A3B8";}}>
         <Icon n="logout" sz={15}/>Déconnexion
       </button>
     </div>
@@ -784,16 +686,41 @@ function Sidebar({tab,onTab,profile,onLogout}){
 }
 
 // ── BOTTOM NAV ────────────────────────────────────────────────
-function BottomNav({tab,onTab,isAdmin}){
+function BottomNav({tab,onTab,isAdmin,onLogout}){
+  const [open,setOpen]=useState(false);
   const tabs=isAdmin
     ?[["dashboard","Accueil","home"],["users","Clients","users"],["settings","Réglages","settings"]]
     :[["dashboard","Accueil","home"],["stocks","Stocks","box"],["commandes","Commandes","cart"],["haccp","HACCP","thermometer"],["settings","Réglages","settings"]];
-  return<div style={{position:"fixed",bottom:0,left:0,right:0,background:C.surface,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:50,paddingBottom:"env(safe-area-inset-bottom)"}}>
-    {tabs.map(([id,l,ic])=><button key={id} onClick={()=>onTab(id)} style={{flex:1,padding:"9px 4px 7px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-      <Icon n={ic} sz={20} c={tab===id?C.brand:C.textMuted}/>
-      <span style={{fontSize:10,fontWeight:tab===id?700:500,color:tab===id?C.brand:C.textMuted}}>{l}</span>
-    </button>)}
-  </div>;
+  const go=id=>{onTab(id);setOpen(false);};
+  const moreActive=open||!tabs.some(([id])=>id===tab);
+  useEffect(()=>{if(!open)return;const k=e=>e.key==="Escape"&&setOpen(false);window.addEventListener("keydown",k);return()=>window.removeEventListener("keydown",k);},[open]);
+  return<>
+    {open&&<div onClick={()=>setOpen(false)} style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",zIndex:60,display:"flex",alignItems:"flex-end"}}>
+      <div role="dialog" aria-modal="true" aria-label="Menu" onClick={e=>e.stopPropagation()} style={{background:C.surface,width:"100%",maxHeight:"80vh",overflowY:"auto",borderRadius:"16px 16px 0 0",padding:"8px 12px",paddingBottom:"calc(12px + env(safe-area-inset-bottom))",boxShadow:"0 -10px 30px rgba(0,0,0,.2)"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 6px 8px"}}>
+          <span style={{fontSize:15,fontWeight:800,color:C.text}}>Menu</span>
+          <button onClick={()=>setOpen(false)} aria-label="Fermer le menu" style={{width:44,height:44,border:"none",background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:C.textSec}}><Icon n="x" sz={20}/></button>
+        </div>
+        {navTabs(isAdmin).map(([id,l,ic])=>{const a=tab===id;return<button key={id} onClick={()=>go(id)} aria-current={a?"page":undefined} style={{width:"100%",minHeight:48,padding:"10px 12px",border:"none",borderRadius:10,cursor:"pointer",display:"flex",alignItems:"center",gap:12,background:a?C.brandLight:"transparent",color:a?C.brand:C.text,fontSize:15,fontWeight:a?700:500,textAlign:"left"}}>
+          <Icon n={ic} sz={20} c={a?C.brand:C.textSec}/>{l}
+        </button>;})}
+        <div style={{borderTop:`1px solid ${C.border}`,margin:"6px 0"}}/>
+        <button onClick={()=>{setOpen(false);onLogout();}} style={{width:"100%",minHeight:48,padding:"10px 12px",border:"none",borderRadius:10,cursor:"pointer",display:"flex",alignItems:"center",gap:12,background:"transparent",color:C.danger,fontSize:15,fontWeight:600,textAlign:"left"}}>
+          <Icon n="logout" sz={20}/>Déconnexion
+        </button>
+      </div>
+    </div>}
+    <nav style={{position:"fixed",bottom:0,left:0,right:0,background:C.surface,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:50,paddingBottom:"env(safe-area-inset-bottom)"}}>
+      {tabs.map(([id,l,ic])=><button key={id} onClick={()=>go(id)} aria-current={tab===id?"page":undefined} style={{flex:1,minWidth:0,minHeight:52,padding:"9px 2px 7px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+        <Icon n={ic} sz={20} c={tab===id&&!open?C.brand:C.textMuted}/>
+        <span style={{fontSize:10,fontWeight:tab===id&&!open?700:500,color:tab===id&&!open?C.brand:C.textMuted}}>{l}</span>
+      </button>)}
+      <button onClick={()=>setOpen(o=>!o)} aria-expanded={open} aria-haspopup="dialog" style={{flex:1,minWidth:0,minHeight:52,padding:"9px 2px 7px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+        <Icon n="menu" sz={20} c={moreActive?C.brand:C.textMuted}/>
+        <span style={{fontSize:10,fontWeight:moreActive?700:500,color:moreActive?C.brand:C.textMuted}}>Plus</span>
+      </button>
+    </nav>
+  </>;
 }
 
 // ── APP ──────────────────────────────────────────────────────
@@ -803,44 +730,60 @@ export default function App(){
   useEffect(()=>{const h=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
   const showToast=useCallback((msg,type="success")=>setToast({msg,type}),[]);
 
-  useEffect(()=>{
-    supabase.auth.getSession().then(({data:{session}})=>{setSession(session);if(session)loadProfile(session.user.id);else setLoading(false);});
-    const{data:{subscription}}=supabase.auth.onAuthStateChange((_,s)=>{setSession(s);if(s)loadProfile(s.user.id);else{setProfile(null);setProducts([]);setLoading(false);}});
-    return()=>subscription.unsubscribe();
-  },[]);
-
-  const loadProfile=async(uid)=>{
-    const{data}=await supabase.from("profiles").select("*,restaurants(*)").eq("id",uid).single();
-    setProfile(data);if(data?.restaurant_id)await loadProducts(data.restaurant_id);setLoading(false);
-  };
-
-  const loadProducts=async(restId)=>{
-    const{data:prods}=await supabase.from("products").select("*").eq("restaurant_id",restId).eq("actif",true).order("categorie");
-    const{data:stocks}=await supabase.from("latest_stock").select("*");
-    const sm={};(stocks||[]).forEach(s=>sm[s.product_id]=s.stock_reel);
+  const loadProducts=useCallback(async(restId)=>{
+    const{data:prods,error}=await supabase.from("products").select("*").eq("restaurant_id",restId).eq("actif",true).order("categorie");
+    if(error)showToast("Erreur de chargement des produits","error");
+    const ids=(prods||[]).map(p=>p.id),sm={};
+    if(ids.length){
+      const{data:stocks,error:e2}=await supabase.from("latest_stock").select("product_id,stock_reel").in("product_id",ids);
+      if(e2)showToast("Erreur de chargement des stocks","error");
+      (stocks||[]).forEach(s=>sm[s.product_id]=s.stock_reel);
+    }
     setProducts((prods||[]).map(p=>({...p,stock:sm[p.id]!==undefined?sm[p.id]:null})));
-  };
+  },[showToast]);
+
+  const loadProfile=useCallback(async(uid)=>{
+    const{data,error}=await supabase.from("profiles").select("*,restaurants(*)").eq("id",uid).single();
+    if(error)showToast("Erreur de chargement du profil","error");
+    setProfile(data);if(data?.restaurant_id)await loadProducts(data.restaurant_id);setLoading(false);
+  },[loadProducts,showToast]);
+
+  // Un seul chemin d'auth : INITIAL_SESSION est émis à l'abonnement (avec ou sans session).
+  const uidRef=useRef(null);
+  useEffect(()=>{
+    const{data:{subscription}}=supabase.auth.onAuthStateChange((event,s)=>{
+      setSession(s);
+      if(event==="SIGNED_OUT"||!s){uidRef.current=null;setProfile(null);setProducts([]);setTab("dashboard");setLoading(false);return;}
+      if((event==="INITIAL_SESSION"||event==="SIGNED_IN")&&s.user.id!==uidRef.current){
+        uidRef.current=s.user.id;
+        // différé : éviter d'appeler supabase dans le callback (risque de deadlock du verrou d'auth)
+        setTimeout(()=>loadProfile(s.user.id),0);
+      }
+    });
+    return()=>subscription.unsubscribe();
+  },[loadProfile]);
 
   const onStockUpdate=(id,v)=>setProducts(p=>p.map(x=>x.id===id?{...x,stock:v}:x));
-  const logout=()=>supabase.auth.signOut();
+  const logout=async()=>{const{error}=await supabase.auth.signOut();if(error)showToast("Erreur lors de la déconnexion","error");};
   const isAdmin=profile?.role==="admin";
 
   const renderScreen=()=>{
     if(tab==="stocks")return<Inventaire products={products} restaurantId={profile?.restaurant_id} onStockUpdate={onStockUpdate} toast={showToast}/>;
     if(tab==="commandes")return<Commandes products={products} profile={profile} toast={showToast}/>;
     if(tab==="historique")return<Historique restaurantId={profile?.restaurant_id}/>;
-    if (tab === "haccp") return <HACCPComplet restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast}/>;    if(tab==="recettes")return<Recettes restaurantId={profile?.restaurant_id} products={products} toast={showToast}/>;
-    if(tab==="settings")return<Reglages profile={profile} toast={showToast}/>;
+    if (tab === "haccp") return <HACCPComplet restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast}/>;
+    if(tab==="recettes")return<Recettes restaurantId={profile?.restaurant_id} products={products} toast={showToast}/>;
+    if(tab==="settings")return<Reglages profile={profile} toast={showToast} onSaved={()=>loadProfile(profile.id)}/>;
     if(tab==="users"&&isAdmin)return<Admin adminProfile={profile} toast={showToast}/>;
     if (tab === "planning") return <Planning restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast}/>;
     if (tab === "taches") return <Taches restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast} isOwner={profile?.role==="owner"}/>;
-    if (tab === "glaces")    return <PillotGlaces restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast}/>;
+    if (tab === "glaces")    return <PillotGlaces restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast} restaurantName={profile?.restaurants?.name}/>;
     if (tab === "appareils") return <EquipementSetup restaurantId={profile?.restaurant_id} toast={showToast}/>;
     if (tab === "scan")      return <InvoiceScanner restaurantId={profile?.restaurant_id} profileId={profile?.id} products={products} toast={showToast}/>;
     return<Dashboard profile={profile} products={products} onTab={setTab}/>;
   };
 
-  const STYLE=`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');*{font-family:'Inter',sans-serif;box-sizing:border-box;margin:0;}body{background:${C.bg};}::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:#f1f5f9;}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}input,button,textarea,select{font-family:inherit;}button:focus-visible{outline:2px solid ${C.brand};outline-offset:2px;}`;
+  const STYLE=`*{font-family:'Inter',sans-serif;box-sizing:border-box;margin:0;}body{background:${C.bg};}::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:#f1f5f9;}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}input,button,textarea,select{font-family:inherit;}button:focus-visible{outline:2px solid ${C.brand};outline-offset:2px;}`;
 
   if(loading)return<><style>{STYLE}</style><div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0F172A,#1E3A5F)",flexDirection:"column",gap:14}}><div style={{width:52,height:52,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"#fff",fontSize:24,fontWeight:800}}>P</span></div><p style={{color:"rgba(255,255,255,.5)",fontSize:14}}>Chargement...</p></div></>;
   if(!session)return<><style>{STYLE}</style><Login/></>;
@@ -853,6 +796,6 @@ export default function App(){
         {renderScreen()}
       </main>
     </div>
-    {isMobile&&<BottomNav tab={tab} onTab={setTab} isAdmin={isAdmin}/>}
+    {isMobile&&<BottomNav tab={tab} onTab={setTab} isAdmin={isAdmin} onLogout={logout}/>}
   </>;
 }
