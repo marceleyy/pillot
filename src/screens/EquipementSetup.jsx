@@ -10,7 +10,7 @@ const D = {
   brand:"#2563EB", brandLight:"#EFF6FF",
   surface:"#FFFFFF", bg:"#F9FAFB",
   border:"#E5E7EB", borderFocus:"#93C5FD",
-  text:"#111827", textSec:"#6B7280", textMuted:"#9CA3AF",
+  text:"#111827", textSec:"#6B7280", textMuted:"#6B7280",
   success:"#059669", successLight:"#ECFDF5",
   warning:"#D97706", warningLight:"#FFFBEB",
   danger:"#DC2626", dangerLight:"#FEF2F2",
@@ -33,11 +33,13 @@ export function EquipementSetup({ restaurantId, toast }) {
   const [modal, setModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ nom:"", type:"frigo", marque:"", modele:"", localisation:"", temp_min:0, temp_max:4 });
+  const [pendingRemove, setPendingRemove] = useState(null);
 
   useEffect(() => { load(); }, [restaurantId]);
 
   const load = async () => {
-    const { data } = await supabase.from("equipements").select("*").eq("restaurant_id", restaurantId).order("ordre");
+    if (!restaurantId) { setLoading(false); return; }
+    const { data } = await supabase.from("equipements").select("*").eq("restaurant_id", restaurantId).or("actif.is.null,actif.eq.true").order("ordre");
     setEquipements(data || []);
     setLoading(false);
   };
@@ -50,14 +52,17 @@ export function EquipementSetup({ restaurantId, toast }) {
   const save = async () => {
     if (!form.nom.trim()) { toast("Nom obligatoire","error"); return; }
     setSaving(true);
-    await supabase.from("equipements").insert({ restaurant_id:restaurantId, ...form, ordre:equipements.length });
+    const { error } = await supabase.from("equipements").insert({ restaurant_id:restaurantId, ...form, actif:true, ordre:equipements.length });
+    if (error) { toast("Erreur : l'équipement n'a pas été ajouté","error"); setSaving(false); return; }
     toast("Équipement ajouté"); setModal(false);
     setForm({ nom:"", type:"frigo", marque:"", modele:"", localisation:"", temp_min:0, temp_max:4 });
     await load(); setSaving(false);
   };
 
   const remove = async (id) => {
-    await supabase.from("equipements").update({ actif:false }).eq("id", id);
+    setPendingRemove(null);
+    const { error } = await supabase.from("equipements").update({ actif:false }).eq("id", id);
+    if (error) { toast("Erreur : l'équipement n'a pas été retiré","error"); return; }
     setEquipements(p => p.filter(e => e.id !== id));
     toast("Équipement retiré");
   };
@@ -143,7 +148,14 @@ export function EquipementSetup({ restaurantId, toast }) {
                     {eq.marque ? ` · ${eq.marque}` : ""}
                   </p>
                 </div>
-                <button onClick={() => remove(eq.id)} style={{ padding:"6px 10px", background:D.dangerLight, border:"none", borderRadius:7, cursor:"pointer", fontSize:12, color:D.danger, fontWeight:600 }}>Retirer</button>
+                {pendingRemove === eq.id ? (
+                  <div style={{ display:"flex", gap:6 }}>
+                    <button onClick={() => remove(eq.id)} style={{ padding:"6px 10px", background:D.danger, border:"none", borderRadius:7, cursor:"pointer", fontSize:12, color:"#fff", fontWeight:600 }}>Confirmer</button>
+                    <button onClick={() => setPendingRemove(null)} style={{ padding:"6px 10px", background:"transparent", border:`1px solid ${D.border}`, borderRadius:7, cursor:"pointer", fontSize:12, color:D.textSec }}>Annuler</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setPendingRemove(eq.id)} style={{ padding:"6px 10px", background:D.dangerLight, border:"none", borderRadius:7, cursor:"pointer", fontSize:12, color:D.danger, fontWeight:600 }}>Retirer</button>
+                )}
               </div>
             );
           })}
@@ -154,6 +166,34 @@ export function EquipementSetup({ restaurantId, toast }) {
 }
 
 // ── SCAN FACTURE / BL avec IA ─────────────────────────────────
+const SCAN_INDISPONIBLE = "Le scan de facture n'est pas encore disponible (service serveur à configurer).";
+
+// Correspondance produit : nom complet d'abord ; à défaut premier mot (≥ 4 lettres) s'il ne correspond qu'à un seul produit
+// Mots entiers uniquement (« Sel » ne correspond pas à « Selle »), sans tenir compte de la casse ni des accents
+const normMatch = v => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const hasWord = (hay, word) => !!word && new RegExp(`(^|[^a-z0-9])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(hay);
+const matchProduct = (products, nom) => {
+  const n = normMatch(nom);
+  if (!n) return null;
+  const list = (products || []).filter(p => p?.nom);
+  const full = list.find(p => {
+    const pn = normMatch(p.nom);
+    return hasWord(pn, n) || hasWord(n, pn);
+  });
+  if (full) return full;
+  const candidates = list.filter(p => {
+    const first = normMatch(p.nom).split(/\s+/)[0];
+    return first.length >= 4 && hasWord(n, first);
+  });
+  return candidates.length === 1 ? candidates[0] : null;
+};
+
+// Nombre tolérant la virgule décimale ("12,50") ; null si absent ou invalide
+const toNum = v => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "number" ? v : Number(String(v).replace(/[\s\u00A0\u202F€]/g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+};
 export function InvoiceScanner({ restaurantId, profileId, products, toast }) {
   const [step, setStep] = useState("upload"); // upload | preview | done
   const [loading, setLoading] = useState(false);
@@ -165,7 +205,14 @@ export function InvoiceScanner({ restaurantId, profileId, products, toast }) {
 
   const analyzeWithAI = async (base64, mimeType) => {
     // Appel à l'API Claude avec vision
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    // NB : un appel direct depuis le navigateur ne fonctionne pas (aucune clé, et
+    // une clé ici serait publique). Il faudra passer par un service serveur.
+    const fileBlock = mimeType === "application/pdf"
+      ? { type:"document", source:{ type:"base64", media_type:mimeType, data:base64 } }
+      : { type:"image", source:{ type:"base64", media_type:mimeType, data:base64 } };
+    let response;
+    try {
+      response = await fetch("https://api.anthropic.com/v1/messages", {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
@@ -174,7 +221,7 @@ export function InvoiceScanner({ restaurantId, profileId, products, toast }) {
         messages:[{
           role:"user",
           content:[
-            { type:"image", source:{ type:"base64", media_type:mimeType, data:base64 } },
+            fileBlock,
             { type:"text",  text:`Tu es un assistant pour restaurant. Analyse cette facture ou ce bon de livraison et extrais les informations.
 
 Réponds UNIQUEMENT en JSON valide avec ce format :
@@ -192,7 +239,11 @@ Si une information n'est pas visible, mets null. Sois précis sur les noms de pr
           ]
         }]
       })
-    });
+      });
+    } catch {
+      throw new Error(SCAN_INDISPONIBLE);
+    }
+    if (!response.ok) throw new Error(SCAN_INDISPONIBLE);
 
     const data = await response.json();
     const text = data.content?.[0]?.text || "{}";
@@ -219,11 +270,12 @@ Si une information n'est pas visible, mets null. Sois précis sur les noms de pr
       setResult(parsed);
 
       // Matcher les produits de la facture avec l'inventaire
-      const matched = (parsed.items || []).map(item => {
-        const prod = products?.find(p =>
-          p.nom.toLowerCase().includes(item.nom.toLowerCase()) ||
-          item.nom.toLowerCase().includes(p.nom.toLowerCase().split(" ")[0])
-        );
+      const matched = (parsed.items || [])
+        .filter(item => item && toNum(item.quantite) > 0)
+        .map(item => {
+        const prix = toNum(item.prix_unitaire);
+        item = { ...item, nom: item.nom || "", quantite: toNum(item.quantite), prix_unitaire: prix !== null && prix >= 0 ? prix : null };
+        const prod = matchProduct(products, item.nom);
         const prixPrecedent = prod?.prix_achat;
         const variation = prixPrecedent && item.prix_unitaire ?
           ((item.prix_unitaire - prixPrecedent) / prixPrecedent * 100) : null;
@@ -233,7 +285,7 @@ Si une information n'est pas visible, mets null. Sois précis sur les noms de pr
       setItems(matched);
       setStep("preview");
     } catch(e) {
-      toast("Erreur d'analyse : " + e.message, "error");
+      toast(e.message === SCAN_INDISPONIBLE ? SCAN_INDISPONIBLE : "Erreur d'analyse : " + e.message, "error");
       console.error(e);
     }
     setLoading(false);
@@ -243,40 +295,53 @@ Si une information n'est pas visible, mets null. Sois précis sur les noms de pr
     setSaving(true);
     try {
       // Sauvegarder la facture
-      const { data: inv } = await supabase.from("scanned_invoices").insert({
+      const { data: inv, error: invError } = await supabase.from("scanned_invoices").insert({
         restaurant_id:restaurantId, fournisseur:result?.fournisseur,
         numero_bl:result?.numero_bl, date_facture:result?.date,
         total_ht:result?.total_ht, statut:"validated", source:"scan"
       }).select().single();
+      if (invError) throw new Error("la facture n'a pas été enregistrée");
 
-      // Sauvegarder les lignes et mettre à jour l'inventaire
-      let updated = 0;
+      // Sauvegarder les lignes et cumuler les quantités par produit
+      let updated = 0, errors = 0;
+      const parProduit = new Map(); // product_id -> { product, quantite, prix }
       for (const item of items) {
-        await supabase.from("scanned_invoice_items").insert({
+        const { error: itemError } = await supabase.from("scanned_invoice_items").insert({
           invoice_id:inv.id, product_nom:item.nom, quantite:item.quantite,
           unite:item.unite, prix_unitaire:item.prix_unitaire, total_ht:item.total_ht,
           matched_product_id:item.matched_product?.id || null,
           prix_precedent:item.prix_precedent, variation_pct:item.variation_pct
         });
+        if (itemError) errors++;
 
-        // Mettre à jour le stock et le prix du produit
         if (item.update_inventory && item.matched_product) {
-          const newStock = (item.matched_product.stock || 0) + (item.quantite || 0);
-          await supabase.from("products").update({
-            prix_achat:item.prix_unitaire || item.matched_product.prix_achat
-          }).eq("id", item.matched_product.id);
-
-          // Ajouter une entrée de stock
-          await supabase.from("stock_entries").insert({
-            product_id:item.matched_product.id,
-            restaurant_id:restaurantId,
-            stock_reel:newStock
-          });
-          updated++;
+          const id = item.matched_product.id;
+          const cur = parProduit.get(id) || { product:item.matched_product, quantite:0, prix:null };
+          cur.quantite += Number(item.quantite) || 0;
+          if (item.prix_unitaire) cur.prix = item.prix_unitaire;
+          parProduit.set(id, cur);
         }
       }
 
-      toast(`✅ Facture enregistrée — ${updated} stock${updated>1?"s":""} mis à jour`);
+      // Mettre à jour le stock et le prix une fois par produit
+      for (const [id, { product, quantite, prix }] of parProduit) {
+        const newStock = (Number(product.stock) || 0) + quantite;
+        const { error: prodError } = await supabase.from("products").update({
+          prix_achat:prix || product.prix_achat
+        }).eq("id", id);
+
+        // Ajouter une entrée de stock
+        const { error: stockError } = await supabase.from("stock_entries").insert({
+          product_id:id,
+          restaurant_id:restaurantId,
+          stock_reel:newStock
+        });
+        if (prodError || stockError) errors++;
+        else updated++;
+      }
+
+      if (errors) toast(`Facture enregistrée avec ${errors} erreur${errors>1?"s":""} — ${updated} stock${updated>1?"s":""} mis à jour`, "error");
+      else toast(`✅ Facture enregistrée — ${updated} stock${updated>1?"s":""} mis à jour`);
       setStep("done");
     } catch(e) { toast("Erreur : " + e.message, "error"); }
     setSaving(false);
@@ -329,7 +394,7 @@ Si une information n'est pas visible, mets null. Sois précis sur les noms de pr
               {item.matched_product && <p style={{ margin:0, fontSize:10, color:D.brand }}>→ {item.matched_product.nom}</p>}
             </div>
             <p style={{ margin:0, fontSize:13 }}>{item.quantite} {item.unite}</p>
-            <p style={{ margin:0, fontSize:13 }}>{item.prix_unitaire?.toFixed(2)}€</p>
+            <p style={{ margin:0, fontSize:13 }}>{item.prix_unitaire != null ? `${item.prix_unitaire.toFixed(2)}€` : "—"}</p>
             <p style={{ margin:0, fontSize:12, fontWeight:600, color:varColor(item.variation_pct) }}>
               {item.variation_pct !== null ? `${item.variation_pct>=0?"+":""}${item.variation_pct.toFixed(1)}%` : "—"}
             </p>
@@ -351,6 +416,10 @@ Si une information n'est pas visible, mets null. Sois précis sur les noms de pr
     <div>
       <h2 style={{ margin:"0 0 4px", fontSize:18, fontWeight:700, letterSpacing:"-.02em" }}>Scanner une facture / BL</h2>
       <p style={{ margin:"0 0 18px", fontSize:13, color:D.textSec }}>Claude lit la facture et met l'inventaire à jour automatiquement</p>
+
+      <div role="status" style={{ background:D.brandLight, border:"1px solid #BFDBFE", borderRadius:10, padding:"10px 14px", marginBottom:14 }}>
+        <p style={{ margin:0, fontSize:13, color:"#1E40AF" }}>ℹ️ Fonction en préparation : le scan automatique sera disponible une fois le service serveur configuré.</p>
+      </div>
 
       <div onClick={()=>fileRef.current?.click()}
         style={{ background:D.surface, borderRadius:14, border:`2px dashed ${D.border}`, padding:"48px 24px", textAlign:"center", cursor:"pointer", marginBottom:16 }}

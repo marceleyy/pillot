@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { localDate, daysFromToday } from "../lib/dates";
 
 const C = {
   brand:"#2563EB",brandLight:"#EFF6FF",
@@ -13,11 +14,14 @@ const C = {
   danger:"#DC2626",dangerLight:"#FEF2F2",
   orange:"#EA580C",orangeLight:"#FFF7ED",
   border:"#E2E8F0",surface:"#FFFFFF",bg:"#F1F5F9",
-  text:"#0F172A",textSec:"#64748B",textMuted:"#94A3B8"
+  text:"#0F172A",textSec:"#64748B",textMuted:"#64748B"
 };
 
 const fmt = d => d ? new Date(d).toLocaleDateString("fr-FR") : "—";
-const today = () => new Date().toISOString().split("T")[0];
+const today = () => localDate();
+const saveErr = (toast, error) => toast("Échec de l'enregistrement : " + (error?.message || "erreur inconnue"), "error");
+const STATUT_LABEL = s => s === "non_conforme" ? "Non conforme" : s === "conforme" ? "Conforme" : String(s ?? "").replace(/_/g, " ");
+const checkboxKey = fn => e => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); fn(); } };
 
 function Card({ children, style = {} }) {
   return <div style={{ background: C.surface, borderRadius: 14, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,.04)", ...style }}>{children}</div>;
@@ -51,17 +55,23 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
   useEffect(() => { loadAll(); }, [restaurantId]);
 
   const loadAll = async () => {
-    if (!restaurantId) return;
+    if (!restaurantId) { setLoading(false); return; }
     setLoading(true);
-    const [{ data: tl }, { data: cl }, { data: dlc }, { data: rec }, { data: oil }] = await Promise.all([
+    const [rTl, rCl, rDlc, rRec, rOil] = await Promise.all([
       supabase.from("temperature_logs").select("*").eq("restaurant_id", restaurantId).order("created_at", { ascending: false }).limit(50),
       supabase.from("cleaning_logs").select("*").eq("restaurant_id", restaurantId).order("created_at", { ascending: false }).limit(50),
       supabase.from("dlc_entries").select("*").eq("restaurant_id", restaurantId).eq("statut", "actif").order("dlc_date"),
       supabase.from("reception_controls").select("*").eq("restaurant_id", restaurantId).order("created_at", { ascending: false }).limit(20),
       supabase.from("oil_changes").select("*").eq("restaurant_id", restaurantId).order("date_changement", { ascending: false }).limit(10),
     ]);
-    setTempLogs(tl || []); setCleanLogs(cl || []); setDlcEntries(dlc || []);
-    setReceptions(rec || []); setOilChanges(oil || []);
+    // En cas d'erreur de lecture, on garde l'état précédent plutôt que de tout vider
+    if (!rTl.error) setTempLogs(rTl.data || []);
+    if (!rCl.error) setCleanLogs(rCl.data || []);
+    if (!rDlc.error) setDlcEntries(rDlc.data || []);
+    if (!rRec.error) setReceptions(rRec.data || []);
+    if (!rOil.error) setOilChanges(rOil.data || []);
+    const loadErr = [rTl, rCl, rDlc, rRec, rOil].find(r => r.error)?.error;
+    if (loadErr) toast("Erreur de chargement des données HACCP : " + loadErr.message, "error");
     setLoading(false);
   };
 
@@ -69,7 +79,15 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
   const exportCSV = (data, filename) => {
     if (!data.length) { toast("Aucune donnée à exporter", "warning"); return; }
     const keys = Object.keys(data[0]).filter(k => k !== "id" && k !== "restaurant_id");
-    const csv = [keys.join(";"), ...data.map(r => keys.map(k => `"${r[k] ?? ""}"`).join(";"))].join("\n");
+    const cell = v => {
+      if (v === null || v === undefined) return '""';
+      let s = typeof v === "object" ? JSON.stringify(v) : String(v);
+      // Neutralise les formules (=, +, @, et - si ce n'est pas un nombre) — les nombres restent intacts
+      const isNum = typeof v === "number" || (s.trim() !== "" && !isNaN(Number(s)));
+      if (!isNum && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+    const csv = "﻿" + [keys.join(";"), ...data.map(r => keys.map(k => cell(r[k])).join(";"))].join("\n");
     const a = document.createElement("a");
     a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
     a.download = `${filename}_${today()}.csv`;
@@ -90,8 +108,8 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
           <p style={{ margin: "4px 0 0", fontSize: 14, color: C.textSec }}>Traçabilité hygiène · {new Date().toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" })}</p>
         </div>
         <button onClick={() => exportCSV(tempLogs, "temperatures")}
-          style={{ padding: "8px 14px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
-          ↓ Exporter PDF/CSV
+          style={{ padding: "8px 14px", minHeight: 44, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+          ↓ Exporter CSV
         </button>
       </div>
 
@@ -99,7 +117,7 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
       <div style={{ display: "flex", gap: 4, overflowX: "auto", marginBottom: 16, paddingBottom: 4 }}>
         {TABS.map(([k, l]) => (
           <button key={k} onClick={() => setOnglet(k)}
-            style={{ padding: "7px 14px", borderRadius: 9, border: `1px solid ${onglet===k?C.brand:C.border}`, fontSize: 12, cursor: "pointer", background: onglet===k?C.brandLight:"transparent", color: onglet===k?C.brand:C.textSec, fontWeight: onglet===k?700:400, whiteSpace: "nowrap", flexShrink: 0 }}>
+            style={{ padding: "7px 14px", minHeight: 44, borderRadius: 9, border: `1px solid ${onglet===k?C.brand:C.border}`, fontSize: 12, cursor: "pointer", background: onglet===k?C.brandLight:"transparent", color: onglet===k?C.brand:C.textSec, fontWeight: onglet===k?700:400, whiteSpace: "nowrap", flexShrink: 0 }}>
             {l}
           </button>
         ))}
@@ -132,7 +150,8 @@ function TemperaturesTab({ logs, restaurantId, profileId, toast, onRefresh }) {
     if (isNaN(v)) { toast("Valeur invalide","error"); return; }
     setSaving(true);
     const e = EQUIPEMENTS.find(x => x.nom === adding);
-    await supabase.from("temperature_logs").insert({ restaurant_id:restaurantId, saisi_par:profileId, equipement:adding, temperature:v, temperature_min:e?.min, temperature_max:e?.max });
+    const { error } = await supabase.from("temperature_logs").insert({ restaurant_id:restaurantId, saisi_par:profileId, equipement:adding, temperature:v, temperature_min:e?.min, temperature_max:e?.max });
+    if (error) { saveErr(toast, error); setSaving(false); return; }
     await onRefresh(); toast("Température enregistrée"); setAdding(null); setVal("");
     setSaving(false);
   };
@@ -178,7 +197,7 @@ function TemperaturesTab({ logs, restaurantId, profileId, toast, onRefresh }) {
                   <span style={{ fontSize:10, fontWeight:700, color:ok?C.success:C.danger, background:ok?C.successLight:C.dangerLight, padding:"2px 8px", borderRadius:10 }}>{ok?"OK":"ALERTE"}</span>
                 </> : <p style={{ margin:0, fontSize:12, color:C.textMuted }}>Non relevé</p>}
               </div>
-              <button onClick={() => setAdding(e.nom)} style={{ padding:"9px 14px", background:C.brandLight, color:C.brand, border:`1px solid ${C.border}`, borderRadius:10, fontSize:12, fontWeight:700, cursor:"pointer" }}>+ Relever</button>
+              <button onClick={() => setAdding(e.nom)} style={{ padding:"9px 14px", minHeight:44, background:C.brandLight, color:C.brand, border:`1px solid ${C.border}`, borderRadius:10, fontSize:12, fontWeight:700, cursor:"pointer" }}>+ Relever</button>
             </Card>
           );
         })}
@@ -204,7 +223,7 @@ function TemperaturesTab({ logs, restaurantId, profileId, toast, onRefresh }) {
 function NettoyageTab({ logs, restaurantId, profileId, toast, onRefresh }) {
   const [checks, setChecks] = useState({}), [saving, setSaving] = useState(false);
   const todayStr = today();
-  const todayLogs = logs.filter(l => l.created_at?.startsWith(todayStr));
+  const todayLogs = logs.filter(l => l.created_at && localDate(new Date(l.created_at)) === todayStr);
   const doneTasks = todayLogs.map(l => l.tache);
 
   const toggle = task => setChecks(p => ({ ...p, [task]: !p[task] }));
@@ -212,7 +231,8 @@ function NettoyageTab({ logs, restaurantId, profileId, toast, onRefresh }) {
   const save = async () => {
     setSaving(true);
     const tasks = Object.entries(checks).filter(([,v]) => v).map(([k]) => k);
-    for (const t of tasks) { await supabase.from("cleaning_logs").insert({ restaurant_id:restaurantId, saisi_par:profileId, tache:t, fait:true }); }
+    const { error } = await supabase.from("cleaning_logs").insert(tasks.map(t => ({ restaurant_id:restaurantId, saisi_par:profileId, tache:t, fait:true })));
+    if (error) { saveErr(toast, error); setSaving(false); return; }
     toast(tasks.length + " tâche" + (tasks.length > 1 ? "s" : "") + " enregistrée" + (tasks.length > 1 ? "s" : ""));
     setChecks({}); await onRefresh();
     setSaving(false);
@@ -225,6 +245,8 @@ function NettoyageTab({ logs, restaurantId, profileId, toast, onRefresh }) {
         const done = doneTasks.includes(t), checked = checks[t];
         return (
           <div key={t} onClick={() => !done && toggle(t)}
+            role="checkbox" aria-checked={!!(done || checked)} aria-disabled={done || undefined} tabIndex={done ? -1 : 0}
+            onKeyDown={checkboxKey(() => !done && toggle(t))}
             style={{ padding:"12px 16px", borderBottom:i<tasks.length-1?`1px solid ${C.border}`:"none", display:"flex", alignItems:"center", gap:12, cursor:done?"default":"pointer", background:done?C.successLight:checked?"#EFF6FF":"transparent" }}>
             <div style={{ width:22, height:22, borderRadius:6, border:`2px solid ${done?C.success:checked?C.brand:C.border}`, background:done?C.success:checked?C.brand:"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
               {(done||checked) && <span style={{ color:"#fff", fontSize:12, fontWeight:800 }}>✓</span>}
@@ -256,7 +278,8 @@ function DLCTab({ entries, restaurantId, profileId, toast, onRefresh, onExport }
   const [form, setForm] = useState({ product_nom:"", dlc_date:"", lot:"", fournisseur:"", quantite:1, unite:"" });
   const [saving, setSaving] = useState(false);
 
-  const daysUntil = dlc => Math.ceil((new Date(dlc) - new Date()) / 86400000);
+  const [confirmJete, setConfirmJete] = useState(null);
+  const daysUntil = dlc => daysFromToday(dlc);
   const color = d => d < 0 ? C.danger : d <= 2 ? C.danger : d <= 5 ? C.warning : C.success;
   const bg = d => d < 0 ? C.dangerLight : d <= 2 ? C.dangerLight : d <= 5 ? C.warningLight : C.successLight;
   const label = d => d < 0 ? "Expiré" : d === 0 ? "Expire aujourd'hui !" : d === 1 ? "Expire demain" : `J-${d}`;
@@ -264,13 +287,16 @@ function DLCTab({ entries, restaurantId, profileId, toast, onRefresh, onExport }
   const save = async () => {
     if (!form.product_nom || !form.dlc_date) { toast("Nom et DLC obligatoires","error"); return; }
     setSaving(true);
-    await supabase.from("dlc_entries").insert({ restaurant_id:restaurantId, saisi_par:profileId, ...form });
+    const { error } = await supabase.from("dlc_entries").insert({ restaurant_id:restaurantId, saisi_par:profileId, ...form });
+    if (error) { saveErr(toast, error); setSaving(false); return; }
     toast("DLC enregistrée"); setModal(false); setForm({ product_nom:"", dlc_date:"", lot:"", fournisseur:"", quantite:1, unite:"" });
     await onRefresh(); setSaving(false);
   };
 
   const markConsumed = async (id, statut) => {
-    await supabase.from("dlc_entries").update({ statut }).eq("id", id);
+    setConfirmJete(null);
+    const { error } = await supabase.from("dlc_entries").update({ statut }).eq("id", id);
+    if (error) { saveErr(toast, error); return; }
     toast(statut === "consomme" ? "Marqué consommé" : "Marqué jeté"); await onRefresh();
   };
 
@@ -309,8 +335,8 @@ function DLCTab({ entries, restaurantId, profileId, toast, onRefresh, onExport }
           </div>}
         </div>
         <div style={{ display:"flex", gap:8 }}>
-          <button onClick={onExport} style={{ padding:"8px 12px", background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>↓ Export</button>
-          <button onClick={()=>setModal(true)} style={{ padding:"8px 14px", background:C.brand, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer" }}>+ DLC</button>
+          <button onClick={onExport} style={{ padding:"8px 12px", minHeight:44, background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>↓ Export</button>
+          <button onClick={()=>setModal(true)} style={{ padding:"8px 14px", minHeight:44, background:C.brand, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer" }}>+ DLC</button>
         </div>
       </div>
 
@@ -333,8 +359,13 @@ function DLCTab({ entries, restaurantId, profileId, toast, onRefresh, onExport }
                 </div>
                 <span style={{ fontSize:11, fontWeight:700, color:color(d), background:bg(d), padding:"3px 10px", borderRadius:10, flexShrink:0 }}>{label(d)}</span>
                 <div style={{ display:"flex", gap:4, flexShrink:0 }}>
-                  <button onClick={()=>markConsumed(e.id,"consomme")} title="Consommé" style={{ padding:"5px 8px", background:C.successLight, border:"none", borderRadius:6, fontSize:11, cursor:"pointer", color:C.success, fontWeight:600 }}>✓ Consommé</button>
-                  <button onClick={()=>markConsumed(e.id,"jete")} title="Jeté" style={{ padding:"5px 8px", background:C.dangerLight, border:"none", borderRadius:6, fontSize:11, cursor:"pointer", color:C.danger, fontWeight:600 }}>✗ Jeté</button>
+                  <button onClick={()=>markConsumed(e.id,"consomme")} title="Consommé" style={{ padding:"5px 10px", minHeight:44, background:C.successLight, border:"none", borderRadius:6, fontSize:12, cursor:"pointer", color:C.success, fontWeight:600 }}>✓ Consommé</button>
+                  {confirmJete === e.id ? <>
+                    <button onClick={()=>markConsumed(e.id,"jete")} title="Confirmer : jeté" style={{ padding:"5px 10px", minHeight:44, background:C.danger, border:"none", borderRadius:6, fontSize:12, cursor:"pointer", color:"#fff", fontWeight:700 }}>Confirmer ?</button>
+                    <button onClick={()=>setConfirmJete(null)} title="Annuler" style={{ padding:"5px 10px", minHeight:44, background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, fontSize:12, cursor:"pointer", color:C.textSec }}>Annuler</button>
+                  </> : (
+                    <button onClick={()=>setConfirmJete(e.id)} title="Jeté" style={{ padding:"5px 10px", minHeight:44, background:C.dangerLight, border:"none", borderRadius:6, fontSize:12, cursor:"pointer", color:C.danger, fontWeight:600 }}>✗ Jeté</button>
+                  )}
                 </div>
               </div>
             );
@@ -355,7 +386,8 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
     if (!form.fournisseur) { toast("Fournisseur obligatoire","error"); return; }
     setSaving(true);
     const all_ok = form.temperature_ok && form.emballage_ok && form.quantites_ok;
-    await supabase.from("reception_controls").insert({ restaurant_id:restaurantId, saisi_par:profileId, date_reception:today(), ...form, statut: all_ok ? "conforme" : "non_conforme" });
+    const { error } = await supabase.from("reception_controls").insert({ restaurant_id:restaurantId, saisi_par:profileId, date_reception:today(), ...form, statut: all_ok ? "conforme" : "non_conforme" });
+    if (error) { saveErr(toast, error); setSaving(false); return; }
     toast("Réception enregistrée"); setModal(false);
     setForm({ fournisseur:"", numero_bl:"", temperature_ok:true, emballage_ok:true, quantites_ok:true, statut:"conforme", note:"" });
     await onRefresh(); setSaving(false);
@@ -382,6 +414,8 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
               <div><p style={{ margin:"0 0 10px", fontSize:12, fontWeight:700, color:C.textSec, textTransform:"uppercase", letterSpacing:".5px" }}>Points de contrôle</p>
                 {[["temperature_ok","🌡️ Température conforme"],["emballage_ok","📦 Emballage intact"],["quantites_ok","📋 Quantités conformes au BL"]].map(([k,l])=>(
                   <div key={k} onClick={()=>setForm(p=>({...p,[k]:!p[k]}))}
+                    role="checkbox" aria-checked={!!form[k]} tabIndex={0}
+                    onKeyDown={checkboxKey(()=>setForm(p=>({...p,[k]:!p[k]})))}
                     style={{ padding:"10px 12px", borderRadius:10, border:`1.5px solid ${form[k]?C.success:C.danger}`, background:form[k]?C.successLight:C.dangerLight, cursor:"pointer", display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
                     <span style={{ width:22, height:22, borderRadius:6, border:`2px solid ${form[k]?C.success:C.danger}`, background:form[k]?C.success:C.danger, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                       <span style={{ color:"#fff", fontSize:12, fontWeight:800 }}>{form[k]?"✓":"✗"}</span>
@@ -403,8 +437,8 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
       )}
 
       <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginBottom:14 }}>
-        <button onClick={onExport} style={{ padding:"8px 12px", background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>↓ Export</button>
-        <button onClick={()=>setModal(true)} style={{ padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Contrôle réception</button>
+        <button onClick={onExport} style={{ padding:"8px 12px", minHeight:44, background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>↓ Export</button>
+        <button onClick={()=>setModal(true)} style={{ padding:"8px 16px", minHeight:44, background:C.brand, color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Contrôle réception</button>
       </div>
 
       {receptions.length === 0 ? (
@@ -426,8 +460,8 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
                 </p>
                 {r.note && <p style={{ margin:"2px 0 0", fontSize:11, color:C.textMuted }}>{r.note}</p>}
               </div>
-              <span style={{ fontSize:11, fontWeight:700, color:r.statut==="conforme"?C.success:C.danger, background:r.statut==="conforme"?C.successLight:C.dangerLight, padding:"3px 10px", borderRadius:10, flexShrink:0, textTransform:"capitalize" }}>
-                {r.statut}
+              <span style={{ fontSize:11, fontWeight:700, color:r.statut==="conforme"?C.success:C.danger, background:r.statut==="conforme"?C.successLight:C.dangerLight, padding:"3px 10px", borderRadius:10, flexShrink:0 }}>
+                {STATUT_LABEL(r.statut)}
               </span>
             </div>
           ))}
@@ -447,13 +481,18 @@ function HuileTab({ oils, restaurantId, profileId, toast, onRefresh }) {
     setSaving(true);
     const tpo = parseFloat(form.tpo) || 0;
     const prochain = new Date(); prochain.setDate(prochain.getDate() + 14);
-    await supabase.from("oil_changes").insert({ restaurant_id:restaurantId, saisi_par:profileId, date_changement:today(), prochain_changement:prochain.toISOString().split("T")[0], ...form, tpo, statut:tpo>25?"critique":tpo>20?"alerte":"ok" });
+    const { error } = await supabase.from("oil_changes").insert({ restaurant_id:restaurantId, saisi_par:profileId, date_changement:today(), prochain_changement:localDate(prochain), ...form, tpo, statut:tpo>25?"critique":tpo>20?"alerte":"ok" });
+    if (error) { saveErr(toast, error); setSaving(false); return; }
     toast("Changement d'huile enregistré"); setModal(false);
     setForm({ equipement:"Friteuse 1", tpo:0, statut:"ok", note:"" });
     await onRefresh(); setSaving(false);
   };
 
-  const daysSince = d => Math.ceil((new Date() - new Date(d)) / 86400000);
+  const daysSince = d => {
+    if (!d) return null;
+    const n = -daysFromToday(String(d).slice(0, 10));
+    return Number.isFinite(n) ? n : null;
+  };
   const FRITEUSES = ["Friteuse 1","Friteuse 2","Friteuse 3","Bain-marie"];
 
   return (
@@ -483,7 +522,7 @@ function HuileTab({ oils, restaurantId, profileId, toast, onRefresh }) {
       )}
 
       <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:14 }}>
-        <button onClick={()=>setModal(true)} style={{ padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Changement d'huile</button>
+        <button onClick={()=>setModal(true)} style={{ padding:"8px 16px", minHeight:44, background:C.brand, color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Changement d'huile</button>
       </div>
 
       {FRITEUSES.slice(0,2).map(f => {
@@ -496,7 +535,7 @@ function HuileTab({ oils, restaurantId, profileId, toast, onRefresh }) {
             <div style={{ flex:1 }}>
               <p style={{ margin:0, fontSize:15, fontWeight:700 }}>{f}</p>
               {last ? <>
-                <p style={{ margin:"2px 0 0", fontSize:12, color:C.textSec }}>Dernier changement : {fmt(last.date_changement)} ({days} jours)</p>
+                <p style={{ margin:"2px 0 0", fontSize:12, color:C.textSec }}>Dernier changement : {fmt(last.date_changement)} ({days !== null ? `${days} jours` : "—"})</p>
                 {last.tpo > 0 && <p style={{ margin:0, fontSize:11, color:last.statut==="critique"?C.danger:last.statut==="alerte"?C.warning:C.success }}>TPO : {last.tpo}%</p>}
               </> : <p style={{ margin:0, fontSize:12, color:C.textMuted }}>Aucun relevé</p>}
             </div>
