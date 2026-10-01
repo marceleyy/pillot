@@ -39,7 +39,7 @@ export function EquipementSetup({ restaurantId, toast }) {
 
   const load = async () => {
     if (!restaurantId) { setLoading(false); return; }
-    const { data } = await supabase.from("equipements").select("*").eq("restaurant_id", restaurantId).eq("actif", true).order("ordre");
+    const { data } = await supabase.from("equipements").select("*").eq("restaurant_id", restaurantId).or("actif.is.null,actif.eq.true").order("ordre");
     setEquipements(data || []);
     setLoading(false);
   };
@@ -52,7 +52,7 @@ export function EquipementSetup({ restaurantId, toast }) {
   const save = async () => {
     if (!form.nom.trim()) { toast("Nom obligatoire","error"); return; }
     setSaving(true);
-    const { error } = await supabase.from("equipements").insert({ restaurant_id:restaurantId, ...form, ordre:equipements.length });
+    const { error } = await supabase.from("equipements").insert({ restaurant_id:restaurantId, ...form, actif:true, ordre:equipements.length });
     if (error) { toast("Erreur : l'équipement n'a pas été ajouté","error"); setSaving(false); return; }
     toast("Équipement ajouté"); setModal(false);
     setForm({ nom:"", type:"frigo", marque:"", modele:"", localisation:"", temp_min:0, temp_max:4 });
@@ -169,23 +169,31 @@ export function EquipementSetup({ restaurantId, toast }) {
 const SCAN_INDISPONIBLE = "Le scan de facture n'est pas encore disponible (service serveur à configurer).";
 
 // Correspondance produit : nom complet d'abord ; à défaut premier mot (≥ 4 lettres) s'il ne correspond qu'à un seul produit
+// Mots entiers uniquement (« Sel » ne correspond pas à « Selle »), sans tenir compte de la casse ni des accents
+const normMatch = v => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const hasWord = (hay, word) => !!word && new RegExp(`(^|[^a-z0-9])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(hay);
 const matchProduct = (products, nom) => {
-  const n = (nom || "").toLowerCase().trim();
+  const n = normMatch(nom);
   if (!n) return null;
   const list = (products || []).filter(p => p?.nom);
   const full = list.find(p => {
-    const pn = p.nom.toLowerCase();
-    return pn.includes(n) || n.includes(pn);
+    const pn = normMatch(p.nom);
+    return hasWord(pn, n) || hasWord(n, pn);
   });
   if (full) return full;
   const candidates = list.filter(p => {
-    const first = p.nom.toLowerCase().split(" ")[0];
-    return first.length >= 4 && n.includes(first);
+    const first = normMatch(p.nom).split(/\s+/)[0];
+    return first.length >= 4 && hasWord(n, first);
   });
   return candidates.length === 1 ? candidates[0] : null;
 };
 
-const isValidNum = v => v !== null && v !== undefined && v !== "" && Number.isFinite(Number(v)) && Number(v) >= 0;
+// Nombre tolérant la virgule décimale ("12,50") ; null si absent ou invalide
+const toNum = v => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "number" ? v : Number(String(v).replace(/[\s\u00A0\u202F€]/g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+};
 export function InvoiceScanner({ restaurantId, profileId, products, toast }) {
   const [step, setStep] = useState("upload"); // upload | preview | done
   const [loading, setLoading] = useState(false);
@@ -263,9 +271,10 @@ Si une information n'est pas visible, mets null. Sois précis sur les noms de pr
 
       // Matcher les produits de la facture avec l'inventaire
       const matched = (parsed.items || [])
-        .filter(item => item && isValidNum(item.quantite) && isValidNum(item.prix_unitaire))
+        .filter(item => item && toNum(item.quantite) > 0)
         .map(item => {
-        item = { ...item, nom: item.nom || "", quantite: Number(item.quantite), prix_unitaire: Number(item.prix_unitaire) };
+        const prix = toNum(item.prix_unitaire);
+        item = { ...item, nom: item.nom || "", quantite: toNum(item.quantite), prix_unitaire: prix !== null && prix >= 0 ? prix : null };
         const prod = matchProduct(products, item.nom);
         const prixPrecedent = prod?.prix_achat;
         const variation = prixPrecedent && item.prix_unitaire ?
@@ -385,7 +394,7 @@ Si une information n'est pas visible, mets null. Sois précis sur les noms de pr
               {item.matched_product && <p style={{ margin:0, fontSize:10, color:D.brand }}>→ {item.matched_product.nom}</p>}
             </div>
             <p style={{ margin:0, fontSize:13 }}>{item.quantite} {item.unite}</p>
-            <p style={{ margin:0, fontSize:13 }}>{Number(item.prix_unitaire||0).toFixed(2)}€</p>
+            <p style={{ margin:0, fontSize:13 }}>{item.prix_unitaire != null ? `${item.prix_unitaire.toFixed(2)}€` : "—"}</p>
             <p style={{ margin:0, fontSize:12, fontWeight:600, color:varColor(item.variation_pct) }}>
               {item.variation_pct !== null ? `${item.variation_pct>=0?"+":""}${item.variation_pct.toFixed(1)}%` : "—"}
             </p>

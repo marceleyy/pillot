@@ -48,8 +48,12 @@ const parseNum = v => {
   if (typeof v === "number") return Number.isFinite(v) ? v : 0;
   let s = String(v ?? "").replace(/[\s\u00A0\u202F€]/g, "");
   if (!s) return 0;
-  // Le dernier séparateur rencontré est la décimale ("1.234,50" ou "1,234.50")
-  if (s.lastIndexOf(",") > s.lastIndexOf(".")) s = s.replace(/\./g, "").replace(",", ".");
+  const seps = s.match(/[.,]/g) || [];
+  // Un seul type de séparateur, présent une seule fois, suivi d'exactement 3 chiffres : milliers ("1,234" / "1.234")
+  // Le même séparateur répété ("1.234.567") est aussi un séparateur de milliers
+  if (seps.length && seps.every(c => c === seps[0]) && (seps.length > 1 || /^-?\d+[.,]\d{3}$/.test(s))) s = s.replace(/[.,]/g, "");
+  // Sinon le dernier séparateur rencontré est la décimale ("1.234,50" ou "1,234.50")
+  else if (s.lastIndexOf(",") > s.lastIndexOf(".")) s = s.replace(/\./g, "").replace(",", ".");
   else s = s.replace(/,/g, "");
   const n = parseFloat(s);
   return Number.isFinite(n) ? n : 0;
@@ -150,11 +154,12 @@ export default function PillotGlaces({ restaurantId, profileId, toast, restauran
 function BilanTab({ daily, flavors, toast, restaurantId, onRefresh }) {
   const [stockFin, setStockFin] = useState("");
   const [perte, setPerte] = useState(0);
+  const [recus, setRecus] = useState("0");
   const [saving, setSaving] = useState(false);
 
   const todayStr = localDate();
   const today = daily.find(d => d.date === todayStr);
-  const last = daily[0];
+  const last = daily.find(d => d.stock_fin_bacs != null);
   const previous = daily.find(d => d.date < todayStr && d.stock_fin_bacs != null);
   const totalBacs = flavors.reduce((a, f) => a + (f.stock_bacs || 0), 0);
   const stockDebut = previous ? (+previous.stock_fin_bacs || 0) : totalBacs;
@@ -164,7 +169,9 @@ function BilanTab({ daily, flavors, toast, restaurantId, onRefresh }) {
     setSaving(true);
     const stockFinBacs = parseFloat(stockFin);
     const theorique_kg = today?.consommation_theorique_kg || 0;
-    const reelle_kg = (stockDebut - stockFinBacs) * KG_PAR_BAC;
+    // Bacs reçus entre deux bilans : utilisés pour le calcul uniquement (pas de colonne en base)
+    const recusBacs = parseFloat(String(recus).replace(",", ".")) || 0;
+    const reelle_kg = (stockDebut + recusBacs - stockFinBacs) * KG_PAR_BAC;
     const ecart = reelle_kg - theorique_kg;
     const ecart_pct = theorique_kg > 0 ? (ecart / theorique_kg * 100) : 0;
 
@@ -179,7 +186,7 @@ function BilanTab({ daily, flavors, toast, restaurantId, onRefresh }) {
       ecart_pct,
     }, { onConflict: "restaurant_id,date" });
 
-    if (!error) { toast("Bilan enregistré"); await onRefresh(); setStockFin(""); }
+    if (!error) { toast("Bilan enregistré"); await onRefresh(); setStockFin(""); setRecus("0"); }
     else toast("Erreur lors de l'enregistrement du bilan : " + error.message,"error");
     setSaving(false);
   };
@@ -213,6 +220,12 @@ function BilanTab({ daily, flavors, toast, restaurantId, onRefresh }) {
               style={{ width:"100%", boxSizing:"border-box", padding:"10px 12px", borderRadius:9, border:`1.5px solid ${D.border}`, fontSize:15, fontWeight:600, outline:"none" }}
               onFocus={e=>e.target.style.borderColor=D.purple} onBlur={e=>e.target.style.borderColor=D.border}/>
           </div>
+        </div>
+        <div style={{ marginBottom:14 }}>
+          <label style={{ fontSize:11, fontWeight:600, color:D.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:".06em" }}>Bacs reçus depuis le dernier bilan</label>
+          <input type="text" inputMode="decimal" value={recus} onChange={e=>setRecus(e.target.value)} placeholder="0"
+            style={{ width:"100%", boxSizing:"border-box", padding:"10px 12px", borderRadius:9, border:`1.5px solid ${D.border}`, fontSize:15, fontWeight:600, outline:"none" }}
+            onFocus={e=>e.target.style.borderColor=D.purple} onBlur={e=>e.target.style.borderColor=D.border}/>
         </div>
         <button onClick={saveBilan} disabled={saving || !stockFin}
           style={{ width:"100%", padding:"12px", background:stockFin?"#7C3AED":"#E5E7EB", color:stockFin?"#fff":D.textMuted, border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:stockFin?"pointer":"not-allowed", transition:"background .15s" }}>
@@ -381,10 +394,10 @@ function ImportTab({ posImports, restaurantId, profileId, toast, onRefresh }) {
       const XLSX = await import("xlsx");
       // CSV lu en texte UTF-8 (sinon le "€" des en-têtes est cassé)
       const wb = /\.csv$/i.test(file.name)
-        ? XLSX.read(await file.text(), { type:"string" })
+        ? XLSX.read(await file.text(), { type:"string", raw:true })
         : XLSX.read(await file.arrayBuffer(), { type:"array" });
-      // raw:false → chaînes formatées ("45,50"), relues par parseNum (sinon xlsx lit 45,50 comme 4550)
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw:false, defval:"" });
+      // raw:true → les nombres xlsx restent des nombres ; en CSV (lu en raw) les cellules restent des chaînes ("45,50"), relues par parseNum
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw:true, defval:"" });
 
       let totalGlaceG = 0, totalCA = 0;
       const detail = [];

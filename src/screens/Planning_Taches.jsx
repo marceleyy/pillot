@@ -71,6 +71,14 @@ export function Planning({ restaurantId, profileId, toast }) {
     loadAll();
   }, [restaurantId, week]);
 
+  // Confirmation de suppression désarmée au changement de semaine, à l'ouverture de la modale, et après 4 s
+  useEffect(() => { setPendingDelete(null); }, [week, modal]);
+  useEffect(() => {
+    if (pendingDelete === null) return;
+    const t = setTimeout(() => setPendingDelete(null), 4000);
+    return () => clearTimeout(t);
+  }, [pendingDelete]);
+
   const loadAll = async () => {
     if (!restaurantId) { setLoading(false); return; }
     setLoading(true);

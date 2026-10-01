@@ -488,7 +488,11 @@ function HuileTab({ oils, restaurantId, profileId, toast, onRefresh }) {
     await onRefresh(); setSaving(false);
   };
 
-  const daysSince = d => -daysFromToday(String(d).slice(0, 10));
+  const daysSince = d => {
+    if (!d) return null;
+    const n = -daysFromToday(String(d).slice(0, 10));
+    return Number.isFinite(n) ? n : null;
+  };
   const FRITEUSES = ["Friteuse 1","Friteuse 2","Friteuse 3","Bain-marie"];
 
   return (
@@ -531,7 +535,7 @@ function HuileTab({ oils, restaurantId, profileId, toast, onRefresh }) {
             <div style={{ flex:1 }}>
               <p style={{ margin:0, fontSize:15, fontWeight:700 }}>{f}</p>
               {last ? <>
-                <p style={{ margin:"2px 0 0", fontSize:12, color:C.textSec }}>Dernier changement : {fmt(last.date_changement)} ({days} jours)</p>
+                <p style={{ margin:"2px 0 0", fontSize:12, color:C.textSec }}>Dernier changement : {fmt(last.date_changement)} ({days !== null ? `${days} jours` : "—"})</p>
                 {last.tpo > 0 && <p style={{ margin:0, fontSize:11, color:last.statut==="critique"?C.danger:last.statut==="alerte"?C.warning:C.success }}>TPO : {last.tpo}%</p>}
               </> : <p style={{ margin:0, fontSize:12, color:C.textMuted }}>Aucun relevé</p>}
             </div>

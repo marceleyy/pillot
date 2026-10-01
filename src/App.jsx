@@ -742,14 +742,17 @@ export default function App(){
     setProducts((prods||[]).map(p=>({...p,stock:sm[p.id]!==undefined?sm[p.id]:null})));
   },[showToast]);
 
+  const uidRef=useRef(null);
   const loadProfile=useCallback(async(uid)=>{
     const{data,error}=await supabase.from("profiles").select("*,restaurants(*)").eq("id",uid).single();
-    if(error)showToast("Erreur de chargement du profil","error");
+    // Réponse périmée (déconnexion ou changement d'utilisateur entre-temps) : ignorée
+    if(uidRef.current!==uid)return;
+    // Échec : profil courant conservé, et uid oublié pour retenter au prochain événement d'auth
+    if(error){showToast("Erreur de chargement du profil","error");uidRef.current=null;setLoading(false);return;}
     setProfile(data);if(data?.restaurant_id)await loadProducts(data.restaurant_id);setLoading(false);
   },[loadProducts,showToast]);
 
   // Un seul chemin d'auth : INITIAL_SESSION est émis à l'abonnement (avec ou sans session).
-  const uidRef=useRef(null);
   useEffect(()=>{
     const{data:{subscription}}=supabase.auth.onAuthStateChange((event,s)=>{
       setSession(s);
