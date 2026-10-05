@@ -19,6 +19,9 @@ const C = {
 };
 
 const JOURS = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+const TYPE_COULEURS = ["#2563EB","#16A34A","#D97706","#DC2626","#7C3AED","#0891B2"];
+const EMPTY_TYPE = { nom:"", heure_debut:"", heure_fin:"", couleur:TYPE_COULEURS[0] };
+
 const JOURS_FULL = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
 
 function getWeekDates(weekOffset = 0) {
@@ -49,7 +52,7 @@ function calcHeures(shifts) {
 }
 
 // ── PLANNING ─────────────────────────────────────────────────
-export function Planning({ restaurantId, profileId, toast }) {
+export function Planning({ restaurantId, toast, canManage = true }) {
   const [week, setWeek] = useState(0);
   const [employees, setEmployees] = useState([]);
   const [shiftTypes, setShiftTypes] = useState([]);
@@ -60,6 +63,10 @@ export function Planning({ restaurantId, profileId, toast }) {
   const [newEmp, setNewEmp] = useState({ nom:"", prenom:"", heures_contrat:35, salaire_horaire:11.65 });
   const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null); // id du créneau à confirmer
+  const [typesModal, setTypesModal] = useState(false);
+  const [newType, setNewType] = useState(EMPTY_TYPE);
+  const [savingType, setSavingType] = useState(false);
+  const [pendingTypeDelete, setPendingTypeDelete] = useState(null); // id du type de poste à confirmer
   const published = shifts.length > 0 && shifts.every(s => s.published);
 
   const days = getWeekDates(week);
@@ -79,13 +86,22 @@ export function Planning({ restaurantId, profileId, toast }) {
     return () => clearTimeout(t);
   }, [pendingDelete]);
 
+  // Même logique pour la suppression d'un type de poste
+  useEffect(() => { setPendingTypeDelete(null); }, [typesModal]);
+  useEffect(() => {
+    if (pendingTypeDelete === null) return;
+    const t = setTimeout(() => setPendingTypeDelete(null), 4000);
+    return () => clearTimeout(t);
+  }, [pendingTypeDelete]);
+
   const loadAll = async () => {
     if (!restaurantId) { setLoading(false); return; }
     setLoading(true);
     const [{ data: emps }, { data: sts }, { data: sh }] = await Promise.all([
       supabase.from("employees").select("*").eq("restaurant_id", restaurantId).eq("actif", true).order("nom"),
       supabase.from("shift_types").select("*").eq("restaurant_id", restaurantId),
-      supabase.from("shifts").select("*").eq("restaurant_id", restaurantId)
+      (canManage ? supabase.from("shifts").select("*").eq("restaurant_id", restaurantId)
+        : supabase.from("shifts").select("*").eq("restaurant_id", restaurantId).eq("published", true))
         .gte("date", localDate(days[0]))
         .lte("date", localDate(days[6]))
     ]);
@@ -121,6 +137,32 @@ export function Planning({ restaurantId, profileId, toast }) {
     const { error } = await supabase.from("shifts").delete().eq("id", id);
     if (error) { toast("Erreur : le service n'a pas été supprimé", "error"); return; }
     setShifts(prev => prev.filter(s => s.id !== id));
+  };
+
+  const typeNom = newType.nom.trim();
+  const typeError = !typeNom ? "Le nom est obligatoire"
+    : shiftTypes.some(t => (t.nom || "").trim().toLowerCase() === typeNom.toLowerCase()) ? "Un type de poste porte déjà ce nom"
+    : !newType.heure_debut || !newType.heure_fin ? "Indiquez l'heure de début et de fin"
+    : newType.heure_debut === newType.heure_fin ? "L'heure de fin doit être différente de l'heure de début"
+    : null;
+
+  const saveShiftType = async () => {
+    if (typeError || savingType) return;
+    setSavingType(true);
+    const { error } = await supabase.from("shift_types").insert({ restaurant_id: restaurantId, nom: typeNom, heure_debut: newType.heure_debut, heure_fin: newType.heure_fin, couleur: newType.couleur });
+    setSavingType(false);
+    if (error) { toast("Erreur : le type de poste n'a pas été créé", "error"); return; }
+    toast("Type de poste créé");
+    setNewType(EMPTY_TYPE);
+    await loadAll();
+  };
+
+  const removeShiftType = async (id) => {
+    setPendingTypeDelete(null);
+    const { error } = await supabase.from("shift_types").delete().eq("id", id);
+    if (error) { toast("Erreur : le type de poste n'a pas été supprimé", "error"); return; }
+    toast("Type de poste supprimé");
+    await loadAll();
   };
 
   const saveEmployee = async () => {
@@ -165,7 +207,7 @@ export function Planning({ restaurantId, profileId, toast }) {
                   style={{padding:"10px 14px",borderRadius:10,border:"none",background:st.couleur+"22",cursor:saving?"wait":"pointer",opacity:saving?.6:1,display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
                   <span style={{width:12,height:12,borderRadius:"50%",background:st.couleur,flexShrink:0,display:"inline-block"}}/>
                   <div style={{flex:1}}>
-                    <p style={{margin:0,fontSize:13,fontWeight:700,color:C.text}}>{st.nom} ({st.abrev})</p>
+                    <p style={{margin:0,fontSize:13,fontWeight:700,color:C.text}}>{st.nom}{st.abrev ? ` (${st.abrev})` : ""}</p>
                     <p style={{margin:0,fontSize:11,color:C.textSec}}>{st.heure_debut} – {st.heure_fin} · {calcDureeH(st.heure_debut,st.heure_fin)}h</p>
                   </div>
                 </button>
@@ -177,6 +219,55 @@ export function Planning({ restaurantId, profileId, toast }) {
               </button>
             </div>
             <button onClick={() => setModal(null)} style={{width:"100%",padding:10,borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:13}}>Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal types de poste */}
+      {typesModal && (
+        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:C.surface,borderRadius:16,padding:24,width:"100%",maxWidth:400,maxHeight:"90vh",overflowY:"auto",boxSizing:"border-box",boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
+            <p style={{margin:"0 0 16px",fontSize:16,fontWeight:800}}>Types de poste</p>
+            <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:18}}>
+              {shiftTypes.length === 0 && <p style={{margin:0,fontSize:13,color:C.textSec}}>Aucun type de poste pour le moment.</p>}
+              {shiftTypes.map(st => (
+                <div key={st.id} style={{padding:"8px 10px",borderRadius:10,background:st.couleur+"22",display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{width:12,height:12,borderRadius:"50%",background:st.couleur,flexShrink:0,display:"inline-block"}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{margin:0,fontSize:13,fontWeight:700,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{st.nom}</p>
+                    <p style={{margin:0,fontSize:11,color:C.textSec}}>{(st.heure_debut||"").slice(0,5)} – {(st.heure_fin||"").slice(0,5)} · {calcDureeH(st.heure_debut,st.heure_fin)}h</p>
+                  </div>
+                  <button onClick={() => { if (pendingTypeDelete===st.id) removeShiftType(st.id); else setPendingTypeDelete(st.id); }}
+                    aria-label={pendingTypeDelete===st.id?"Confirmer la suppression du type de poste":"Supprimer le type de poste"}
+                    style={{minHeight:36,padding:"4px 10px",borderRadius:8,border:`1px solid ${pendingTypeDelete===st.id?C.danger:C.border}`,background:pendingTypeDelete===st.id?C.dangerLight:C.surface,color:pendingTypeDelete===st.id?C.danger:C.textSec,fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+                    {pendingTypeDelete===st.id ? "Supprimer ?" : "Supprimer"}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p style={{margin:"0 0 10px",fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Nouveau type de poste</p>
+            <div style={{marginBottom:10}}>
+              <label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>Nom</label>
+              <input value={newType.nom} onChange={e=>setNewType(p=>({...p,nom:e.target.value}))} placeholder="Ex. Midi, Soir, Coupure…" style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}/>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+              {[["Début","heure_debut"],["Fin","heure_fin"]].map(([l,k])=>(
+                <div key={k}><label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</label>
+                <input type="time" value={newType[k]} onChange={e=>setNewType(p=>({...p,[k]:e.target.value}))} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}/></div>
+              ))}
+            </div>
+            <label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:".5px"}}>Couleur</label>
+            <div style={{display:"flex",gap:8,marginBottom:12}}>
+              {TYPE_COULEURS.map(c => (
+                <button key={c} onClick={() => setNewType(p=>({...p,couleur:c}))} aria-label={`Couleur ${c}`} aria-pressed={newType.couleur===c}
+                  style={{width:32,height:32,borderRadius:"50%",background:c,border:newType.couleur===c?`3px solid ${C.navy}`:"3px solid transparent",boxShadow:newType.couleur===c?"0 0 0 2px #fff inset":"none",cursor:"pointer",padding:0}}/>
+              ))}
+            </div>
+            {typeError && (newType.nom || newType.heure_debut || newType.heure_fin) && <p style={{margin:"0 0 10px",fontSize:12,color:C.danger}}>{typeError}</p>}
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={saveShiftType} disabled={!!typeError || savingType} style={{flex:1,padding:"10px 14px",background:C.brand,color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:typeError||savingType?"not-allowed":"pointer",opacity:typeError||savingType?.5:1}}>{savingType?"...":"Ajouter"}</button>
+              <button onClick={() => { setTypesModal(false); setNewType(EMPTY_TYPE); }} style={{padding:"10px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:13}}>Fermer</button>
+            </div>
           </div>
         </div>
       )}
@@ -193,22 +284,36 @@ export function Planning({ restaurantId, profileId, toast }) {
             {published && <span style={{fontSize:11,fontWeight:700,background:C.successLight,color:C.success,padding:"2px 8px",borderRadius:10}}>Publié</span>}
           </div>
         </div>
-        <div style={{display:"flex",gap:8}}>
+        {canManage && <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <button onClick={() => setTypesModal(true)} style={{padding:"8px 14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer"}}>
+            Types de poste
+          </button>
           <button onClick={() => setAddEmp(true)} style={{padding:"8px 14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
             + Employé
           </button>
           <button onClick={publishPlanning} style={{padding:"8px 16px",background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px rgba(37,99,235,.3)"}}>
             Publier le planning
           </button>
-        </div>
+        </div>}
       </div>
 
-      {/* Barre masse salariale */}
-      <div style={{background:C.surface,borderRadius:12,border:`1px solid ${C.border}`,padding:"12px 16px",marginBottom:14,display:"flex",gap:20,flexWrap:"wrap",alignItems:"center"}}>
+      {/* Aucun type de poste */}
+      {canManage && shiftTypes.length === 0 && (
+        <div style={{background:C.warningLight,borderRadius:12,border:`1px solid ${C.warning}40`,padding:"12px 16px",marginBottom:14,display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{flex:"1 1 220px"}}>
+            <p style={{margin:0,fontSize:13,fontWeight:700,color:C.text}}>Aucun type de poste</p>
+            <p style={{margin:"2px 0 0",fontSize:12,color:C.textSec}}>Créez vos postes (ex. Midi, Soir) pour pouvoir planifier des services. Sans eux, seuls les repos peuvent être placés.</p>
+          </div>
+          <button onClick={() => setTypesModal(true)} style={{padding:"8px 14px",background:C.warning,color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"}}>Créer un type de poste</button>
+        </div>
+      )}
+
+      {/* Barre masse salariale (gérant/manager uniquement) */}
+      {canManage && <div style={{background:C.surface,borderRadius:12,border:`1px solid ${C.border}`,padding:"12px 16px",marginBottom:14,display:"flex",gap:20,flexWrap:"wrap",alignItems:"center"}}>
         <div><p style={{margin:0,fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:".5px"}}>Masse salariale semaine</p><p style={{margin:0,fontSize:18,fontWeight:800,color:C.warning}}>{totalMasse.toFixed(0)}€</p></div>
         <div><p style={{margin:0,fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:".5px"}}>Shifts planifiés</p><p style={{margin:0,fontSize:18,fontWeight:800}}>{shifts.filter(s=>!s.repos).length}</p></div>
         <div><p style={{margin:0,fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:".5px"}}>Employés</p><p style={{margin:0,fontSize:18,fontWeight:800}}>{employees.length}</p></div>
-      </div>
+      </div>}
 
       {/* Ajout employé */}
       {addEmp && (
@@ -240,8 +345,8 @@ export function Planning({ restaurantId, profileId, toast }) {
       ) : (
         <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:"auto"}}>
           {/* En-tête jours */}
-          <div style={{display:"grid",gridTemplateColumns:"160px repeat(7,1fr)",borderBottom:`1px solid ${C.border}`,minWidth:800}}>
-            <div style={{padding:"10px 14px",background:"#F8FAFC",borderRight:`1px solid ${C.border}`}}>
+          <div style={{display:"grid",gridTemplateColumns:"120px repeat(7,minmax(84px,1fr))",borderBottom:`1px solid ${C.border}`,minWidth:708}}>
+            <div style={{padding:"10px 14px",background:"#F8FAFC",borderRight:`1px solid ${C.border}`,position:"sticky",left:0,zIndex:2}}>
               <p style={{margin:0,fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Employés</p>
             </div>
             {days.map((d, i) => {
@@ -261,9 +366,9 @@ export function Planning({ restaurantId, profileId, toast }) {
             const heuresTotales = calcHeures(empShifts);
             const surplus = heuresTotales - (emp.heures_contrat || 35);
             return (
-              <div key={emp.id} style={{display:"grid",gridTemplateColumns:"160px repeat(7,1fr)",borderBottom:`1px solid ${C.border}`,minWidth:800}}>
+              <div key={emp.id} style={{display:"grid",gridTemplateColumns:"120px repeat(7,minmax(84px,1fr))",borderBottom:`1px solid ${C.border}`,minWidth:708}}>
                 {/* Nom employé */}
-                <div style={{padding:"10px 12px",borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                <div style={{padding:"10px 12px",borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",justifyContent:"center",position:"sticky",left:0,zIndex:1,background:C.surface,minWidth:0}}>
                   <p style={{margin:0,fontSize:13,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.prenom} {emp.nom}</p>
                   <p style={{margin:0,fontSize:11,color:C.textSec}}>{(emp.heures_contrat||35)}h | <span style={{color:surplus>0?C.success:surplus<-1?C.danger:C.textSec}}>{heuresTotales.toFixed(1)}h</span></p>
                 </div>
@@ -272,8 +377,8 @@ export function Planning({ restaurantId, profileId, toast }) {
                   const ds = localDate(d);
                   const dayShifts = empShifts.filter(s => s.date === ds);
                   return (
-                    <div key={di} onClick={() => setModal({ empId: emp.id, empName: `${emp.prenom} ${emp.nom}`, date: d })}
-                      style={{padding:6,borderRight:di<6?`1px solid ${C.border}`:"none",minHeight:60,cursor:"pointer",background:"transparent",position:"relative"}}
+                    <div key={di} onClick={canManage ? () => setModal({ empId: emp.id, empName: `${emp.prenom} ${emp.nom}`, date: d }) : undefined}
+                      style={{padding:6,borderRight:di<6?`1px solid ${C.border}`:"none",minHeight:60,cursor:canManage?"pointer":"default",background:"transparent",position:"relative"}}
                       onMouseEnter={e=>e.currentTarget.style.background="#F8FAFC"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                       {dayShifts.length === 0 && (
                         <div style={{height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -281,10 +386,10 @@ export function Planning({ restaurantId, profileId, toast }) {
                         </div>
                       )}
                       {dayShifts.map(s => (
-                        <div key={s.id} role="button" aria-label={pendingDelete===s.id?"Confirmer la suppression du service":"Supprimer le service"}
-                          onClick={e=>{e.stopPropagation();if (pendingDelete===s.id) removeShift(s.id); else setPendingDelete(s.id);}}
-                          style={{marginBottom:3,padding:"3px 6px",borderRadius:6,background:pendingDelete===s.id?C.dangerLight:s.repos?"#F1F5F9":s.couleur+"22",border:`1px solid ${pendingDelete===s.id?C.danger:(s.repos?"#E2E8F0":s.couleur)+"50"}`,cursor:"pointer",position:"relative"}}
-                          title="Toucher pour supprimer">
+                        <div key={s.id} role={canManage?"button":undefined} aria-label={canManage?(pendingDelete===s.id?"Confirmer la suppression du service":"Supprimer le service"):undefined}
+                          onClick={e=>{e.stopPropagation();if (!canManage) return;if (pendingDelete===s.id) removeShift(s.id); else setPendingDelete(s.id);}}
+                          style={{marginBottom:3,padding:"3px 6px",borderRadius:6,background:pendingDelete===s.id?C.dangerLight:s.repos?"#F1F5F9":s.couleur+"22",border:`1px solid ${pendingDelete===s.id?C.danger:(s.repos?"#E2E8F0":s.couleur)+"50"}`,cursor:canManage?"pointer":"default",position:"relative"}}
+                          title={canManage?"Toucher pour supprimer":undefined}>
                           {pendingDelete===s.id ? (
                             <p style={{margin:0,fontSize:10,fontWeight:700,color:C.danger}}>Supprimer ?</p>
                           ) : s.repos ? (

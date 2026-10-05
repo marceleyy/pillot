@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  PILLOT — HACCP Complet + Pointage + Export
+//  PILLOT — HACCP Complet + Export
 //  Fichier : src/screens/HACCP_complet.jsx
 // ═══════════════════════════════════════════════════════════════
 
@@ -28,7 +28,11 @@ function Card({ children, style = {} }) {
 }
 
 // ─── TEMPÉRATURES ───────────────────────────────────────────
-const EQUIPEMENTS = [
+const EQUIP_ICONS = { frigo:"❄️", congelateur:"🧊", vitrine:"🛒", bain_marie:"♨️", zone_chaude:"🔥", friteuse:"🛢️" };
+const seuil = v => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v))) ? null : Number(v);
+const mapEquipement = e => ({ id: e.id, nom: e.nom, min: seuil(e.temp_min), max: seuil(e.temp_max), icon: EQUIP_ICONS[e.type] || "🌡️" });
+// Liste par défaut, utilisée en secours si le restaurant n'a déclaré aucun équipement
+const EQUIPEMENTS_DEFAUT = [
   { nom:"Frigo 1",      min:0,  max:4,  icon:"❄️" },
   { nom:"Frigo 2",      min:0,  max:4,  icon:"❄️" },
   { nom:"Congélateur",  min:-22,max:-18,icon:"🧊" },
@@ -41,6 +45,24 @@ const EQUIPEMENTS = [
 // ─── NETTOYAGE ───────────────────────────────────────────────
 const NETTOYAGE_QUOTIDIEN = ["Plans de travail","Sol cuisine","Frigos (extérieur)","Plonge & robinetterie","Poubelles","Appareils & grille-pains","Lave-mains"];
 const NETTOYAGE_HEBDO = ["Hottes et filtres","Intérieur frigos","Congélateur","Four & appareils cuisson","Derrière les appareils","Vitres & surfaces verticales"];
+const NETTOYAGE_DEFAUT = () => ({ quotidien: [...NETTOYAGE_QUOTIDIEN], hebdo: [...NETTOYAGE_HEBDO] });
+const nettoyageKey = restaurantId => `pillot_nettoyage_${restaurantId}`;
+const loadNettoyage = restaurantId => {
+  try {
+    const raw = localStorage.getItem(nettoyageKey(restaurantId));
+    if (!raw) return NETTOYAGE_DEFAUT();
+    const parsed = JSON.parse(raw);
+    const clean = arr => Array.isArray(arr) ? [...new Set(arr.filter(t => typeof t === "string" && t.trim()).map(t => t.trim()))] : null;
+    const quotidien = clean(parsed?.quotidien), hebdo = clean(parsed?.hebdo);
+    return { quotidien: quotidien ?? [...NETTOYAGE_QUOTIDIEN], hebdo: hebdo ?? [...NETTOYAGE_HEBDO] };
+  } catch { return NETTOYAGE_DEFAUT(); }
+};
+const saveNettoyage = (restaurantId, lists) => {
+  try { localStorage.setItem(nettoyageKey(restaurantId), JSON.stringify(lists)); return true; } catch { return false; }
+};
+const resetNettoyage = restaurantId => {
+  try { localStorage.removeItem(nettoyageKey(restaurantId)); return true; } catch { return false; }
+};
 
 // ─── HACCP PRINCIPAL ────────────────────────────────────────
 export default function HACCPComplet({ restaurantId, profileId, toast }) {
@@ -50,6 +72,8 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
   const [dlcEntries, setDlcEntries] = useState([]);
   const [receptions, setReceptions] = useState([]);
   const [oilChanges, setOilChanges] = useState([]);
+  // null = pas encore chargé (ou erreur) ; [] = restaurant sans équipement déclaré
+  const [equipements, setEquipements] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { loadAll(); }, [restaurantId]);
@@ -57,12 +81,13 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
   const loadAll = async () => {
     if (!restaurantId) { setLoading(false); return; }
     setLoading(true);
-    const [rTl, rCl, rDlc, rRec, rOil] = await Promise.all([
+    const [rTl, rCl, rDlc, rRec, rOil, rEq] = await Promise.all([
       supabase.from("temperature_logs").select("*").eq("restaurant_id", restaurantId).order("created_at", { ascending: false }).limit(50),
       supabase.from("cleaning_logs").select("*").eq("restaurant_id", restaurantId).order("created_at", { ascending: false }).limit(50),
       supabase.from("dlc_entries").select("*").eq("restaurant_id", restaurantId).eq("statut", "actif").order("dlc_date"),
       supabase.from("reception_controls").select("*").eq("restaurant_id", restaurantId).order("created_at", { ascending: false }).limit(20),
       supabase.from("oil_changes").select("*").eq("restaurant_id", restaurantId).order("date_changement", { ascending: false }).limit(10),
+      supabase.from("equipements").select("id,nom,type,temp_min,temp_max,actif,ordre").eq("restaurant_id", restaurantId).or("actif.is.null,actif.eq.true").order("ordre"),
     ]);
     // En cas d'erreur de lecture, on garde l'état précédent plutôt que de tout vider
     if (!rTl.error) setTempLogs(rTl.data || []);
@@ -70,7 +95,8 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
     if (!rDlc.error) setDlcEntries(rDlc.data || []);
     if (!rRec.error) setReceptions(rRec.data || []);
     if (!rOil.error) setOilChanges(rOil.data || []);
-    const loadErr = [rTl, rCl, rDlc, rRec, rOil].find(r => r.error)?.error;
+    if (!rEq.error) setEquipements((rEq.data || []).filter(e => e.nom).map(mapEquipement));
+    const loadErr = [rTl, rCl, rDlc, rRec, rOil, rEq].find(r => r.error)?.error;
     if (loadErr) toast("Erreur de chargement des données HACCP : " + loadErr.message, "error");
     setLoading(false);
   };
@@ -95,6 +121,21 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
     toast("Export téléchargé");
   };
 
+  // Registre complet des 12 derniers mois (les listes affichées sont limitées aux dernières saisies)
+  const exportFull = async (table, dateCol, filename) => {
+    const since = new Date(); since.setFullYear(since.getFullYear() - 1);
+    const from = dateCol === "created_at" ? since.toISOString() : localDate(since);
+    const rows = [];
+    for (let off = 0; ; off += 1000) {
+      const { data, error } = await supabase.from(table).select("*").eq("restaurant_id", restaurantId)
+        .gte(dateCol, from).order(dateCol, { ascending: true }).order("id", { ascending: true }).range(off, off + 999);
+      if (error) { toast("Erreur : export impossible", "error"); return; }
+      rows.push(...(data || []));
+      if (!data || data.length < 1000) break;
+    }
+    exportCSV(rows, `${filename}_12mois`);
+  };
+
   const TABS = [
     ["temp","🌡️ Températures"],["clean","🧹 Nettoyage"],
     ["dlc","📦 DLC"],["reception","✅ Réception"],["huile","🛢️ Huile"]
@@ -107,7 +148,7 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: "-.5px" }}>HACCP</h1>
           <p style={{ margin: "4px 0 0", fontSize: 14, color: C.textSec }}>Traçabilité hygiène · {new Date().toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" })}</p>
         </div>
-        <button onClick={() => exportCSV(tempLogs, "temperatures")}
+        <button onClick={() => exportFull("temperature_logs", "created_at", "temperatures")}
           style={{ padding: "8px 14px", minHeight: 44, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
           ↓ Exporter CSV
         </button>
@@ -125,11 +166,11 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
 
       {loading ? <p style={{ textAlign:"center", color:C.textMuted, padding:40 }}>Chargement...</p> : (
         <>
-          {onglet === "temp" && <TemperaturesTab logs={tempLogs} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll}/>}
-          {onglet === "clean" && <NettoyageTab logs={cleanLogs} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll}/>}
+          {onglet === "temp" && <TemperaturesTab logs={tempLogs} equipements={equipements} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll}/>}
+          {onglet === "clean" && <NettoyageTab key={restaurantId} logs={cleanLogs} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll} onExport={() => exportFull("cleaning_logs", "created_at", "nettoyage")}/>}
           {onglet === "dlc" && <DLCTab entries={dlcEntries} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll} onExport={() => exportCSV(dlcEntries, "dlc")}/>}
-          {onglet === "reception" && <ReceptionTab receptions={receptions} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll} onExport={() => exportCSV(receptions, "receptions")}/>}
-          {onglet === "huile" && <HuileTab oils={oilChanges} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll}/>}
+          {onglet === "reception" && <ReceptionTab receptions={receptions} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll} onExport={() => exportFull("reception_controls", "created_at", "receptions")}/>}
+          {onglet === "huile" && <HuileTab oils={oilChanges} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll} onExport={() => exportFull("oil_changes", "date_changement", "huile")}/>}
         </>
       )}
     </div>
@@ -137,12 +178,14 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
 }
 
 // ── TEMPÉRATURES ──────────────────────────────────────────────
-function TemperaturesTab({ logs, restaurantId, profileId, toast, onRefresh }) {
+function TemperaturesTab({ logs, equipements, restaurantId, profileId, toast, onRefresh }) {
+  const sansEquipement = Array.isArray(equipements) && equipements.length === 0;
+  const EQUIPEMENTS = equipements?.length ? equipements : EQUIPEMENTS_DEFAUT;
   const [adding, setAdding] = useState(null), [val, setVal] = useState(""), [saving, setSaving] = useState(false);
 
   const isOk = (equip, temp) => {
     const e = EQUIPEMENTS.find(x => x.nom === equip);
-    return e ? temp >= e.min && temp <= e.max : true;
+    return e ? (e.min === null || temp >= e.min) && (e.max === null || temp <= e.max) : true;
   };
 
   const save = async () => {
@@ -158,11 +201,16 @@ function TemperaturesTab({ logs, restaurantId, profileId, toast, onRefresh }) {
 
   return (
     <div>
+      {sansEquipement && (
+        <div style={{ padding:"10px 14px", marginBottom:12, borderRadius:10, background:C.warningLight, border:`1px solid ${C.border}`, fontSize:12, fontWeight:600, color:C.text }}>
+          ℹ️ Ajoutez vos équipements dans le menu Équipements pour des relevés à vos seuils
+        </div>
+      )}
       {adding && (
         <div style={{ position:"fixed", inset:0, background:"rgba(15,23,42,.5)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:C.surface, borderRadius:16, padding:24, maxWidth:340, width:"100%", boxShadow:"0 20px 50px rgba(0,0,0,.3)" }}>
             <p style={{ margin:"0 0 4px", fontSize:16, fontWeight:800 }}>{adding}</p>
-            <p style={{ margin:"0 0 16px", fontSize:13, color:C.textSec }}>Norme : {EQUIPEMENTS.find(e=>e.nom===adding)?.min}°C à {EQUIPEMENTS.find(e=>e.nom===adding)?.max}°C</p>
+            <p style={{ margin:"0 0 16px", fontSize:13, color:C.textSec }}>Norme : {EQUIPEMENTS.find(e=>e.nom===adding)?.min ?? "—"}°C à {EQUIPEMENTS.find(e=>e.nom===adding)?.max ?? "—"}°C</p>
             <input type="number" value={val} onChange={e=>setVal(e.target.value)} autoFocus placeholder="Ex: 3.5" step="0.1"
               style={{ width:"100%", boxSizing:"border-box", padding:"12px 14px", borderRadius:10, border:`1.5px solid ${C.brand}`, fontSize:22, fontWeight:800, textAlign:"center", marginBottom:10 }}/>
             {val && !isNaN(parseFloat(val)) && (
@@ -184,11 +232,11 @@ function TemperaturesTab({ logs, restaurantId, profileId, toast, onRefresh }) {
           const last = logs.find(l => l.equipement === e.nom);
           const ok = last ? isOk(e.nom, last.temperature) : null;
           return (
-            <Card key={e.nom} style={{ padding:"14px 16px", display:"flex", alignItems:"center", gap:12 }}>
+            <Card key={e.id ?? e.nom} style={{ padding:"14px 16px", display:"flex", alignItems:"center", gap:12 }}>
               <div style={{ width:46, height:46, borderRadius:13, background:ok===null?"#F1F5F9":ok?C.successLight:C.dangerLight, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>{e.icon}</div>
               <div style={{ flex:1 }}>
                 <p style={{ margin:0, fontSize:14, fontWeight:700 }}>{e.nom}</p>
-                <p style={{ margin:0, fontSize:11, color:C.textSec }}>{e.min}°C à {e.max}°C</p>
+                <p style={{ margin:0, fontSize:11, color:C.textSec }}>{e.min ?? "—"}°C à {e.max ?? "—"}°C</p>
                 {last && <p style={{ margin:"2px 0 0", fontSize:10, color:C.textMuted }}>{new Date(last.created_at).toLocaleString("fr-FR")}</p>}
               </div>
               <div style={{ textAlign:"right", flexShrink:0 }}>
@@ -220,8 +268,35 @@ function TemperaturesTab({ logs, restaurantId, profileId, toast, onRefresh }) {
 }
 
 // ── NETTOYAGE ─────────────────────────────────────────────────
-function NettoyageTab({ logs, restaurantId, profileId, toast, onRefresh }) {
+function NettoyageTab({ logs, restaurantId, profileId, toast, onRefresh, onExport }) {
   const [checks, setChecks] = useState({}), [saving, setSaving] = useState(false);
+  // Liste personnalisée par restaurant (localStorage) — le composant est remonté à chaque changement de restaurant (key)
+  const [lists, setLists] = useState(() => loadNettoyage(restaurantId));
+  const [editMode, setEditMode] = useState(false);
+  const [newTask, setNewTask] = useState({ quotidien: "", hebdo: "" });
+
+  const persist = next => {
+    setLists(next);
+    if (!saveNettoyage(restaurantId, next)) toast("Liste modifiée, mais non sauvegardée sur cet appareil", "warning");
+  };
+  const addTask = kind => {
+    const t = newTask[kind].trim();
+    if (!t) return;
+    if (lists.quotidien.includes(t) || lists.hebdo.includes(t)) { toast("Cette tâche existe déjà", "error"); return; }
+    persist({ ...lists, [kind]: [...lists[kind], t] });
+    setNewTask(p => ({ ...p, [kind]: "" }));
+  };
+  const removeTask = (kind, t) => {
+    persist({ ...lists, [kind]: lists[kind].filter(x => x !== t) });
+    setChecks(p => { const n = { ...p }; delete n[t]; return n; });
+  };
+  const resetLists = () => {
+    if (!window.confirm("Réinitialiser la liste de nettoyage par défaut ?")) return;
+    resetNettoyage(restaurantId);
+    setLists(NETTOYAGE_DEFAUT());
+    setChecks({});
+    toast("Liste réinitialisée");
+  };
   const todayStr = today();
   const todayLogs = logs.filter(l => l.created_at && localDate(new Date(l.created_at)) === todayStr);
   const doneTasks = todayLogs.map(l => l.tache);
@@ -259,11 +334,41 @@ function NettoyageTab({ logs, restaurantId, profileId, toast, onRefresh }) {
     </Card>
   );
 
+  const renderEditTaches = ({ kind, title }) => (
+    <Card style={{ marginBottom:12, overflow:"hidden" }}>
+      <div style={{ padding:"10px 16px", borderBottom:`1px solid ${C.border}`, background:"#F8FAFC" }}><p style={{ margin:0, fontSize:12, fontWeight:700, color:C.textSec, textTransform:"uppercase", letterSpacing:".5px" }}>{title}</p></div>
+      {lists[kind].length === 0 && <p style={{ margin:0, padding:"12px 16px", fontSize:12, color:C.textMuted }}>Aucune tâche</p>}
+      {lists[kind].map(t => (
+        <div key={t} style={{ padding:"8px 16px", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:12 }}>
+          <span style={{ flex:1, fontSize:13 }}>{t}</span>
+          <button onClick={() => removeTask(kind, t)} aria-label={`Retirer ${t}`} style={{ padding:"6px 12px", minHeight:44, background:C.dangerLight, color:C.danger, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer" }}>Retirer</button>
+        </div>
+      ))}
+      <div style={{ padding:"10px 16px", display:"flex", gap:8 }}>
+        <input value={newTask[kind]} onChange={e => { const v = e.target.value; setNewTask(p => ({ ...p, [kind]: v })); }}
+          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addTask(kind); } }}
+          placeholder="Nouvelle tâche" aria-label={`Nouvelle tâche — ${title}`}
+          style={{ flex:1, minWidth:0, boxSizing:"border-box", padding:"9px 12px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:13 }}/>
+        <button onClick={() => addTask(kind)} disabled={!newTask[kind].trim()} style={{ padding:"8px 14px", minHeight:44, background:C.brand, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer" }}>+ Ajouter</button>
+      </div>
+    </Card>
+  );
+
   return (
     <div>
-      <ListTaches tasks={NETTOYAGE_QUOTIDIEN} title="Tâches quotidiennes"/>
-      <ListTaches tasks={NETTOYAGE_HEBDO} title="Tâches hebdomadaires"/>
-      {Object.values(checks).some(Boolean) && (
+      <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginBottom:14, flexWrap:"wrap" }}>
+        {editMode && <button onClick={resetLists} style={{ padding:"8px 12px", minHeight:44, background:"transparent", border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>↺ Réinitialiser</button>}
+        <button onClick={() => setEditMode(m => !m)} style={{ padding:"8px 12px", minHeight:44, background:editMode?C.brand:C.brandLight, color:editMode?"#fff":C.brand, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer" }}>{editMode ? "✓ Terminer" : "✎ Modifier la liste"}</button>
+        <button onClick={onExport} style={{ padding:"8px 12px", minHeight:44, background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>↓ Export</button>
+      </div>
+      {editMode ? <>
+        {renderEditTaches({ kind:"quotidien", title:"Tâches quotidiennes" })}
+        {renderEditTaches({ kind:"hebdo", title:"Tâches hebdomadaires" })}
+      </> : <>
+        <ListTaches tasks={lists.quotidien} title="Tâches quotidiennes"/>
+        <ListTaches tasks={lists.hebdo} title="Tâches hebdomadaires"/>
+      </>}
+      {!editMode && Object.values(checks).some(Boolean) && (
         <button onClick={save} disabled={saving} style={{ width:"100%", padding:13, background:C.success, color:"#fff", border:"none", borderRadius:12, fontSize:15, fontWeight:700, cursor:"pointer", boxShadow:`0 4px 12px ${C.success}40` }}>
           {saving ? "Enregistrement..." : "✅ Valider les tâches effectuées"}
         </button>
@@ -472,7 +577,7 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
 }
 
 // ── HUILE ─────────────────────────────────────────────────────
-function HuileTab({ oils, restaurantId, profileId, toast, onRefresh }) {
+function HuileTab({ oils, restaurantId, profileId, toast, onRefresh, onExport }) {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({ equipement:"Friteuse 1", tpo:0, statut:"ok", note:"" });
   const [saving, setSaving] = useState(false);
@@ -521,7 +626,8 @@ function HuileTab({ oils, restaurantId, profileId, toast, onRefresh }) {
         </div>
       )}
 
-      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:14 }}>
+      <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginBottom:14 }}>
+        <button onClick={onExport} style={{ padding:"8px 12px", minHeight:44, background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>↓ Export</button>
         <button onClick={()=>setModal(true)} style={{ padding:"8px 16px", minHeight:44, background:C.brand, color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Changement d'huile</button>
       </div>
 

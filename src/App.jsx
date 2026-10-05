@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Planning, Taches } from "./screens/Planning_Taches";
 import HACCPComplet from "./screens/HACCP_complet";
 import PillotGlaces from "./screens/PillotGlaces";
-import { EquipementSetup, InvoiceScanner } from "./screens/EquipementSetup";
+import { EquipementSetup } from "./screens/EquipementSetup";
 
 import { supabase } from "./lib/supabase";
 
@@ -53,6 +53,9 @@ const Icon = ({n,sz=18,c="currentColor"})=><span style={{display:"inline-flex",w
 
 // ── Helpers ──────────────────────────────────────────────────
 const gst=p=>{if(p.stock===null||p.stock===undefined)return"non_saisi";if(!p.stock_min)return"non_suivi";if(p.stock===0)return"rupture";if(p.stock<=p.stock_min)return"commander";return"ok";};
+const FOURN_COLORS=["#1E3A8A","#065F46","#92400E","#5B21B6","#7F1D1D","#0E7490","#374151"];
+const fournColor=f=>C.fourn[f]||FOURN_COLORS[[...String(f||"")].reduce((a,ch)=>(a*31+ch.charCodeAt(0))>>>0,7)%FOURN_COLORS.length];
+const coteOf=p=>p.cote==="SUCRE"?"SUCRE":"SALE";
 const gqt=p=>p.cote==="SUCRE"?Math.max(1,Math.ceil(p.stock_min-p.stock)):Math.max(1,Math.ceil(p.stock_min*2-p.stock));
 const fmt=n=>new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",minimumFractionDigits:0}).format(n||0);
 const fmtDate=d=>new Date(d).toLocaleDateString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
@@ -68,7 +71,7 @@ function Chip({status,small}){
 // ── Gauge ─────────────────────────────────────────────────────
 function Gauge({ratio,obj=0.25}){
   const pct=Math.min(ratio*100,50),fill=pct/50,R=70,cx=90,cy=85;
-  const a=(-180+fill*180)*Math.PI/180,ex=cx+R*Math.cos(a),ey=cy+R*Math.sin(a),lg=fill>0.5?1:0;
+  const a=(-180+fill*180)*Math.PI/180,ex=cx+R*Math.cos(a),ey=cy+R*Math.sin(a),lg=0;
   const col=ratio<=obj?C.success:ratio<=obj*1.4?C.warning:C.danger;
   const fp=fill>0.005?`M${cx-R} ${cy} A${R} ${R} 0 ${lg} 1 ${ex.toFixed(1)} ${ey.toFixed(1)}`:"";
   return<svg width="100%" viewBox="0 0 180 108" style={{maxWidth:180,height:"auto",display:"block",margin:"0 auto"}}>
@@ -102,8 +105,17 @@ function Card({children,style={},onClick}){
 
 // ── LOGIN ─────────────────────────────────────────────────────
 function Login(){
-  const [email,setEmail]=useState(""),[ pwd,setPwd]=useState(""),[ loading,setLoading]=useState(false),[ err,setErr]=useState("");
+  const [email,setEmail]=useState(""),[ pwd,setPwd]=useState(""),[ loading,setLoading]=useState(false),[ err,setErr]=useState(""),[ mode,setMode]=useState("login"),[ info,setInfo]=useState(""),[ legal,setLegal]=useState(null);
   const go=async()=>{setLoading(true);setErr("");const{error}=await supabase.auth.signInWithPassword({email,password:pwd});if(error)setErr("Email ou mot de passe incorrect");setLoading(false);};
+  // Message identique que le compte existe ou non (pas d'énumération des comptes)
+  const sendReset=async()=>{
+    if(!/^\S+@\S+\.\S+$/.test(email.trim())){setErr("Saisissez votre adresse e-mail");return;}
+    setLoading(true);setErr("");
+    const{error}=await supabase.auth.resetPasswordForEmail(email.trim(),{redirectTo:window.location.origin});
+    setLoading(false);
+    if(error)setErr("Envoi impossible, réessayez dans quelques minutes");
+    else setInfo("Si un compte existe pour cette adresse, un lien de réinitialisation vient d'être envoyé.");
+  };
   const inp={width:"100%",boxSizing:"border-box",padding:"11px 14px",borderRadius:10,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none"};
   return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0F172A 0%,#1E3A5F 100%)",padding:20}}>
     <div style={{background:C.surface,borderRadius:20,padding:"40px 36px",width:"100%",maxWidth:380,boxShadow:"0 25px 60px rgba(0,0,0,.3)"}}>
@@ -112,23 +124,28 @@ function Login(){
           <span style={{color:"#fff",fontSize:26,fontWeight:800}}>P</span>
         </div>
         <h1 style={{margin:0,fontSize:28,fontWeight:800,color:C.text,letterSpacing:"-1px"}}>Pillot</h1>
-        <p style={{margin:"6px 0 0",color:C.textSec,fontSize:14}}>pillot-restaurant.fr</p>
+        <p style={{margin:"6px 0 0",color:C.textSec,fontSize:14}}>Gestion de restaurant</p>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         <div><label style={{fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px",display:"block",marginBottom:5}}>Email</label>
           <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="votre@email.com" style={inp} onFocus={e=>e.target.style.borderColor=C.brand} onBlur={e=>e.target.style.borderColor=C.border}/></div>
-        <div><label style={{fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px",display:"block",marginBottom:5}}>Mot de passe</label>
-          <input type="password" value={pwd} onChange={e=>setPwd(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()} placeholder="••••••••" style={inp} onFocus={e=>e.target.style.borderColor=C.brand} onBlur={e=>e.target.style.borderColor=C.border}/></div>
+        {mode==="login"&&<div><label style={{fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px",display:"block",marginBottom:5}}>Mot de passe</label>
+          <input type="password" value={pwd} onChange={e=>setPwd(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()} placeholder="••••••••" style={inp} onFocus={e=>e.target.style.borderColor=C.brand} onBlur={e=>e.target.style.borderColor=C.border}/></div>}
         {err&&<p style={{margin:0,color:C.danger,fontSize:13,display:"flex",alignItems:"center",gap:6}}><Icon n="alert" sz={14}/>{err}</p>}
-        <button onClick={go} disabled={loading} style={{padding:13,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",color:"#fff",border:"none",borderRadius:10,fontSize:15,fontWeight:700,cursor:"pointer",opacity:loading?.7:1,marginTop:4,boxShadow:"0 4px 14px rgba(37,99,235,.4)"}}>
-          {loading?"Connexion...":"Se connecter"}</button>
+        {info&&<p style={{margin:0,color:C.success,fontSize:13}}>{info}</p>}
+        <button onClick={mode==="login"?go:sendReset} disabled={loading} style={{padding:13,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",color:"#fff",border:"none",borderRadius:10,fontSize:15,fontWeight:700,cursor:"pointer",opacity:loading?.7:1,marginTop:4,boxShadow:"0 4px 14px rgba(37,99,235,.4)"}}>
+          {mode==="login"?(loading?"Connexion...":"Se connecter"):(loading?"Envoi...":"Recevoir un lien")}</button>
+        <button onClick={()=>{setMode(m=>m==="login"?"reset":"login");setErr("");setInfo("");}} style={{background:"none",border:"none",color:C.brand,fontSize:13,fontWeight:600,cursor:"pointer",padding:6}}>
+          {mode==="login"?"Mot de passe oublié ?":"Retour à la connexion"}</button>
       </div>
+      <LegalLinks onOpen={setLegal}/>
     </div>
+    {legal&&<LegalModal doc={legal} onClose={()=>setLegal(null)}/>}
   </div>;
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────
-function Dashboard({profile,products,onTab}){
+function Dashboard({profile,products,onTab,showCA=true}){
   const rest=profile?.restaurants;
   const rup=products.filter(p=>gst(p)==="rupture");
   const cmd=products.filter(p=>gst(p)==="commander");
@@ -136,6 +153,8 @@ function Dashboard({profile,products,onTab}){
   const ns=products.filter(p=>gst(p)==="non_saisi");
   const rs=rest?.ratio_sale||0,rsu=rest?.ratio_sucre||0,obj=rest?.objectif||0.25;
   const ca_s=rest?.ca_sale||0,ca_su=rest?.ca_sucre||0;
+  const hasSucre=products.some(p=>p.cote==="SUCRE");
+  const sides=hasSucre?[["SALE","Côté Salé",rs,ca_s],["SUCRE","Côté Sucré",rsu,ca_su]]:[["SALE","Coût matière / CA",rs,ca_s]];
 
   function StatCard({icon,label,value,sub,color,bg,onClick}){
     return<Card onClick={onClick} style={{padding:"18px 20px"}}>
@@ -163,8 +182,8 @@ function Dashboard({profile,products,onTab}){
       <StatCard icon="check" label="OK" value={ok.length} sub="stocks suffisants" color={C.success} bg={C.successLight}/>
       <StatCard icon="box" label="Non saisis" value={ns.length} sub="à mettre à jour" color={C.textSec} bg="#F8FAFC" onClick={()=>onTab("stocks")}/>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:12,marginBottom:20}}>
-      {[["SALE","Côté Salé",rs,ca_s],["SUCRE","Côté Sucré",rsu,ca_su]].map(([k,l,r,ca])=>(
+    {showCA&&<div style={{display:"grid",gridTemplateColumns:`repeat(${sides.length},minmax(0,1fr))`,gap:12,marginBottom:20}}>
+      {sides.map(([k,l,r,ca])=>(
         <Card key={k} style={{padding:"18px",textAlign:"center"}}>
           <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</p>
           <Gauge ratio={r} obj={obj}/>
@@ -174,7 +193,7 @@ function Dashboard({profile,products,onTab}){
           {ca>0&&<p style={{margin:"6px 0 0",fontSize:11,color:C.textMuted}}>CA {fmt(ca)}</p>}
         </Card>
       ))}
-    </div>
+    </div>}
     {rup.length>0&&<Card style={{overflow:"hidden",marginBottom:20}}>
       <div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}><Icon n="alert" sz={15} c={C.danger}/><span style={{fontSize:14,fontWeight:700}}>Ruptures à traiter</span></div>
@@ -210,8 +229,9 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
     setHist(data||[]);setLoadingHist(false);
   };
 
-  const cats=[...new Set(products.filter(p=>p.cote===cote).map(p=>p.categorie))];
-  const filtered=products.filter(p=>p.cote===cote&&(!search||p.nom.toLowerCase().includes(search.toLowerCase())||p.fournisseur?.toLowerCase().includes(search.toLowerCase())));
+  const hasSucre=products.some(p=>p.cote==="SUCRE");
+  const cats=[...new Set(products.filter(p=>coteOf(p)===cote).map(p=>p.categorie))];
+  const filtered=products.filter(p=>coteOf(p)===cote&&(!search||p.nom.toLowerCase().includes(search.toLowerCase())||p.fournisseur?.toLowerCase().includes(search.toLowerCase())));
 
   const saveStock=async(product)=>{
     setSaving(true);const v=parseFloat(editVal);
@@ -244,12 +264,12 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
 
   return<div>
     <div style={{marginBottom:16,display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
-      <div><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Inventaire</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{products.filter(p=>p.cote===cote).length} produits</p></div>
+      <div><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Inventaire</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{products.filter(p=>coteOf(p)===cote).length} produits</p></div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
         <button onClick={()=>{setShowHist(true);loadHistory();}} style={{padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.textSec}}><Icon n="history" sz={14}/>Historique</button>
-        <div style={{display:"flex",gap:4,background:"#F1F5F9",padding:4,borderRadius:10}}>
+        {hasSucre&&<div style={{display:"flex",gap:4,background:"#F1F5F9",padding:4,borderRadius:10}}>
           {[["SALE","Salé"],["SUCRE","Sucré"]].map(([k,l])=><button key={k} onClick={()=>setCote(k)} style={{padding:"6px 14px",borderRadius:8,border:"none",fontSize:13,fontWeight:600,cursor:"pointer",background:cote===k?C.surface:"transparent",color:cote===k?C.text:C.textSec,boxShadow:cote===k?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{l}</button>)}
-        </div>
+        </div>}
       </div>
     </div>
     <div style={{position:"relative",marginBottom:14}}>
@@ -305,8 +325,7 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
 
 // ── COMMANDES ────────────────────────────────────────────────
 function Commandes({products,profile,toast}){
-  const [canaux,setCanaux]=useState({}),[ copied,setCopied]=useState(null);
-  const opts=["WhatsApp","Email","SMS","Téléphone","PDF"];
+  const [copied,setCopied]=useState(null);
   const alert=products.filter(p=>["rupture","commander"].includes(gst(p))&&p.stock_min>0);
   const fourns=[...new Set(alert.map(p=>p.fournisseur))];
   const genMsg=(f,ps)=>{
@@ -325,7 +344,7 @@ function Commandes({products,profile,toast}){
   return<div>
     <div style={{marginBottom:20}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Commandes</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{alert.length} produits · {fourns.length} fournisseurs</p></div>
     {fourns.map(f=>{
-      const fp=alert.filter(p=>p.fournisseur===f),col=C.fourn[f]||"#374151",canal=canaux[f]||"WhatsApp";
+      const fp=alert.filter(p=>p.fournisseur===f),col=fournColor(f);
       const rup=fp.filter(p=>gst(p)==="rupture"),cmd=fp.filter(p=>gst(p)==="commander"),msg=genMsg(f,fp);
       return<Card key={f} style={{marginBottom:16,overflow:"hidden"}}>
         <div style={{background:`linear-gradient(135deg,${col},${col}BB)`,padding:"15px 18px",color:"#fff"}}>
@@ -335,9 +354,6 @@ function Commandes({products,profile,toast}){
               {rup.length>0&&<span style={{background:"rgba(255,255,255,.25)",padding:"3px 9px",borderRadius:20,fontSize:11,fontWeight:700}}>{rup.length} rupture{rup.length>1?"s":""}</span>}
             </div>
           </div>
-        </div>
-        <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,display:"flex",gap:5,flexWrap:"wrap"}}>
-          {opts.map(c=><button key={c} onClick={()=>setCanaux(p=>({...p,[f]:c}))} style={{padding:"5px 11px",borderRadius:8,border:`1px solid ${canal===c?col:C.border}`,fontSize:11,cursor:"pointer",background:canal===c?col:"transparent",color:canal===c?"#fff":C.textSec,fontWeight:canal===c?700:400}}>{c}</button>)}
         </div>
         {rup.length>0&&<div style={{padding:"11px 14px",background:C.dangerLight,borderBottom:`1px solid ${C.border}`}}>
           <p style={{margin:"0 0 7px",fontSize:10,fontWeight:700,color:C.danger,textTransform:"uppercase",letterSpacing:".5px"}}>🔴 Ruptures</p>
@@ -353,11 +369,15 @@ function Commandes({products,profile,toast}){
           </div>)}
         </div>}
         <div style={{padding:"12px 14px"}}>
-          <p style={{margin:"0 0 7px",fontSize:10,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Message {canal}</p>
+          <p style={{margin:"0 0 7px",fontSize:10,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Message au fournisseur</p>
           <div style={{background:"#F8FAFC",border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px",fontFamily:"monospace",fontSize:12,whiteSpace:"pre-wrap",lineHeight:1.6,maxHeight:150,overflow:"auto",marginBottom:10}}>{msg}</div>
           <button onClick={()=>copy(f,msg)} style={{width:"100%",padding:11,background:copied===f?C.success:col,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"background .2s",boxShadow:`0 4px 12px ${col}40`}}>
-            <Icon n={copied===f?"check":"copy"} sz={16}/>{copied===f?"Copié !":"Copier pour "+canal}
+            <Icon n={copied===f?"check":"copy"} sz={16}/>{copied===f?"Copié !":"Copier le message"}
           </button>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:8}}>
+            {[["WhatsApp","https://wa.me/?text="+encodeURIComponent(msg)],["E-mail","mailto:?subject="+encodeURIComponent("Commande "+(profile?.restaurants?.name||""))+"&body="+encodeURIComponent(msg)],["SMS","sms:?&body="+encodeURIComponent(msg)]].map(([l,href])=>
+              <a key={l} href={href} target={l==="WhatsApp"?"_blank":undefined} rel="noopener noreferrer" style={{padding:"9px 4px",borderRadius:9,border:`1px solid ${C.border}`,fontSize:13,fontWeight:600,color:C.text,textAlign:"center",textDecoration:"none",minHeight:40,display:"flex",alignItems:"center",justifyContent:"center"}}>{l}</a>)}
+          </div>
         </div>
       </Card>;
     })}
@@ -558,8 +578,9 @@ function Recettes({restaurantId,products,toast}){
 }
 
 // ── RÉGLAGES ─────────────────────────────────────────────────
-function Reglages({profile,toast,onSaved}){
+function Reglages({profile,toast,onSaved,hasSucre}){
   const rest=profile?.restaurants;
+  const [legal,setLegal]=useState(null);
   const [ca_s,setCaS]=useState(rest?.ca_sale!=null?String(rest.ca_sale):""),[ ca_su,setCaSu]=useState(rest?.ca_sucre!=null?String(rest.ca_sucre):""),[ saving,setSaving]=useState(false);
   const saveCa=async()=>{
     const upd={};
@@ -577,8 +598,8 @@ function Reglages({profile,toast,onSaved}){
     <Card style={{padding:24,marginBottom:14}}>
       <h3 style={{margin:"0 0 6px",fontSize:15,fontWeight:800}}>CA de la semaine en cours</h3>
       <p style={{margin:"0 0 16px",fontSize:13,color:C.textSec}}>Le ratio coût/CA est calculé à partir de ces valeurs.</p>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-        {[["CA HT Salé (€)",ca_s,setCaS],["CA HT Sucré (€)",ca_su,setCaSu]].map(([l,v,set])=><div key={l}>
+      <div style={{display:"grid",gridTemplateColumns:hasSucre?"1fr 1fr":"1fr",gap:12,marginBottom:16}}>
+        {(hasSucre?[["CA HT Salé (€)",ca_s,setCaS],["CA HT Sucré (€)",ca_su,setCaSu]]:[["CA HT (€)",ca_s,setCaS]]).map(([l,v,set])=><div key={l}>
           <label style={{fontSize:11,fontWeight:700,color:C.textSec,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</label>
           <input type="number" value={v} onChange={e=>set(e.target.value)} placeholder="0" style={inp} onFocus={e=>e.target.style.borderColor=C.brand} onBlur={e=>e.target.style.borderColor=C.border}/>
         </div>)}
@@ -589,39 +610,21 @@ function Reglages({profile,toast,onSaved}){
     <Card style={{padding:20}}>
       <h3 style={{margin:"0 0 12px",fontSize:15,fontWeight:800}}>Informations du compte</h3>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
-        {[["Restaurant",rest?.name],["Plan",rest?.plan],["Email",profile?.email],["Rôle",roleLabel(profile?.role)],["Domaine","pillot-restaurant.fr"]].map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"9px 12px",background:"#F8FAFC",borderRadius:8}}>
+        {[["Restaurant",rest?.name],["Plan",rest?.plan],["Email",profile?.email],["Rôle",roleLabel(profile?.role)]].map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"9px 12px",background:"#F8FAFC",borderRadius:8}}>
           <span style={{fontSize:13,color:C.textSec,fontWeight:500}}>{l}</span><span style={{fontSize:13,fontWeight:700}}>{v||"—"}</span>
         </div>)}
       </div>
+      <LegalLinks onOpen={setLegal}/>
     </Card>
+    {legal&&<LegalModal doc={legal} onClose={()=>setLegal(null)}/>}
   </div>;
 }
 
 // ── ADMIN ─────────────────────────────────────────────────────
-function Admin({adminProfile,toast}){
-  const [clients,setClients]=useState([]),[loading,setLoading]=useState(true),[askId,setAskId]=useState(null),[raison,setRaison]=useState(""),[sent,setSent]=useState(new Set());
+function Admin({toast}){
+  const [clients,setClients]=useState([]),[loading,setLoading]=useState(true);
   useEffect(()=>{const load=async()=>{const{data,error}=await supabase.from("restaurants").select("*");if(error)toast("Erreur de chargement des clients","error");setClients(data||[]);setLoading(false);};load();},[toast]);
-  const send=async()=>{
-    const{error}=await supabase.from("access_requests").insert({admin_id:adminProfile?.id,restaurant_id:askId,raison,message:"Intervention : "+raison,statut:"en_attente"});
-    if(!error){setSent(p=>new Set([...p,askId]));setAskId(null);toast("Demande envoyée au propriétaire");}else toast("Erreur lors de l'envoi de la demande","error");
-  };
   return<div>
-    {askId&&<div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{background:C.surface,borderRadius:16,padding:28,maxWidth:420,width:"100%",boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
-        <h3 style={{margin:"0 0 4px",fontSize:16,fontWeight:800}}>Demande d'accès supervisée</h3>
-        <p style={{margin:"0 0 18px",fontSize:13,color:C.textSec}}>{clients.find(c=>c.id===askId)?.name}</p>
-        <p style={{margin:"0 0 10px",fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Raison</p>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
-          {["Problème de ratio","Formation équipe","Ajout produits","Config fournisseur","Contrôle sanitaire","Autre"].map(r=>(
-            <button key={r} onClick={()=>setRaison(r)} style={{padding:"8px",border:`1.5px solid ${raison===r?C.brand:C.border}`,borderRadius:8,fontSize:12,cursor:"pointer",background:raison===r?C.brandLight:"transparent",color:raison===r?C.brand:C.text,fontWeight:raison===r?700:400}}>{r}</button>
-          ))}
-        </div>
-        <div style={{display:"flex",gap:8}}>
-          <button onClick={send} disabled={!raison} style={{flex:1,padding:"12px",background:raison?C.brand:"#E2E8F0",color:raison?"#fff":C.textMuted,border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:raison?"pointer":"not-allowed"}}>Envoyer</button>
-          <button onClick={()=>setAskId(null)} style={{padding:"12px 16px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:10,cursor:"pointer"}}>Annuler</button>
-        </div>
-      </div>
-    </div>}
     <div style={{marginBottom:20}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Multi-clients</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{clients.length} restaurant{clients.length>1?"s":""}</p></div>
     {loading?<p style={{color:C.textMuted,padding:40,textAlign:"center"}}>Chargement...</p>:clients.map(c=>{
       const rs=c.ratio_sale||0,obj=c.objectif||0.25,col=rs<=obj?C.success:rs<=obj*1.4?C.warning:C.danger;
@@ -637,32 +640,183 @@ function Admin({adminProfile,toast}){
               <div key={l}><p style={{margin:0,fontSize:10,color:C.textMuted}}>{l}</p><p style={{margin:0,fontSize:16,fontWeight:800,color:c}}>{(v*100).toFixed(1)}%</p></div>
             ))}
           </div>
-          {sent.has(c.id)?<span style={{fontSize:12,color:C.success,fontWeight:600}}>Demande envoyée ✓</span>:
-          <button onClick={()=>{setAskId(c.id);setRaison("");}} style={{padding:"8px 14px",background:C.brandLight,color:C.brand,border:`1px solid ${C.border}`,borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
-            <Icon n="key" sz={14}/>Accès</button>}
+
         </div>
       </Card>;
     })}
   </div>;
 }
 
+// ── PRODUITS (catalogue du restaurant) ───────────────────────
+const EMPTY_PROD={nom:"",unite:"kg",fournisseur:"",categorie:"",cote:"SALE",stock_min:"",prix_achat:""};
+function Produits({products,restaurantId,toast,onChanged}){
+  const [form,setForm]=useState(null),[saving,setSaving]=useState(false),[search,setSearch]=useState(""),[pendingDel,setPendingDel]=useState(null);
+  const hasSucre=products.some(p=>p.cote==="SUCRE");
+  const fourns=[...new Set(products.map(p=>p.fournisseur).filter(Boolean))].sort();
+  const cats=[...new Set(products.map(p=>p.categorie).filter(Boolean))].sort();
+  const list=products.filter(p=>!search||p.nom.toLowerCase().includes(search.toLowerCase())||p.fournisseur?.toLowerCase().includes(search.toLowerCase()));
+  const groups=[...new Set(list.map(p=>p.categorie||"Sans catégorie"))].sort();
+  const edit=p=>setForm(p?{id:p.id,nom:p.nom||"",unite:p.unite||"",fournisseur:p.fournisseur||"",categorie:p.categorie||"",cote:coteOf(p),stock_min:p.stock_min??"",prix_achat:p.prix_achat??""}:{...EMPTY_PROD});
+  const num=v=>{const t=String(v).trim().replace(",",".");if(t==="")return null;const n=Number(t);return isNaN(n)||n<0?NaN:n;};
+  const save=async()=>{
+    const nom=form.nom.trim(),unite=form.unite.trim();
+    // Fournisseur aligné sur l'orthographe déjà utilisée (sinon Commandes ferait deux cartes)
+    const fRaw=form.fournisseur.trim(),fournisseur=fourns.find(f=>f.toLowerCase()===fRaw.toLowerCase())||fRaw;
+    if(!nom||!unite||!fournisseur){toast("Nom, unité et fournisseur sont obligatoires","error");return;}
+    const stock_min=num(form.stock_min),prix_achat=num(form.prix_achat);
+    if(Number.isNaN(stock_min)||Number.isNaN(prix_achat)){toast("Stock minimum ou prix invalide","error");return;}
+    if(products.some(p=>p.id!==form.id&&p.nom.trim().toLowerCase()===nom.toLowerCase())){toast("Un produit porte déjà ce nom","error");return;}
+    const row={nom,unite,fournisseur,categorie:form.categorie.trim()||null,cote:form.cote,stock_min,prix_achat};
+    setSaving(true);
+    const{error}=form.id
+      ?await supabase.from("products").update(row).eq("id",form.id).eq("restaurant_id",restaurantId)
+      :await supabase.from("products").insert({...row,restaurant_id:restaurantId,actif:true});
+    setSaving(false);
+    if(error){toast("Erreur : le produit n'a pas été enregistré","error");return;}
+    toast(form.id?"Produit modifié":"Produit ajouté");setForm(null);await onChanged?.();
+  };
+  const archive=async id=>{
+    setPendingDel(null);
+    const{error}=await supabase.from("products").update({actif:false}).eq("id",id).eq("restaurant_id",restaurantId);
+    if(error){toast("Erreur : le produit n'a pas été retiré","error");return;}
+    toast("Produit retiré du catalogue");await onChanged?.();
+  };
+  const lab={fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px",display:"block",marginBottom:5};
+  const inp={width:"100%",boxSizing:"border-box",padding:"11px 12px",borderRadius:10,border:`1.5px solid ${C.border}`,fontSize:16,outline:"none",background:C.surface};
+  useEffect(()=>{if(!pendingDel)return;const t=setTimeout(()=>setPendingDel(null),4000);return()=>clearTimeout(t);},[pendingDel]);
+  return<div>
+    <div style={{marginBottom:16,display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+      <div><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Produits</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{products.length} produit{products.length>1?"s":""} au catalogue</p></div>
+      <button onClick={()=>edit(null)} style={{padding:"10px 16px",minHeight:44,background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon n="plus" sz={16}/>Ajouter</button>
+    </div>
+    {products.length===0?<Card style={{padding:24,textAlign:"center"}}>
+      <p style={{margin:"0 0 6px",fontSize:15,fontWeight:700}}>Votre catalogue est vide</p>
+      <p style={{margin:0,fontSize:13,color:C.textSec}}>Ajoutez vos produits avec leur fournisseur et leur stock minimum : l'inventaire, les alertes et les commandes s'appuient dessus.</p>
+    </Card>:<>
+    <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher un produit ou un fournisseur" aria-label="Rechercher" style={{...inp,marginBottom:14}}/>
+    {groups.map(g=><Card key={g} style={{marginBottom:12,overflow:"hidden"}}>
+      <p style={{margin:0,padding:"10px 16px",fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px",background:"#F8FAFC",borderBottom:`1px solid ${C.border}`}}>{g}</p>
+      {list.filter(p=>(p.categorie||"Sans catégorie")===g).map(p=><div key={p.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <div style={{flex:"1 1 160px",minWidth:0}}>
+          <p style={{margin:0,fontSize:14,fontWeight:700,overflowWrap:"anywhere"}}>{p.nom}</p>
+          <p style={{margin:0,fontSize:12,color:C.textSec}}>{p.fournisseur} · {p.unite}{p.stock_min?` · mini ${p.stock_min}`:""}{p.prix_achat?` · ${fmt(p.prix_achat)}`:""}{hasSucre?` · ${coteOf(p)==="SUCRE"?"Sucré":"Salé"}`:""}</p>
+        </div>
+        <div style={{display:"flex",gap:6}}>
+          <button onClick={()=>edit(p)} aria-label={"Modifier "+p.nom} style={{minWidth:44,minHeight:44,borderRadius:9,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:C.textSec}}><Icon n="edit" sz={16}/></button>
+          <button onClick={()=>pendingDel===p.id?archive(p.id):setPendingDel(p.id)} aria-label={"Retirer "+p.nom} style={{minWidth:44,minHeight:44,padding:"0 10px",borderRadius:9,border:`1px solid ${pendingDel===p.id?C.danger:C.border}`,background:pendingDel===p.id?C.dangerLight:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4,color:C.danger,fontSize:12,fontWeight:700}}><Icon n="trash" sz={16}/>{pendingDel===p.id?"Confirmer":""}</button>
+        </div>
+      </div>)}
+    </Card>)}
+    </>}
+    {form&&<div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+      <div role="dialog" aria-modal="true" aria-label={form.id?"Modifier le produit":"Nouveau produit"} onClick={e=>e.stopPropagation()} style={{background:C.surface,borderRadius:"16px 16px 0 0",padding:"20px 18px",paddingBottom:"calc(20px + env(safe-area-inset-bottom))",width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto"}}>
+        <h3 style={{margin:"0 0 14px",fontSize:17,fontWeight:800}}>{form.id?"Modifier le produit":"Nouveau produit"}</h3>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12}}>
+          <div style={{gridColumn:"1/-1"}}><label htmlFor="prod-nom" style={lab}>Nom *</label><input id="prod-nom" value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))} style={inp}/></div>
+          <div><label htmlFor="prod-unite" style={lab}>Unité *</label><input id="prod-unite" list="prod-unites" value={form.unite} onChange={e=>setForm(f=>({...f,unite:e.target.value}))} style={inp}/>
+            <datalist id="prod-unites">{["kg","g","L","cl","pièce","carton","bouteille","sachet","boîte"].map(u=><option key={u} value={u}/>)}</datalist></div>
+          <div><label htmlFor="prod-fourn" style={lab}>Fournisseur *</label><input id="prod-fourn" list="prod-fourns" value={form.fournisseur} onChange={e=>setForm(f=>({...f,fournisseur:e.target.value}))} style={inp}/>
+            <datalist id="prod-fourns">{fourns.map(f=><option key={f} value={f}/>)}</datalist></div>
+          <div><label htmlFor="prod-cat" style={lab}>Catégorie</label><input id="prod-cat" list="prod-cats" value={form.categorie} onChange={e=>setForm(f=>({...f,categorie:e.target.value}))} placeholder="Viandes, Boissons…" style={inp}/>
+            <datalist id="prod-cats">{cats.map(c=><option key={c} value={c}/>)}</datalist></div>
+          <div><label htmlFor="prod-cote" style={lab}>Rayon</label><select id="prod-cote" value={form.cote} onChange={e=>setForm(f=>({...f,cote:e.target.value}))} style={inp}><option value="SALE">Salé / cuisine</option><option value="SUCRE">Sucré / desserts</option></select></div>
+          <div><label htmlFor="prod-min" style={lab}>Stock minimum</label><input id="prod-min" inputMode="decimal" value={form.stock_min} onChange={e=>setForm(f=>({...f,stock_min:e.target.value}))} placeholder="0" style={inp}/></div>
+          <div><label htmlFor="prod-prix" style={lab}>Prix d'achat HT (€)</label><input id="prod-prix" inputMode="decimal" value={form.prix_achat} onChange={e=>setForm(f=>({...f,prix_achat:e.target.value}))} placeholder="0,00" style={inp}/></div>
+        </div>
+        <p style={{margin:"10px 0 0",fontSize:12,color:C.textSec}}>Sans stock minimum, le produit n'apparaît pas dans les alertes ni les commandes.</p>
+        <div style={{display:"flex",gap:8,marginTop:16}}>
+          <button onClick={save} disabled={saving} style={{flex:1,minHeight:46,background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:15,fontWeight:700,cursor:"pointer",opacity:saving?.7:1}}>{saving?"Enregistrement...":"Enregistrer"}</button>
+          <button onClick={()=>setForm(null)} disabled={saving} style={{minHeight:46,padding:"0 16px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:10,cursor:"pointer",fontSize:14}}>Annuler</button>
+        </div>
+      </div>
+    </div>}
+  </div>;
+}
+
+// ── NOUVEAU MOT DE PASSE (lien de réinitialisation) ──────────
+function NewPassword({onDone}){
+  const [pwd,setPwd]=useState(""),[pwd2,setPwd2]=useState(""),[err,setErr]=useState(""),[saving,setSaving]=useState(false);
+  const save=async()=>{
+    if(pwd.length<8){setErr("8 caractères minimum");return;}
+    if(pwd!==pwd2){setErr("Les deux mots de passe ne correspondent pas");return;}
+    setSaving(true);setErr("");
+    const{error}=await supabase.auth.updateUser({password:pwd});
+    setSaving(false);
+    if(error){setErr("Le lien a peut-être expiré : redemandez un lien depuis l'écran de connexion");return;}
+    onDone();
+  };
+  const inp={width:"100%",boxSizing:"border-box",padding:"11px 14px",borderRadius:10,border:`1.5px solid ${C.border}`,fontSize:15,outline:"none"};
+  return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0F172A 0%,#1E3A5F 100%)",padding:20}}>
+    <div style={{background:C.surface,borderRadius:20,padding:"32px 28px",width:"100%",maxWidth:380,display:"flex",flexDirection:"column",gap:12}}>
+      <h1 style={{margin:0,fontSize:20,fontWeight:800}}>Nouveau mot de passe</h1>
+      <label htmlFor="np1" style={{fontSize:13,color:C.textSec}}>Mot de passe (8 caractères minimum)</label>
+      <input id="np1" type="password" autoComplete="new-password" value={pwd} onChange={e=>setPwd(e.target.value)} style={inp}/>
+      <label htmlFor="np2" style={{fontSize:13,color:C.textSec}}>Confirmation</label>
+      <input id="np2" type="password" autoComplete="new-password" value={pwd2} onChange={e=>setPwd2(e.target.value)} onKeyDown={e=>e.key==="Enter"&&save()} style={inp}/>
+      {err&&<p style={{margin:0,color:C.danger,fontSize:13}}>{err}</p>}
+      <button onClick={save} disabled={saving} style={{padding:13,background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:15,fontWeight:700,cursor:"pointer",opacity:saving?.7:1}}>{saving?"Enregistrement...":"Enregistrer"}</button>
+    </div>
+  </div>;
+}
+
+// ── MENTIONS LÉGALES / CONFIDENTIALITÉ ───────────────────────
+const LEGAL={
+  mentions:{titre:"Mentions légales",blocs:[
+    ["Éditeur","Pillot est un logiciel édité par Marcel Sanda Mompole, entrepreneur individuel, 254 avenue des Grésillons, 92600 Asnières-sur-Seine. SIREN 130 742 034, SIRET 130 742 034 00015. TVA non applicable, art. 293 B du CGI. Contact : marcele.monpole@gmail.com · 06 05 69 95 32."],
+    ["Hébergement","Données : Supabase Inc., 970 Toa Payoh North #07-04, Singapour, sur des serveurs dont la région est choisie à la création du projet. Interface : Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis."],
+    ["Directeur de la publication","Marcel Sanda Mompole."],
+  ]},
+  confidentialite:{titre:"Confidentialité",blocs:[
+    ["Qui traite vos données","Le restaurant client est responsable des données qu'il saisit (équipe, plannings, relevés). L'éditeur de Pillot agit comme sous-traitant au sens de l'article 28 du RGPD, selon le contrat signé avec le restaurant."],
+    ["Données traitées","Comptes utilisateurs (e-mail, rôle), noms et plannings des employés, relevés d'hygiène (HACCP), stocks, commandes et chiffres d'affaires saisis. Aucune donnée n'est revendue ni utilisée à des fins publicitaires."],
+    ["Conservation","Les données sont conservées pendant la durée de l'abonnement, puis supprimées ou restituées au restaurant à sa demande dans un délai de 3 mois après la fin du contrat."],
+    ["Prestataires","Supabase (base de données et authentification) et Vercel (hébergement de l'interface). Certains prestataires sont situés hors de l'Union européenne ; les transferts s'appuient sur les garanties prévues par le RGPD."],
+    ["Cookies","Pillot n'utilise aucun cookie publicitaire ni outil de mesure d'audience. Seul un stockage local est utilisé pour garder votre session ouverte."],
+    ["Vos droits","Accès, rectification, effacement, opposition, limitation et portabilité : écrivez à marcele.monpole@gmail.com ou à votre employeur. Vous pouvez saisir la CNIL (www.cnil.fr)."],
+  ]},
+};
+function LegalLinks({onOpen}){
+  return<div style={{display:"flex",justifyContent:"center",gap:14,marginTop:16,flexWrap:"wrap"}}>
+    {[["mentions","Mentions légales"],["confidentialite","Confidentialité"]].map(([k,l])=><button key={k} onClick={()=>onOpen(k)} style={{background:"none",border:"none",color:C.textSec,fontSize:12,textDecoration:"underline",cursor:"pointer",padding:6}}>{l}</button>)}
+  </div>;
+}
+function LegalModal({doc,onClose}){
+  const d=LEGAL[doc];
+  useEffect(()=>{const k=e=>e.key==="Escape"&&onClose();window.addEventListener("keydown",k);return()=>window.removeEventListener("keydown",k);},[onClose]);
+  if(!d)return null;
+  return<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+    <div role="dialog" aria-modal="true" aria-label={d.titre} onClick={e=>e.stopPropagation()} style={{background:C.surface,borderRadius:16,padding:"22px 20px",width:"100%",maxWidth:560,maxHeight:"85vh",overflowY:"auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <h2 style={{margin:0,fontSize:18,fontWeight:800}}>{d.titre}</h2>
+        <button onClick={onClose} aria-label="Fermer" style={{width:44,height:44,border:"none",background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:C.textSec}}><Icon n="x" sz={20}/></button>
+      </div>
+      {d.blocs.map(([t,x])=><div key={t} style={{marginBottom:12}}><p style={{margin:"0 0 3px",fontSize:13,fontWeight:700}}>{t}</p><p style={{margin:0,fontSize:13,lineHeight:1.55,color:C.textSec}}>{x}</p></div>)}
+    </div>
+  </div>;
+}
+
 // ── NAVIGATION (source unique Sidebar + menu mobile) ─────────
-const navTabs=isAdmin=>isAdmin
+const ALL_TABS=[["dashboard","Tableau de bord","home"],["stocks","Inventaire","box"],["commandes","Commandes","cart"],["produits","Produits","edit"],["historique","Historique","chart"],["haccp","HACCP","thermometer"],["recettes","Fiches techniques","book"],["planning","Planning","calendar"],["taches","Tâches","clipboard"],["glaces","Pillot Glaces","ice-cream"],["appareils","Équipements","device-desktop"],["settings","Réglages","settings"]];
+// Liste blanche : tout rôle autre que gérant/manager/admin (vide, inconnu, faute de frappe) est traité comme employé
+const MANAGER_ROLES=new Set(["owner","manager"]);
+const canManageRole=role=>MANAGER_ROLES.has(role);
+// Employé : pas de CA, de catalogue, d'équipements ni de réglages
+const STAFF_HIDDEN=new Set(["produits","historique","appareils","settings"]);
+const navTabs=(role,{glaces}={})=>role==="admin"
   ?[["dashboard","Tableau de bord","home"],["users","Clients","users"],["settings","Réglages","settings"]]
-  :[["dashboard","Tableau de bord","home"],["stocks","Inventaire","box"],["commandes","Commandes","cart"],["historique","Historique","chart"],["haccp","HACCP","thermometer"],["recettes","Fiches techniques","book"],["settings","Réglages","settings"],["planning","Planning","calendar"],["taches","Tâches","clipboard"],["glaces","Pillot Glaces","ice-cream"],["scan","Scan facture","camera"],["appareils","Équipements","device-desktop"]];
+  :ALL_TABS.filter(([id])=>(id!=="glaces"||glaces)&&(canManageRole(role)||!STAFF_HIDDEN.has(id)));
 const ROLE_LABELS={owner:"Gérant",admin:"Administrateur",manager:"Manager",employee:"Employé"};
 const roleLabel=r=>ROLE_LABELS[r]||r;
 
 // ── SIDEBAR ──────────────────────────────────────────────────
-function Sidebar({tab,onTab,profile,onLogout}){
-  const tabs=navTabs(profile?.role==="admin");
+function Sidebar({tab,onTab,tabs,profile,onLogout}){
   return<div style={{width:230,background:C.navy,display:"flex",flexDirection:"column",minHeight:"100vh",flexShrink:0,position:"sticky",top:0,maxHeight:"100vh",overflowY:"auto"}}>
     <div style={{padding:"22px 18px 14px"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
         <div style={{width:38,height:38,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <span style={{color:"#fff",fontSize:18,fontWeight:800}}>P</span>
         </div>
-        <div><p style={{margin:0,fontSize:16,fontWeight:800,color:"#fff"}}>Pillot</p><p style={{margin:0,fontSize:10,color:"#94A3B8"}}>pillot-restaurant.fr</p></div>
+        <div><p style={{margin:0,fontSize:16,fontWeight:800,color:"#fff"}}>Pillot</p><p style={{margin:0,fontSize:10,color:"#94A3B8"}}>Gestion de restaurant</p></div>
       </div>
       <div style={{padding:"8px 10px",background:"rgba(255,255,255,.06)",borderRadius:8}}>
         <p style={{margin:0,fontSize:12,fontWeight:700,color:"#94A3B8",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{profile?.restaurants?.name||profile?.email}</p>
@@ -686,11 +840,11 @@ function Sidebar({tab,onTab,profile,onLogout}){
 }
 
 // ── BOTTOM NAV ────────────────────────────────────────────────
-function BottomNav({tab,onTab,isAdmin,onLogout}){
+const SHORT={dashboard:"Accueil",stocks:"Stocks",users:"Clients"};
+function BottomNav({tab,onTab,allTabs,onLogout}){
   const [open,setOpen]=useState(false);
-  const tabs=isAdmin
-    ?[["dashboard","Accueil","home"],["users","Clients","users"],["settings","Réglages","settings"]]
-    :[["dashboard","Accueil","home"],["stocks","Stocks","box"],["commandes","Commandes","cart"],["haccp","HACCP","thermometer"],["settings","Réglages","settings"]];
+  // 4 raccourcis + « Plus » : tout le reste est dans le menu
+  const tabs=allTabs.filter(([id])=>["dashboard","stocks","commandes","haccp","users","settings"].includes(id)).slice(0,4).map(([id,l,ic])=>[id,SHORT[id]||l,ic]);
   const go=id=>{onTab(id);setOpen(false);};
   const moreActive=open||!tabs.some(([id])=>id===tab);
   useEffect(()=>{if(!open)return;const k=e=>e.key==="Escape"&&setOpen(false);window.addEventListener("keydown",k);return()=>window.removeEventListener("keydown",k);},[open]);
@@ -701,7 +855,7 @@ function BottomNav({tab,onTab,isAdmin,onLogout}){
           <span style={{fontSize:15,fontWeight:800,color:C.text}}>Menu</span>
           <button onClick={()=>setOpen(false)} aria-label="Fermer le menu" style={{width:44,height:44,border:"none",background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:C.textSec}}><Icon n="x" sz={20}/></button>
         </div>
-        {navTabs(isAdmin).map(([id,l,ic])=>{const a=tab===id;return<button key={id} onClick={()=>go(id)} aria-current={a?"page":undefined} style={{width:"100%",minHeight:48,padding:"10px 12px",border:"none",borderRadius:10,cursor:"pointer",display:"flex",alignItems:"center",gap:12,background:a?C.brandLight:"transparent",color:a?C.brand:C.text,fontSize:15,fontWeight:a?700:500,textAlign:"left"}}>
+        {allTabs.map(([id,l,ic])=>{const a=tab===id;return<button key={id} onClick={()=>go(id)} aria-current={a?"page":undefined} style={{width:"100%",minHeight:48,padding:"10px 12px",border:"none",borderRadius:10,cursor:"pointer",display:"flex",alignItems:"center",gap:12,background:a?C.brandLight:"transparent",color:a?C.brand:C.text,fontSize:15,fontWeight:a?700:500,textAlign:"left"}}>
           <Icon n={ic} sz={20} c={a?C.brand:C.textSec}/>{l}
         </button>;})}
         <div style={{borderTop:`1px solid ${C.border}`,margin:"6px 0"}}/>
@@ -725,7 +879,7 @@ function BottomNav({tab,onTab,isAdmin,onLogout}){
 
 // ── APP ──────────────────────────────────────────────────────
 export default function App(){
-  const [session,setSession]=useState(null),[profile,setProfile]=useState(null),[products,setProducts]=useState([]),[tab,setTab]=useState("dashboard"),[loading,setLoading]=useState(true),[toast,setToast]=useState(null),[isMobile,setIsMobile]=useState(window.innerWidth<768);
+  const [session,setSession]=useState(null),[profile,setProfile]=useState(null),[products,setProducts]=useState([]),[tab,setTab]=useState("dashboard"),[loading,setLoading]=useState(true),[toast,setToast]=useState(null),[isMobile,setIsMobile]=useState(window.innerWidth<768),[recovery,setRecovery]=useState(false),[hasGlaces,setHasGlaces]=useState(false);
 
   useEffect(()=>{const h=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
   const showToast=useCallback((msg,type="success")=>setToast({msg,type}),[]);
@@ -749,14 +903,25 @@ export default function App(){
     if(uidRef.current!==uid)return;
     // Échec : profil courant conservé, et uid oublié pour retenter au prochain événement d'auth
     if(error){showToast("Erreur de chargement du profil","error");uidRef.current=null;setLoading(false);return;}
-    setProfile(data);if(data?.restaurant_id)await loadProducts(data.restaurant_id);setLoading(false);
+    setProfile(data);
+    if(data?.restaurant_id){
+      // Module Glaces affiché seulement si le restaurant a des parfums configurés
+      const{count,error:gErr}=await supabase.from("glaces_flavors").select("id",{count:"exact",head:true}).eq("restaurant_id",data.restaurant_id);
+      if(uidRef.current!==uid)return;
+      if(gErr)showToast("Erreur de chargement du module Glaces","error");
+      setHasGlaces((count||0)>0);
+      await loadProducts(data.restaurant_id);
+      if(uidRef.current!==uid)return;
+    }
+    setLoading(false);
   },[loadProducts,showToast]);
 
   // Un seul chemin d'auth : INITIAL_SESSION est émis à l'abonnement (avec ou sans session).
   useEffect(()=>{
     const{data:{subscription}}=supabase.auth.onAuthStateChange((event,s)=>{
       setSession(s);
-      if(event==="SIGNED_OUT"||!s){uidRef.current=null;setProfile(null);setProducts([]);setTab("dashboard");setLoading(false);return;}
+      if(event==="PASSWORD_RECOVERY")setRecovery(true);
+      if(event==="SIGNED_OUT"||!s){uidRef.current=null;setProfile(null);setProducts([]);setHasGlaces(false);setTab("dashboard");setLoading(false);return;}
       if((event==="INITIAL_SESSION"||event==="SIGNED_IN")&&s.user.id!==uidRef.current){
         uidRef.current=s.user.id;
         // différé : éviter d'appeler supabase dans le callback (risque de deadlock du verrou d'auth)
@@ -769,36 +934,45 @@ export default function App(){
   const onStockUpdate=(id,v)=>setProducts(p=>p.map(x=>x.id===id?{...x,stock:v}:x));
   const logout=async()=>{const{error}=await supabase.auth.signOut();if(error)showToast("Erreur lors de la déconnexion","error");};
   const isAdmin=profile?.role==="admin";
+  const allTabs=navTabs(profile?.role,{glaces:hasGlaces});
+  const hasSucre=products.some(p=>p.cote==="SUCRE");
+  const showCA=isAdmin||canManageRole(profile?.role);
+  // Onglet devenu interdit (rôle, module masqué) : retour au tableau de bord
+  const allowedIds=allTabs.map(([id])=>id).join(",");
+  useEffect(()=>{if(profile&&!allowedIds.split(",").includes(tab))setTab("dashboard");},[profile,allowedIds,tab]);
 
   const renderScreen=()=>{
+    // Onglet non autorisé pour ce rôle : retour au tableau de bord
+    if(!allTabs.some(([id])=>id===tab))return<Dashboard profile={profile} products={products} onTab={setTab} showCA={showCA}/>;
+    if(tab==="produits")return<Produits products={products} restaurantId={profile?.restaurant_id} toast={showToast} onChanged={()=>loadProducts(profile.restaurant_id)}/>;
     if(tab==="stocks")return<Inventaire products={products} restaurantId={profile?.restaurant_id} onStockUpdate={onStockUpdate} toast={showToast}/>;
     if(tab==="commandes")return<Commandes products={products} profile={profile} toast={showToast}/>;
     if(tab==="historique")return<Historique restaurantId={profile?.restaurant_id}/>;
     if (tab === "haccp") return <HACCPComplet restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast}/>;
     if(tab==="recettes")return<Recettes restaurantId={profile?.restaurant_id} products={products} toast={showToast}/>;
-    if(tab==="settings")return<Reglages profile={profile} toast={showToast} onSaved={()=>loadProfile(profile.id)}/>;
-    if(tab==="users"&&isAdmin)return<Admin adminProfile={profile} toast={showToast}/>;
-    if (tab === "planning") return <Planning restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast}/>;
+    if(tab==="settings")return<Reglages profile={profile} toast={showToast} hasSucre={hasSucre} onSaved={()=>loadProfile(profile.id)}/>;
+    if(tab==="users"&&isAdmin)return<Admin toast={showToast}/>;
+    if (tab === "planning") return <Planning restaurantId={profile?.restaurant_id} toast={showToast} canManage={canManageRole(profile?.role)}/>;
     if (tab === "taches") return <Taches restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast} isOwner={profile?.role==="owner"}/>;
     if (tab === "glaces")    return <PillotGlaces restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast} restaurantName={profile?.restaurants?.name}/>;
     if (tab === "appareils") return <EquipementSetup restaurantId={profile?.restaurant_id} toast={showToast}/>;
-    if (tab === "scan")      return <InvoiceScanner restaurantId={profile?.restaurant_id} profileId={profile?.id} products={products} toast={showToast}/>;
-    return<Dashboard profile={profile} products={products} onTab={setTab}/>;
+    return<Dashboard profile={profile} products={products} onTab={setTab} showCA={showCA}/>;
   };
 
   const STYLE=`*{font-family:'Inter',sans-serif;box-sizing:border-box;margin:0;}body{background:${C.bg};}::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:#f1f5f9;}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}input,button,textarea,select{font-family:inherit;}button:focus-visible{outline:2px solid ${C.brand};outline-offset:2px;}`;
 
   if(loading)return<><style>{STYLE}</style><div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0F172A,#1E3A5F)",flexDirection:"column",gap:14}}><div style={{width:52,height:52,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"#fff",fontSize:24,fontWeight:800}}>P</span></div><p style={{color:"rgba(255,255,255,.5)",fontSize:14}}>Chargement...</p></div></>;
   if(!session)return<><style>{STYLE}</style><Login/></>;
+  if(recovery)return<><style>{STYLE}</style><NewPassword onDone={()=>{setRecovery(false);showToast("Mot de passe modifié");}}/></>;
 
   return<><style>{STYLE}</style>
     {toast&&<Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
     <div style={{display:"flex",minHeight:"100vh"}}>
-      {!isMobile&&<Sidebar tab={tab} onTab={setTab} profile={profile} onLogout={logout}/>}
-      <main style={{flex:1,padding:isMobile?"16px 14px 80px":"28px 32px",overflowY:"auto",maxWidth:isMobile?"100%":860,minWidth:0}}>
+      {!isMobile&&<Sidebar tab={tab} onTab={setTab} tabs={allTabs} profile={profile} onLogout={logout}/>}
+      <main style={{flex:1,padding:isMobile?"calc(16px + env(safe-area-inset-top)) 14px calc(80px + env(safe-area-inset-bottom))":"28px 32px",overflowY:"auto",maxWidth:isMobile?"100%":860,minWidth:0}}>
         {renderScreen()}
       </main>
     </div>
-    {isMobile&&<BottomNav tab={tab} onTab={setTab} isAdmin={isAdmin} onLogout={logout}/>}
+    {isMobile&&<BottomNav tab={tab} onTab={setTab} allTabs={allTabs} onLogout={logout}/>}
   </>;
 }
