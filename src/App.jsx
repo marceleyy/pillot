@@ -66,13 +66,6 @@ const fmt=n=>new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",mini
 const fmtDate=d=>new Date(d).toLocaleDateString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
 const fmtDay=d=>new Date(d).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
 
-// ── Status Badge ──────────────────────────────────────────────
-function Chip({status,small}){
-  const m={rupture:{l:"Rupture",bg:C.dangerLight,c:C.danger},commander:{l:"Commander",bg:C.warningLight,c:C.warning},ok:{l:"OK",bg:C.successLight,c:C.success},non_suivi:{l:"Non suivi",bg:"#F8FAFC",c:C.textMuted},non_saisi:{l:"Non saisi",bg:"#F8FAFC",c:C.textMuted}};
-  const s=m[status]||m.non_saisi;
-  return<span style={{display:"inline-flex",alignItems:"center",gap:4,padding:small?"2px 7px":"3px 10px",borderRadius:20,background:s.bg,fontSize:small?10:11,fontWeight:600,color:s.c,whiteSpace:"nowrap"}}><span style={{width:6,height:6,borderRadius:"50%",background:s.c,display:"inline-block"}}/>{s.l}</span>;
-}
-
 // ── Gauge ─────────────────────────────────────────────────────
 function Gauge({ratio,obj=0.25}){
   const pct=Math.min(ratio*100,50),fill=pct/50,R=70,cx=90,cy=85;
@@ -395,75 +388,120 @@ function Commandes({products,profile,toast}){
 }
 
 // ── HISTORIQUE ────────────────────────────────────────────────
-function Historique({restaurantId}){
-  const [hist,setHist]=useState([]),[loading,setLoading]=useState(true);
-  useEffect(()=>{const load=async()=>{const{data}=await supabase.from("ca_history").select("*").eq("restaurant_id",restaurantId).order("created_at",{ascending:false}).limit(20);setHist(data||[]);setLoading(false);};if(restaurantId)load();else setLoading(false);},[restaurantId]);
+function Historique({restaurantId,hasSucre,onTab,toast}){
+  const [vue,setVue]=useState("ratios");
+  const [hist,setHist]=useState([]),[loading,setLoading]=useState(true),[err,setErr]=useState(false);
+  const [inv,setInv]=useState(null),[open,setOpen]=useState(null);
+  useEffect(()=>{if(!restaurantId){setLoading(false);return;}let stale=false;(async()=>{
+    const{data,error}=await supabase.from("ca_history").select("*").eq("restaurant_id",restaurantId).order("created_at",{ascending:false}).limit(52);
+    if(stale)return;if(error){setErr(true);toast?.("Erreur de chargement de l'historique","error");}setHist(data||[]);setLoading(false);
+  })();return()=>{stale=true;};},[restaurantId,toast]);
+  // Inventaires : saisies de stock regroupées par jour (60 derniers jours), valorisées au prix d'achat
+  useEffect(()=>{if(vue!=="inventaires"||inv||!restaurantId)return;let stale=false;(async()=>{
+    const since=new Date(Date.now()-60*864e5).toISOString(),rows=[];
+    for(let p=0;p<5;p++){
+      const{data,error}=await supabase.from("stock_entries").select("id,product_id,stock_reel,created_at,products(nom,unite,prix_achat)").eq("restaurant_id",restaurantId).gte("created_at",since).order("created_at",{ascending:false}).order("id").range(p*1000,p*1000+999);
+      if(error){if(!stale){setInv([]);toast?.("Erreur de chargement des inventaires","error");}return;}
+      rows.push(...(data||[]));if(!data||data.length<1000)break;
+    }
+    const days=new Map();
+    for(const r of rows){const d=new Date(r.created_at),k=`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;if(!days.has(k))days.set(k,{k,date:d,items:[]});days.get(k).items.push(r);}
+    // valeur du jour = dernière saisie de chaque produit (lignes triées du plus récent au plus ancien), pour ne pas compter deux fois un produit recompté
+    if(!stale)setInv([...days.values()].map(g=>{const vu=new Set();return{...g,valeur:g.items.reduce((a,r)=>{const pk=r.product_id??r.id;if(vu.has(pk))return a;vu.add(pk);return a+(+r.stock_reel||0)*(+r.products?.prix_achat||0);},0)};}));
+  })();return()=>{stale=true;};},[vue,inv,restaurantId,toast]);
+
+  const showSucre=hasSucre||hist.some(h=>(h.ca_sucre||0)>0);
   const totCA=hist.reduce((a,h)=>a+(h.ca_sale||0)+(h.ca_sucre||0),0);
   const totCout=hist.reduce((a,h)=>a+(h.cout_sale||0)+(h.cout_sucre||0),0);
   const avg=totCA>0?totCout/totCA:0;
+  const dd=d=>d?new Date(d+"T00:00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"}):"";
 
-  // Mini bar chart SVG
   const BarChart=()=>{
     const data=hist.slice(0,8).reverse();if(!data.length)return null;
-    const W=320,H=120,PL=28,PB=20,PT=10,PR=8;
-    const IW=W-PL-PR,IH=H-PB-PT,maxV=50;
-    const bw=IW/data.length,gap=8,bW=(bw-gap)/1;
-    const yS=v=>PT+IH-(v/maxV)*IH;
-    return<svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:"visible"}}>
+    const W=320,H=120,PL=28,PB=20,PT=10,PR=8,IW=W-PL-PR,IH=H-PB-PT,maxV=50,bw=IW/data.length,gap=8,bW=bw-gap;
+    const yS=v=>PT+IH-(Math.min(v,maxV)/maxV)*IH;
+    return<svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:"visible"}} role="img" aria-label="Ratio coût matière des dernières périodes">
       {[0,25,50].map(v=>{const y=yS(v);return<g key={v}>
         <line x1={PL} y1={y} x2={W-PR} y2={y} stroke={v===25?C.warning:"#E2E8F0"} strokeWidth={v===25?"1":"0.5"} strokeDasharray={v===25?"4,3":""}/>
         <text x={PL-4} y={y+3} textAnchor="end" fontSize="8" fill={C.textMuted}>{v}%</text>
       </g>;})}
       {data.map((h,i)=>{
-        const x0=PL+i*bw+gap/2,rs=h.ratio_sale||0,col=rs<=0.25?C.success:rs<=0.35?C.warning:C.danger;
+        const tot=(h.ca_sale||0)+(h.ca_sucre||0),r=tot>0?((h.cout_sale||0)+(h.cout_sucre||0))/tot:0,x0=PL+i*bw+gap/2,col=r<=0.25?C.success:r<=0.35?C.warning:C.danger,y=yS(r*100);
         return<g key={h.id}>
-          <rect x={x0} y={yS(rs*100)} width={bW-2} height={Math.max(2,(rs/0.5)*IH)} fill={col} rx="3"/>
-          <text x={x0+(bW-2)/2} y={H-6} textAnchor="middle" fontSize="8" fill={C.textMuted}>{(h.periode||"").replace("Fin ","")}</text>
+          <rect x={x0} y={y} width={bW} height={Math.max(2,PT+IH-y)} fill={col} rx="3"/>
+          <text x={x0+bW/2} y={H-6} textAnchor="middle" fontSize="8" fill={C.textMuted}>{(h.periode||"").replace("Fin ","")}</text>
         </g>;
       })}
     </svg>;
   };
 
-  if(loading)return<p style={{color:C.textMuted,padding:40,textAlign:"center"}}>Chargement...</p>;
-  if(!hist.length)return<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:300,gap:12,textAlign:"center",padding:20}}>
-    <div style={{width:64,height:64,borderRadius:"50%",background:"#F1F5F9",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon n="chart" sz={28} c={C.textMuted}/></div>
-    <h3 style={{margin:0,fontSize:18,fontWeight:700}}>Pas encore de données</h3>
-    <p style={{margin:0,color:C.textSec,fontSize:14,maxWidth:280}}>Aucune période enregistrée pour l'instant. Les ratios coût/CA de chaque semaine apparaîtront ici.</p>
+  const seg=<div style={{display:"flex",gap:6,background:"#E2E8F0",padding:4,borderRadius:12,marginBottom:16}}>
+    {[["ratios","Ratios"],["inventaires","Inventaires"]].map(([k,l])=><button key={k} onClick={()=>setVue(k)} style={{flex:1,padding:"10px",border:"none",borderRadius:9,background:vue===k?C.surface:"transparent",fontWeight:700,fontSize:14,color:vue===k?C.text:C.textSec,cursor:"pointer",boxShadow:vue===k?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>)}
+  </div>;
+  const vide=(icon,titre,txt,btn)=><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12,textAlign:"center",padding:"40px 20px"}}>
+    <div style={{width:64,height:64,borderRadius:"50%",background:"#F1F5F9",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon n={icon} sz={28} c={C.textMuted}/></div>
+    <h3 style={{margin:0,fontSize:18,fontWeight:700}}>{titre}</h3>
+    <p style={{margin:0,color:C.textSec,fontSize:14,maxWidth:300}}>{txt}</p>{btn}
   </div>;
 
   return<div>
-    <div style={{marginBottom:20}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Historique</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{hist.length} période{hist.length>1?"s":""}</p></div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
-      {[["CA total",fmt(totCA),C.brand],["Coût total",fmt(totCout),C.warning],["Ratio moyen",avg>0?(avg*100).toFixed(1)+"%":"—",avg<=0.25?C.success:C.danger]].map(([l,v,c])=>(
-        <Card key={l} style={{padding:"14px 16px"}}>
-          <p style={{margin:"0 0 6px",fontSize:10,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</p>
-          <p style={{margin:0,fontSize:18,fontWeight:800,color:c}}>{v}</p>
+    <div style={{marginBottom:16}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Historique</h1>
+      <p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{vue==="ratios"?`${hist.length} période${hist.length>1?"s":""} clôturée${hist.length>1?"s":""}`:"Inventaires des 60 derniers jours"}</p></div>
+    {seg}
+    {vue==="ratios"&&(loading?<p style={{color:C.textMuted,padding:40,textAlign:"center"}}>Chargement...</p>
+      :!hist.length?vide("chart",err?"Historique indisponible":"Aucune semaine clôturée",err?"Le chargement a échoué. Vérifiez la connexion puis rouvrez l'onglet.":"Chaque semaine, clôturez la période dans Réglages : CA, achats et stock donnent votre ratio coût matière, qui s'affiche ici.",
+        !err&&onTab&&<button onClick={()=>onTab("settings")} style={{padding:"11px 20px",background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>Clôturer une semaine</button>)
+      :<>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(100px,1fr))",gap:10,marginBottom:16}}>
+          {[["CA total",fmt(totCA),C.brand],["Coût matière",fmt(totCout),C.warning],["Ratio moyen",avg>0?(avg*100).toFixed(1)+" %":"—",avg<=0.25?C.success:avg<=0.35?C.warning:C.danger]].map(([l,v,c])=>(
+            <Card key={l} style={{padding:"14px 16px"}}>
+              <p style={{margin:"0 0 6px",fontSize:10,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</p>
+              <p style={{margin:0,fontSize:18,fontWeight:800,color:c}}>{v}</p>
+            </Card>
+          ))}
+        </div>
+        {hist.length>1&&<Card style={{padding:"16px 18px",marginBottom:16}}>
+          <p style={{margin:"0 0 12px",fontSize:13,fontWeight:700}}>Évolution du ratio coût matière</p>
+          <BarChart/>
+        </Card>}
+        <Card style={{overflow:"hidden"}}>
+          {hist.map((h,i)=>{
+            const tot=(h.ca_sale||0)+(h.ca_sucre||0),r=tot>0?((h.cout_sale||0)+(h.cout_sucre||0))/tot:0;
+            const cols=showSucre?[["CA salé",fmt(h.ca_sale)],["Ratio salé",((h.ratio_sale||0)*100).toFixed(1)+" %"],["CA sucré",fmt(h.ca_sucre)],["Ratio sucré",((h.ratio_sucre||0)*100).toFixed(1)+" %"]]
+              :[["CA",fmt(h.ca_sale)],["Coût matière",fmt(h.cout_sale)],["Ratio",((h.ratio_sale||0)*100).toFixed(1)+" %"]];
+            return<div key={h.id} style={{padding:"14px 18px",borderBottom:i<hist.length-1?`1px solid ${C.border}`:"none"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,gap:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  <span style={{fontSize:13,fontWeight:700}}>{h.date_debut&&h.date_fin?`Du ${dd(h.date_debut)} au ${dd(h.date_fin)}`:h.periode}</span>
+                  <span style={{fontSize:10,fontWeight:700,background:C.brandLight,color:C.brand,padding:"2px 8px",borderRadius:10}}>{h.type==="mensuel"?"MOIS":"SEMAINE"}</span>
+                </div>
+                {(()=>{const[t,c,bg]=r<=0.25?["Dans l'objectif",C.success,C.successLight]:r<=0.35?["À surveiller",C.warning,C.warningLight]:["Trop élevé",C.danger,C.dangerLight];return<span style={{fontSize:11,fontWeight:700,color:c,background:bg,padding:"3px 9px",borderRadius:10,whiteSpace:"nowrap"}}>{t}</span>;})()}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:`repeat(${cols.length},1fr)`,gap:8}}>
+                {cols.map(([l,v])=><div key={l}><p style={{margin:0,fontSize:10,color:C.textMuted}}>{l}</p><p style={{margin:0,fontSize:13,fontWeight:700}}>{v}</p></div>)}
+              </div>
+            </div>;
+          })}
         </Card>
-      ))}
-    </div>
-    {hist.length>1&&<Card style={{padding:"16px 18px",marginBottom:16}}>
-      <p style={{margin:"0 0 12px",fontSize:13,fontWeight:700}}>Évolution du ratio Salé</p>
-      <BarChart/>
-    </Card>}
-    <Card style={{overflow:"hidden"}}>
-      {hist.map((h,i)=>{
-        const rs=h.ratio_sale||0,ru=h.ratio_sucre||0;
-        return<div key={h.id} style={{padding:"14px 18px",borderBottom:i<hist.length-1?`1px solid ${C.border}`:"none"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:13,fontWeight:700}}>{h.periode}</span>
-              {h.type==="mensuel"&&<span style={{fontSize:10,fontWeight:700,background:C.brandLight,color:C.brand,padding:"2px 8px",borderRadius:10}}>MENSUEL</span>}
-            </div>
-            <Chip status={rs<=0.25?"ok":rs<=0.35?"commander":"rupture"} small/>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
-            {[["CA salé",fmt(h.ca_sale)],["Ratio salé",(rs*100).toFixed(1)+"%"],["CA sucré",fmt(h.ca_sucre)],["Ratio sucré",(ru*100).toFixed(1)+"%"]].map(([l,v])=>(
-              <div key={l}><p style={{margin:0,fontSize:10,color:C.textMuted}}>{l}</p><p style={{margin:0,fontSize:13,fontWeight:700}}>{v}</p></div>
-            ))}
-          </div>
-        </div>;
-      })}
-    </Card>
+      </>)}
+    {vue==="inventaires"&&(!inv?<p style={{color:C.textMuted,padding:40,textAlign:"center"}}>Chargement...</p>
+      :!inv.length?vide("box","Aucun inventaire récent","Les quantités saisies dans l'onglet Inventaire apparaîtront ici, jour par jour, avec la valeur du stock compté.",
+        onTab&&<button onClick={()=>onTab("stocks")} style={{padding:"11px 20px",background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>Faire un inventaire</button>)
+      :<Card style={{overflow:"hidden"}}>
+        {inv.map((g,i)=><div key={g.k} style={{borderBottom:i<inv.length-1?`1px solid ${C.border}`:"none"}}>
+          <button onClick={()=>setOpen(o=>o===g.k?null:g.k)} aria-expanded={open===g.k} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,padding:"14px 18px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
+            <span><span style={{display:"block",fontSize:14,fontWeight:700,color:C.text,textTransform:"capitalize"}}>{fmtDay(g.date)}</span>
+              <span style={{fontSize:12,color:C.textSec}}>{g.items.length} saisie{g.items.length>1?"s":""}</span></span>
+            <span style={{fontSize:14,fontWeight:800,color:C.text,whiteSpace:"nowrap"}}>{g.valeur>0?fmt(g.valeur):"—"} <span style={{color:C.textSec,fontWeight:400}}>{open===g.k?"▲":"▼"}</span></span>
+          </button>
+          {open===g.k&&<div style={{padding:"0 18px 12px"}}>
+            {g.items.map(r=><div key={r.id} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"7px 0",borderTop:`1px solid ${C.border}`,fontSize:13}}>
+              <span>{r.products?.nom||"Produit supprimé"} <span style={{color:C.textMuted}}>· {new Date(r.created_at).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</span></span>
+              <span style={{fontWeight:700,whiteSpace:"nowrap"}}>{r.stock_reel} {r.products?.unite||""}</span>
+            </div>)}
+          </div>}
+        </div>)}
+      </Card>)}
   </div>;
 }
 
@@ -940,7 +978,7 @@ export default function App(){
     if(tab==="produits")return<Produits products={products} restaurantId={profile?.restaurant_id} toast={showToast} onChanged={()=>loadProducts(profile.restaurant_id)}/>;
     if(tab==="stocks")return<Inventaire products={products} restaurantId={profile?.restaurant_id} onStockUpdate={onStockUpdate} toast={showToast}/>;
     if(tab==="commandes")return<Commandes products={products} profile={profile} toast={showToast}/>;
-    if(tab==="historique")return<Historique restaurantId={profile?.restaurant_id}/>;
+    if(tab==="historique")return<Historique restaurantId={profile?.restaurant_id} hasSucre={hasSucre} onTab={setTab} toast={showToast}/>;
     if (tab === "haccp") return <HACCPComplet restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast}/>;
     if(tab==="recettes")return<Recettes restaurantId={profile?.restaurant_id} products={products} toast={showToast} canManage={canManageRole(profile?.role)||isAdmin}/>;
     if(tab==="settings")return<Reglages profile={profile} toast={showToast} hasSucre={hasSucre} onSaved={()=>loadProfile(profile.id)}/>;
