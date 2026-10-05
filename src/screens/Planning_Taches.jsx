@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { localDate } from "../lib/dates";
 
 const C = {
   brand:"#2563EB",brandLight:"#EFF6FF",navy:"#0F172A",
@@ -17,7 +18,26 @@ const C = {
   text:"#0F172A",textSec:"#64748B",textMuted:"#94A3B8"
 };
 
+// Pictogrammes au trait (même style que la navigation)
+const ICONS = {
+  sun:<><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></>,
+  moon:<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>,
+  droplet:<path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>,
+  thermometer:<path d="M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z"/>,
+  box:<><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>,
+  clipboard:<><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></>,
+  check:<polyline points="20 6 9 17 4 12"/>,
+  users:<><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></>,
+  trash:<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></>,
+};
+const Ico = ({ name, size = 20, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{flexShrink:0,display:"block"}}>{ICONS[name]}</svg>
+);
+
 const JOURS = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+const TYPE_COULEURS = ["#2563EB","#16A34A","#D97706","#DC2626","#7C3AED","#0891B2"];
+const EMPTY_TYPE = { nom:"", heure_debut:"", heure_fin:"", couleur:TYPE_COULEURS[0] };
+
 const JOURS_FULL = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
 
 function getWeekDates(weekOffset = 0) {
@@ -48,7 +68,7 @@ function calcHeures(shifts) {
 }
 
 // ── PLANNING ─────────────────────────────────────────────────
-export function Planning({ restaurantId, profileId, toast }) {
+export function Planning({ restaurantId, toast, canManage = true }) {
   const [week, setWeek] = useState(0);
   const [employees, setEmployees] = useState([]);
   const [shiftTypes, setShiftTypes] = useState([]);
@@ -56,79 +76,155 @@ export function Planning({ restaurantId, profileId, toast }) {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // {empId, date}
   const [addEmp, setAddEmp] = useState(false);
-  const [newEmp, setNewEmp] = useState({ nom:"", prenom:"", heures_contrat:35, salaire_horaire:11.65 });
+  const [newEmp, setNewEmp] = useState({ nom:"", prenom:"", heures_contrat:35, salaire_horaire:"" });
+  const [pendingEmpRemove, setPendingEmpRemove] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [published, setPublished] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null); // id du créneau à confirmer
+  const [typesModal, setTypesModal] = useState(false);
+  const [newType, setNewType] = useState(EMPTY_TYPE);
+  const [savingType, setSavingType] = useState(false);
+  const [pendingTypeDelete, setPendingTypeDelete] = useState(null); // id du type de poste à confirmer
+  const published = shifts.length > 0 && shifts.every(s => s.published);
 
   const days = getWeekDates(week);
-  const weekLabel = `${days[0].getDate()} – ${days[6].getDate()} ${days[6].toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}`;
+  const weekLabel = days[0].getMonth() === days[6].getMonth()
+    ? `${days[0].getDate()} – ${days[6].getDate()} ${days[6].toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}`
+    : `${days[0].toLocaleDateString("fr-FR",{day:"numeric",month:"short"})} – ${days[6].toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric"})}`;
 
   useEffect(() => {
     loadAll();
   }, [restaurantId, week]);
 
+  // Confirmation de suppression désarmée au changement de semaine, à l'ouverture de la modale, et après 4 s
+  useEffect(() => { setPendingDelete(null); }, [week, modal]);
+  useEffect(() => {
+    if (pendingDelete === null) return;
+    const t = setTimeout(() => setPendingDelete(null), 4000);
+    return () => clearTimeout(t);
+  }, [pendingDelete]);
+
+  // Même logique pour la suppression d'un type de poste
+  useEffect(() => { setPendingTypeDelete(null); }, [typesModal]);
+  useEffect(() => {
+    if (pendingTypeDelete === null) return;
+    const t = setTimeout(() => setPendingTypeDelete(null), 4000);
+    return () => clearTimeout(t);
+  }, [pendingTypeDelete]);
+  useEffect(() => {
+    if (pendingEmpRemove === null) return;
+    const t = setTimeout(() => setPendingEmpRemove(null), 4000);
+    return () => clearTimeout(t);
+  }, [pendingEmpRemove]);
+
   const loadAll = async () => {
-    if (!restaurantId) return;
+    if (!restaurantId) { setLoading(false); return; }
     setLoading(true);
-    const [{ data: emps }, { data: sts }, { data: sh }] = await Promise.all([
-      supabase.from("employees").select("*").eq("restaurant_id", restaurantId).eq("actif", true).order("nom"),
+    const [rEmp, rSt, rSh] = await Promise.all([
+      supabase.from("employees").select(canManage ? "*" : "id,nom,prenom,heures_contrat").eq("restaurant_id", restaurantId).eq("actif", true).order("nom"),
       supabase.from("shift_types").select("*").eq("restaurant_id", restaurantId),
-      supabase.from("shifts").select("*").eq("restaurant_id", restaurantId)
-        .gte("date", days[0].toISOString().split("T")[0])
-        .lte("date", days[6].toISOString().split("T")[0])
+      (canManage ? supabase.from("shifts").select("*").eq("restaurant_id", restaurantId)
+        : supabase.from("shifts").select("*").eq("restaurant_id", restaurantId).eq("published", true))
+        .gte("date", localDate(days[0]))
+        .lte("date", localDate(days[6]))
     ]);
-    setEmployees(emps || []);
-    setShiftTypes(sts || []);
-    setShifts(sh || []);
+    const loadErr = [rEmp, rSt, rSh].find(r => r.error);
+    if (loadErr) toast("Erreur de chargement du planning", "error");
+    if (!rEmp.error) setEmployees(rEmp.data || []);
+    if (!rSt.error) setShiftTypes(rSt.data || []);
+    if (!rSh.error) setShifts(rSh.data || []);
     setLoading(false);
   };
 
   const getShifts = (empId, date) => {
-    const ds = date.toISOString().split("T")[0];
+    const ds = localDate(date);
     return shifts.filter(s => s.employee_id === empId && s.date === ds);
   };
 
   const addShift = async (type) => {
-    if (!modal) return;
+    if (!modal || saving) return;
     setSaving(true);
-    const ds = modal.date.toISOString().split("T")[0];
+    const ds = localDate(modal.date);
+    let error;
     if (type === "repos") {
-      await supabase.from("shifts").insert({ restaurant_id: restaurantId, employee_id: modal.empId, date: ds, heure_debut:"00:00", heure_fin:"00:00", type_nom:"Repos", couleur:"#E2E8F0", repos: true });
+      ({ error } = await supabase.from("shifts").insert({ restaurant_id: restaurantId, employee_id: modal.empId, date: ds, heure_debut:"00:00", heure_fin:"00:00", type_nom:"Repos", couleur:"#E2E8F0", repos: true }));
     } else {
-      await supabase.from("shifts").insert({ restaurant_id: restaurantId, employee_id: modal.empId, date: ds, heure_debut: type.heure_debut, heure_fin: type.heure_fin, type_nom: type.nom, couleur: type.couleur, repos: false });
+      ({ error } = await supabase.from("shifts").insert({ restaurant_id: restaurantId, employee_id: modal.empId, date: ds, heure_debut: type.heure_debut, heure_fin: type.heure_fin, type_nom: type.nom, couleur: type.couleur, repos: false }));
     }
+    if (error) { toast("Erreur : le service n'a pas été ajouté", "error"); setSaving(false); return; }
     await loadAll();
     setModal(null);
     setSaving(false);
   };
 
   const removeShift = async (id) => {
-    await supabase.from("shifts").delete().eq("id", id);
+    setPendingDelete(null);
+    const { error } = await supabase.from("shifts").delete().eq("id", id);
+    if (error) { toast("Erreur : le service n'a pas été supprimé", "error"); return; }
     setShifts(prev => prev.filter(s => s.id !== id));
   };
 
+  const typeNom = newType.nom.trim();
+  const typeError = !typeNom ? "Le nom est obligatoire"
+    : shiftTypes.some(t => (t.nom || "").trim().toLowerCase() === typeNom.toLowerCase()) ? "Un type de poste porte déjà ce nom"
+    : !newType.heure_debut || !newType.heure_fin ? "Indiquez l'heure de début et de fin"
+    : newType.heure_debut === newType.heure_fin ? "L'heure de fin doit être différente de l'heure de début"
+    : null;
+
+  const saveShiftType = async () => {
+    if (typeError || savingType) return;
+    setSavingType(true);
+    const { error } = await supabase.from("shift_types").insert({ restaurant_id: restaurantId, nom: typeNom, heure_debut: newType.heure_debut, heure_fin: newType.heure_fin, couleur: newType.couleur });
+    setSavingType(false);
+    if (error) { toast("Erreur : le type de poste n'a pas été créé", "error"); return; }
+    toast("Type de poste créé");
+    setNewType(EMPTY_TYPE);
+    await loadAll();
+  };
+
+  const removeShiftType = async (id) => {
+    setPendingTypeDelete(null);
+    const { error } = await supabase.from("shift_types").delete().eq("id", id);
+    if (error) { toast("Erreur : le type de poste n'a pas été supprimé", "error"); return; }
+    toast("Type de poste supprimé");
+    await loadAll();
+  };
+
   const saveEmployee = async () => {
-    if (!newEmp.nom.trim()) return;
+    if (!newEmp.nom.trim()) { toast("Nom obligatoire", "error"); return; }
+    const taux = Number(String(newEmp.salaire_horaire).replace(",", "."));
+    const heures = Number(String(newEmp.heures_contrat).replace(",", "."));
+    if (!(taux > 0)) { toast("Taux horaire obligatoire", "error"); return; }
+    if (!(heures > 0)) { toast("Heures par semaine invalides", "error"); return; }
     setSaving(true);
-    const { error } = await supabase.from("employees").insert({ restaurant_id: restaurantId, ...newEmp });
-    if (!error) { await loadAll(); toast("Employé ajouté"); setAddEmp(false); setNewEmp({ nom:"", prenom:"", heures_contrat:35, salaire_horaire:11.65 }); }
+    const { error } = await supabase.from("employees").insert({ restaurant_id: restaurantId, ...newEmp, salaire_horaire: taux, heures_contrat: heures });
+    if (!error) { await loadAll(); toast("Employé ajouté"); setAddEmp(false); setNewEmp({ nom:"", prenom:"", heures_contrat:35, salaire_horaire:"" }); }
     else toast("Erreur", "error");
     setSaving(false);
   };
 
+  // Retrait d'un employé (archivé : ses services passés restent dans l'historique)
+  const removeEmployee = async (id) => {
+    setPendingEmpRemove(null);
+    const { error } = await supabase.from("employees").update({ actif: false }).eq("id", id).eq("restaurant_id", restaurantId);
+    if (error) { toast("Erreur : l'employé n'a pas été retiré", "error"); return; }
+    setEmployees(p => p.filter(e => e.id !== id));
+    toast("Employé retiré du planning");
+  };
+
   const publishPlanning = async () => {
-    await supabase.from("shifts").update({ published: true })
+    const { error } = await supabase.from("shifts").update({ published: true })
       .eq("restaurant_id", restaurantId)
-      .gte("date", days[0].toISOString().split("T")[0])
-      .lte("date", days[6].toISOString().split("T")[0]);
-    setPublished(true);
-    toast("Planning publié — équipe notifiée");
+      .gte("date", localDate(days[0]))
+      .lte("date", localDate(days[6]));
+    if (error) { toast("Erreur : le planning n'a pas été publié", "error"); return; }
+    setShifts(prev => prev.map(s => ({ ...s, published: true })));
+    toast("Planning publié");
   };
 
   // Total masse salariale
   const totalMasse = employees.reduce((total, emp) => {
     const heures = calcHeures(shifts.filter(s => s.employee_id === emp.id));
-    return total + heures * (emp.salaire_horaire || 11.65);
+    return total + heures * (Number(emp.salaire_horaire) || 0);
   }, 0);
 
   if (loading) return <div style={{padding:40,textAlign:"center",color:C.textMuted}}>Chargement du planning...</div>;
@@ -144,17 +240,17 @@ export function Planning({ restaurantId, profileId, toast }) {
             <p style={{margin:"0 0 10px",fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Choisir un service</p>
             <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:14}}>
               {shiftTypes.map(st => (
-                <button key={st.id} onClick={() => addShift(st)}
-                  style={{padding:"10px 14px",borderRadius:10,border:"none",background:st.couleur+"22",cursor:"pointer",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
+                <button key={st.id} onClick={() => addShift(st)} disabled={saving}
+                  style={{padding:"10px 14px",borderRadius:10,border:"none",background:st.couleur+"22",cursor:saving?"wait":"pointer",opacity:saving?.6:1,display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
                   <span style={{width:12,height:12,borderRadius:"50%",background:st.couleur,flexShrink:0,display:"inline-block"}}/>
                   <div style={{flex:1}}>
-                    <p style={{margin:0,fontSize:13,fontWeight:700,color:C.text}}>{st.nom} ({st.abrev})</p>
+                    <p style={{margin:0,fontSize:13,fontWeight:700,color:C.text}}>{st.nom}{st.abrev ? ` (${st.abrev})` : ""}</p>
                     <p style={{margin:0,fontSize:11,color:C.textSec}}>{st.heure_debut} – {st.heure_fin} · {calcDureeH(st.heure_debut,st.heure_fin)}h</p>
                   </div>
                 </button>
               ))}
-              <button onClick={() => addShift("repos")}
-                style={{padding:"10px 14px",borderRadius:10,border:`1px solid ${C.border}`,background:"#F8FAFC",cursor:"pointer",display:"flex",alignItems:"center",gap:10,color:C.textSec}}>
+              <button onClick={() => addShift("repos")} disabled={saving}
+                style={{padding:"10px 14px",borderRadius:10,border:`1px solid ${C.border}`,background:"#F8FAFC",cursor:saving?"wait":"pointer",opacity:saving?.6:1,display:"flex",alignItems:"center",gap:10,color:C.textSec}}>
                 <span style={{width:12,height:12,borderRadius:"50%",background:"#CBD5E1",flexShrink:0,display:"inline-block"}}/>
                 <span style={{fontSize:13}}>Repos hebdomadaire</span>
               </button>
@@ -164,34 +260,97 @@ export function Planning({ restaurantId, profileId, toast }) {
         </div>
       )}
 
+      {/* Modal types de poste */}
+      {typesModal && (
+        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:C.surface,borderRadius:16,padding:24,width:"100%",maxWidth:400,maxHeight:"90vh",overflowY:"auto",boxSizing:"border-box",boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
+            <p style={{margin:"0 0 16px",fontSize:16,fontWeight:800}}>Types de poste</p>
+            <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:18}}>
+              {shiftTypes.length === 0 && <p style={{margin:0,fontSize:13,color:C.textSec}}>Aucun type de poste pour le moment.</p>}
+              {shiftTypes.map(st => (
+                <div key={st.id} style={{padding:"8px 10px",borderRadius:10,background:st.couleur+"22",display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{width:12,height:12,borderRadius:"50%",background:st.couleur,flexShrink:0,display:"inline-block"}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{margin:0,fontSize:13,fontWeight:700,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{st.nom}</p>
+                    <p style={{margin:0,fontSize:11,color:C.textSec}}>{(st.heure_debut||"").slice(0,5)} – {(st.heure_fin||"").slice(0,5)} · {calcDureeH(st.heure_debut,st.heure_fin)}h</p>
+                  </div>
+                  <button onClick={() => { if (pendingTypeDelete===st.id) removeShiftType(st.id); else setPendingTypeDelete(st.id); }}
+                    aria-label={pendingTypeDelete===st.id?"Confirmer la suppression du type de poste":"Supprimer le type de poste"}
+                    style={{minHeight:36,padding:"4px 10px",borderRadius:8,border:`1px solid ${pendingTypeDelete===st.id?C.danger:C.border}`,background:pendingTypeDelete===st.id?C.dangerLight:C.surface,color:pendingTypeDelete===st.id?C.danger:C.textSec,fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+                    {pendingTypeDelete===st.id ? "Supprimer ?" : "Supprimer"}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p style={{margin:"0 0 10px",fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Nouveau type de poste</p>
+            <div style={{marginBottom:10}}>
+              <label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>Nom</label>
+              <input value={newType.nom} onChange={e=>setNewType(p=>({...p,nom:e.target.value}))} placeholder="Ex. Midi, Soir, Coupure…" style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}/>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+              {[["Début","heure_debut"],["Fin","heure_fin"]].map(([l,k])=>(
+                <div key={k}><label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</label>
+                <input type="time" value={newType[k]} onChange={e=>setNewType(p=>({...p,[k]:e.target.value}))} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}/></div>
+              ))}
+            </div>
+            <label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:".5px"}}>Couleur</label>
+            <div style={{display:"flex",gap:8,marginBottom:12}}>
+              {TYPE_COULEURS.map(c => (
+                <button key={c} onClick={() => setNewType(p=>({...p,couleur:c}))} aria-label={`Couleur ${c}`} aria-pressed={newType.couleur===c}
+                  style={{width:32,height:32,borderRadius:"50%",background:c,border:newType.couleur===c?`3px solid ${C.navy}`:"3px solid transparent",boxShadow:newType.couleur===c?"0 0 0 2px #fff inset":"none",cursor:"pointer",padding:0}}/>
+              ))}
+            </div>
+            {typeError && (newType.nom || newType.heure_debut || newType.heure_fin) && <p style={{margin:"0 0 10px",fontSize:12,color:C.danger}}>{typeError}</p>}
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={saveShiftType} disabled={!!typeError || savingType} style={{flex:1,padding:"10px 14px",background:C.brand,color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:typeError||savingType?"not-allowed":"pointer",opacity:typeError||savingType?.5:1}}>{savingType?"...":"Ajouter"}</button>
+              <button onClick={() => { setTypesModal(false); setNewType(EMPTY_TYPE); }} style={{padding:"10px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:13}}>Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
         <div>
           <h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Planning</h1>
           <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
-            <button onClick={() => setWeek(w => w-1)} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:14}}>‹</button>
+            <button onClick={() => setWeek(w => w-1)} aria-label="Semaine précédente" style={{minWidth:44,minHeight:44,padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:14}}>‹</button>
             <p style={{margin:0,fontSize:14,fontWeight:600}}>{weekLabel}</p>
-            <button onClick={() => setWeek(w => w+1)} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:14}}>›</button>
+            <button onClick={() => setWeek(w => w+1)} aria-label="Semaine suivante" style={{minWidth:44,minHeight:44,padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:14}}>›</button>
             <button onClick={() => setWeek(0)} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:11,color:C.textSec}}>Aujourd'hui</button>
             {published && <span style={{fontSize:11,fontWeight:700,background:C.successLight,color:C.success,padding:"2px 8px",borderRadius:10}}>Publié</span>}
           </div>
         </div>
-        <div style={{display:"flex",gap:8}}>
+        {canManage && <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <button onClick={() => setTypesModal(true)} style={{padding:"8px 14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer"}}>
+            Types de poste
+          </button>
           <button onClick={() => setAddEmp(true)} style={{padding:"8px 14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
             + Employé
           </button>
           <button onClick={publishPlanning} style={{padding:"8px 16px",background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px rgba(37,99,235,.3)"}}>
             Publier le planning
           </button>
-        </div>
+        </div>}
       </div>
 
-      {/* Barre masse salariale */}
-      <div style={{background:C.surface,borderRadius:12,border:`1px solid ${C.border}`,padding:"12px 16px",marginBottom:14,display:"flex",gap:20,flexWrap:"wrap",alignItems:"center"}}>
+      {/* Aucun type de poste */}
+      {canManage && shiftTypes.length === 0 && (
+        <div style={{background:C.warningLight,borderRadius:12,border:`1px solid ${C.warning}40`,padding:"12px 16px",marginBottom:14,display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{flex:"1 1 220px"}}>
+            <p style={{margin:0,fontSize:13,fontWeight:700,color:C.text}}>Aucun type de poste</p>
+            <p style={{margin:"2px 0 0",fontSize:12,color:C.textSec}}>Créez vos postes (ex. Midi, Soir) pour pouvoir planifier des services. Sans eux, seuls les repos peuvent être placés.</p>
+          </div>
+          <button onClick={() => setTypesModal(true)} style={{padding:"8px 14px",background:C.warning,color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"}}>Créer un type de poste</button>
+        </div>
+      )}
+
+      {/* Barre masse salariale (gérant/manager uniquement) */}
+      {canManage && <div style={{background:C.surface,borderRadius:12,border:`1px solid ${C.border}`,padding:"12px 16px",marginBottom:14,display:"flex",gap:20,flexWrap:"wrap",alignItems:"center"}}>
         <div><p style={{margin:0,fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:".5px"}}>Masse salariale semaine</p><p style={{margin:0,fontSize:18,fontWeight:800,color:C.warning}}>{totalMasse.toFixed(0)}€</p></div>
         <div><p style={{margin:0,fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:".5px"}}>Shifts planifiés</p><p style={{margin:0,fontSize:18,fontWeight:800}}>{shifts.filter(s=>!s.repos).length}</p></div>
         <div><p style={{margin:0,fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:".5px"}}>Employés</p><p style={{margin:0,fontSize:18,fontWeight:800}}>{employees.length}</p></div>
-      </div>
+      </div>}
 
       {/* Ajout employé */}
       {addEmp && (
@@ -204,7 +363,7 @@ export function Planning({ restaurantId, profileId, toast }) {
             ))}
             {[["Heures/semaine",newEmp.heures_contrat,v=>setNewEmp(p=>({...p,heures_contrat:v})),"number"],["Taux horaire (€)",newEmp.salaire_horaire,v=>setNewEmp(p=>({...p,salaire_horaire:v})),"number"]].map(([l,v,set,t])=>(
               <div key={l}><label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</label>
-              <input type={t} value={v} onChange={e=>set(parseFloat(e.target.value))} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}/></div>
+              <input type={t} inputMode="decimal" value={v} onChange={e=>set(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}/></div>
             ))}
           </div>
           <div style={{display:"flex",gap:8}}>
@@ -216,19 +375,19 @@ export function Planning({ restaurantId, profileId, toast }) {
 
       {employees.length === 0 ? (
         <div style={{padding:40,textAlign:"center",background:C.surface,borderRadius:14,border:`1px solid ${C.border}`}}>
-          <p style={{fontSize:32,margin:"0 0 10px"}}>👥</p>
+          <div style={{display:"flex",justifyContent:"center",marginBottom:10,color:C.textMuted}}><Ico name="users" size={32}/></div>
           <p style={{fontSize:16,fontWeight:700,margin:0}}>Aucun employé</p>
           <p style={{fontSize:13,color:C.textSec,margin:"6px 0 0"}}>Ajoutez vos employés pour créer le planning</p>
         </div>
       ) : (
         <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:"auto"}}>
           {/* En-tête jours */}
-          <div style={{display:"grid",gridTemplateColumns:"160px repeat(7,1fr)",borderBottom:`1px solid ${C.border}`,minWidth:800}}>
-            <div style={{padding:"10px 14px",background:"#F8FAFC",borderRight:`1px solid ${C.border}`}}>
+          <div style={{display:"grid",gridTemplateColumns:"120px repeat(7,minmax(84px,1fr))",borderBottom:`1px solid ${C.border}`,minWidth:708}}>
+            <div style={{padding:"10px 14px",background:"#F8FAFC",borderRight:`1px solid ${C.border}`,position:"sticky",left:0,zIndex:2}}>
               <p style={{margin:0,fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Employés</p>
             </div>
             {days.map((d, i) => {
-              const today = new Date().toISOString().split("T")[0] === d.toISOString().split("T")[0];
+              const today = localDate() === localDate(d);
               return (
                 <div key={i} style={{padding:"10px 8px",textAlign:"center",background: today?"#EFF6FF":"#F8FAFC",borderRight:i<6?`1px solid ${C.border}`:"none",borderBottom:`2px solid ${today?C.brand:C.border}`}}>
                   <p style={{margin:0,fontSize:11,fontWeight:500,color:today?C.brand:C.textSec}}>{JOURS[i]}</p>
@@ -244,19 +403,22 @@ export function Planning({ restaurantId, profileId, toast }) {
             const heuresTotales = calcHeures(empShifts);
             const surplus = heuresTotales - (emp.heures_contrat || 35);
             return (
-              <div key={emp.id} style={{display:"grid",gridTemplateColumns:"160px repeat(7,1fr)",borderBottom:`1px solid ${C.border}`,minWidth:800}}>
+              <div key={emp.id} style={{display:"grid",gridTemplateColumns:"120px repeat(7,minmax(84px,1fr))",borderBottom:`1px solid ${C.border}`,minWidth:708}}>
                 {/* Nom employé */}
-                <div style={{padding:"10px 12px",borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                <div style={{padding:"10px 12px",borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",justifyContent:"center",position:"sticky",left:0,zIndex:1,background:C.surface,minWidth:0}}>
                   <p style={{margin:0,fontSize:13,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.prenom} {emp.nom}</p>
                   <p style={{margin:0,fontSize:11,color:C.textSec}}>{(emp.heures_contrat||35)}h | <span style={{color:surplus>0?C.success:surplus<-1?C.danger:C.textSec}}>{heuresTotales.toFixed(1)}h</span></p>
+                  {canManage && <button onClick={() => pendingEmpRemove===emp.id ? removeEmployee(emp.id) : setPendingEmpRemove(emp.id)}
+                    style={{alignSelf:"flex-start",marginTop:2,padding:"6px 8px 6px 0",minHeight:32,background:"none",border:"none",cursor:"pointer",fontSize:12,fontWeight:600,color:pendingEmpRemove===emp.id?C.danger:C.textMuted}}>
+                    {pendingEmpRemove===emp.id ? "Confirmer le retrait" : "Retirer"}</button>}
                 </div>
                 {/* Cellules jours */}
                 {days.map((d, di) => {
-                  const ds = d.toISOString().split("T")[0];
+                  const ds = localDate(d);
                   const dayShifts = empShifts.filter(s => s.date === ds);
                   return (
-                    <div key={di} onClick={() => setModal({ empId: emp.id, empName: `${emp.prenom} ${emp.nom}`, date: d })}
-                      style={{padding:6,borderRight:di<6?`1px solid ${C.border}`:"none",minHeight:60,cursor:"pointer",background:"transparent",position:"relative"}}
+                    <div key={di} onClick={canManage ? () => setModal({ empId: emp.id, empName: `${emp.prenom} ${emp.nom}`, date: d }) : undefined}
+                      style={{padding:6,borderRight:di<6?`1px solid ${C.border}`:"none",minHeight:60,cursor:canManage?"pointer":"default",background:"transparent",position:"relative"}}
                       onMouseEnter={e=>e.currentTarget.style.background="#F8FAFC"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                       {dayShifts.length === 0 && (
                         <div style={{height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -264,10 +426,13 @@ export function Planning({ restaurantId, profileId, toast }) {
                         </div>
                       )}
                       {dayShifts.map(s => (
-                        <div key={s.id} onClick={e=>{e.stopPropagation();removeShift(s.id);}}
-                          style={{marginBottom:3,padding:"3px 6px",borderRadius:6,background:s.repos?"#F1F5F9":s.couleur+"22",border:`1px solid ${s.repos?"#E2E8F0":s.couleur}50`,cursor:"pointer",position:"relative"}}
-                          title="Cliquer pour supprimer">
-                          {s.repos ? (
+                        <div key={s.id} role={canManage?"button":undefined} aria-label={canManage?(pendingDelete===s.id?"Confirmer la suppression du service":"Supprimer le service"):undefined}
+                          onClick={e=>{e.stopPropagation();if (!canManage) return;if (pendingDelete===s.id) removeShift(s.id); else setPendingDelete(s.id);}}
+                          style={{marginBottom:3,padding:"3px 6px",borderRadius:6,background:pendingDelete===s.id?C.dangerLight:s.repos?"#F1F5F9":s.couleur+"22",border:`1px solid ${pendingDelete===s.id?C.danger:(s.repos?"#E2E8F0":s.couleur)+"50"}`,cursor:canManage?"pointer":"default",position:"relative"}}
+                          title={canManage?"Toucher pour supprimer":undefined}>
+                          {pendingDelete===s.id ? (
+                            <p style={{margin:0,fontSize:10,fontWeight:700,color:C.danger}}>Supprimer ?</p>
+                          ) : s.repos ? (
                             <p style={{margin:0,fontSize:10,color:C.textMuted}}>Repos</p>
                           ) : (
                             <>
@@ -298,20 +463,32 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
   const [addModal, setAddModal] = useState(false);
   const [newTask, setNewTask] = useState({ nom:"", description:"", categorie:"general", frequence:"daily", priorite:"normale" });
   const [saving, setSaving] = useState(false);
+  const [onceDone, setOnceDone] = useState([]); // ids des tâches ponctuelles complétées un autre jour
+  const [pendingTaskDelete, setPendingTaskDelete] = useState(null);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = localDate();
   const todayDow = new Date().getDay() || 7; // 1=lun, 7=dim
+  const [jourSemaine, setJourSemaine] = useState(todayDow);
 
   useEffect(() => { loadAll(); }, [restaurantId]);
 
   const loadAll = async () => {
-    if (!restaurantId) return;
+    if (!restaurantId) { setLoading(false); return; }
     setLoading(true);
     const [{ data: ts }, { data: cs }] = await Promise.all([
-      supabase.from("tasks").select("*").eq("restaurant_id", restaurantId).eq("actif", true).order("priorite", { ascending:false }),
+      supabase.from("tasks").select("*").eq("restaurant_id", restaurantId).eq("actif", true),
       supabase.from("task_completions").select("*").eq("restaurant_id", restaurantId).eq("date", today)
     ]);
-    setTasks(ts || []);
+    const RANG = { haute:0, normale:1, basse:2 };
+    const sorted = (ts || []).slice().sort((a, b) => (RANG[a.priorite] ?? 1) - (RANG[b.priorite] ?? 1));
+    const onceIds = sorted.filter(t => t.frequence === "once").map(t => t.id);
+    let prev = [];
+    if (onceIds.length) {
+      const { data: oc } = await supabase.from("task_completions").select("task_id,date").in("task_id", onceIds).neq("date", today);
+      prev = (oc || []).map(c => c.task_id);
+    }
+    setTasks(sorted);
+    setOnceDone(prev);
     setCompletions(cs || []);
     setLoading(false);
   };
@@ -319,6 +496,7 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
   const todayTasks = tasks.filter(t => {
     if (t.frequence === "daily") return true;
     if (t.frequence === "weekly") return (t.jours_semaine || []).includes(todayDow);
+    if (t.frequence === "once") return !onceDone.includes(t.id);
     return false;
   });
 
@@ -330,32 +508,36 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
     const { error } = await supabase.from("task_completions").insert({
       task_id: task.id, restaurant_id: restaurantId, completed_by: profileId, date: today
     });
-    if (!error) { setCompletions(prev => [...prev, { task_id: task.id }]); toast("Tâche complétée ✓"); }
-    else toast("Erreur", "error");
+    if (!error) { setCompletions(prev => [...prev, { task_id: task.id }]); toast("Tâche complétée"); }
+    else toast("Erreur : la tâche n'a pas été complétée", "error");
   };
 
   const uncomplete = async (task) => {
-    await supabase.from("task_completions").delete().eq("task_id", task.id).eq("date", today);
+    const { error } = await supabase.from("task_completions").delete().eq("task_id", task.id).eq("date", today);
+    if (error) { toast("Erreur : l'annulation a échoué", "error"); return; }
     setCompletions(prev => prev.filter(c => c.task_id !== task.id));
   };
 
   const saveTask = async () => {
     if (!newTask.nom.trim()) return;
     setSaving(true);
-    const { error } = await supabase.from("tasks").insert({ restaurant_id: restaurantId, ...newTask, created_by: profileId, jours_semaine: [1,2,3,4,5,6,7] });
+    const { error } = await supabase.from("tasks").insert({ restaurant_id: restaurantId, ...newTask, created_by: profileId, jours_semaine: newTask.frequence === "weekly" ? [jourSemaine] : [1,2,3,4,5,6,7] });
     if (!error) { await loadAll(); toast("Tâche créée"); setAddModal(false); setNewTask({ nom:"", description:"", categorie:"general", frequence:"daily", priorite:"normale" }); }
-    else toast("Erreur", "error");
+    else toast("Erreur : la tâche n'a pas été créée", "error");
     setSaving(false);
   };
 
   const deleteTask = async (id) => {
-    await supabase.from("tasks").update({ actif: false }).eq("id", id);
+    setPendingTaskDelete(null);
+    const { error } = await supabase.from("tasks").update({ actif: false }).eq("id", id);
+    if (error) { toast("Erreur : la tâche n'a pas été supprimée", "error"); return; }
     setTasks(prev => prev.filter(t => t.id !== id));
     toast("Tâche supprimée");
   };
 
   const PRIO_COLOR = { haute: C.danger, normale: C.brand, basse: C.textMuted };
-  const CAT_ICON = { ouverture:"☀️", fermeture:"🌙", nettoyage:"🧹", haccp:"🌡️", stock:"📦", general:"📋" };
+  // Clés = valeurs de tasks.categorie (stockées en base) ; valeurs = pictogramme affiché
+  const CAT_ICON = { ouverture:"sun", fermeture:"moon", nettoyage:"droplet", haccp:"thermometer", stock:"box", general:"clipboard" };
 
   if (loading) return <div style={{padding:40,textAlign:"center",color:C.textMuted}}>Chargement...</div>;
 
@@ -371,7 +553,7 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                 <div><label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>Catégorie</label>
                   <select value={newTask.categorie} onChange={e=>setNewTask(p=>({...p,categorie:e.target.value}))} style={{width:"100%",padding:"9px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}>
-                    {Object.keys(CAT_ICON).map(c=><option key={c} value={c}>{CAT_ICON[c]} {c}</option>)}
+                    {Object.keys(CAT_ICON).map(c=><option key={c} value={c}>{c}</option>)}
                   </select></div>
                 <div><label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>Fréquence</label>
                   <select value={newTask.frequence} onChange={e=>setNewTask(p=>({...p,frequence:e.target.value}))} style={{width:"100%",padding:"9px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}>
@@ -380,6 +562,16 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
                     <option value="once">Ponctuelle</option>
                   </select></div>
               </div>
+              {newTask.frequence === "weekly" && (
+                <div><label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>Jour</label>
+                  <div style={{display:"flex",gap:4}}>
+                    {["L","M","M","J","V","S","D"].map((l,i)=>(
+                      <button key={i} onClick={()=>setJourSemaine(i+1)} aria-label={JOURS_FULL[i]} aria-pressed={jourSemaine===i+1}
+                        style={{flex:1,minHeight:36,borderRadius:8,border:`1.5px solid ${jourSemaine===i+1?C.brand:C.border}`,background:jourSemaine===i+1?C.brandLight:"transparent",fontSize:12,fontWeight:jourSemaine===i+1?700:400,color:jourSemaine===i+1?C.brand:C.textSec,cursor:"pointer"}}>{l}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div><label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>Priorité</label>
                 <div style={{display:"flex",gap:6}}>
                   {["haute","normale","basse"].map(p=><button key={p} onClick={()=>setNewTask(prev=>({...prev,priorite:p}))} style={{flex:1,padding:"7px 6px",borderRadius:8,border:`1.5px solid ${newTask.priorite===p?PRIO_COLOR[p]:C.border}`,background:newTask.priorite===p?PRIO_COLOR[p]+"15":"transparent",fontSize:12,fontWeight:newTask.priorite===p?700:400,color:newTask.priorite===p?PRIO_COLOR[p]:C.textSec,cursor:"pointer",textTransform:"capitalize"}}>{p}</button>)}
@@ -425,13 +617,13 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
         <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:"hidden"}}>
           {todo.length === 0 ? (
             <div style={{padding:40,textAlign:"center"}}>
-              <p style={{fontSize:28,margin:"0 0 8px"}}>✅</p>
+              <div style={{display:"flex",justifyContent:"center",marginBottom:8,color:C.success}}><Ico name="check" size={28}/></div>
               <p style={{margin:0,fontSize:15,fontWeight:700,color:C.success}}>Toutes les tâches sont complétées !</p>
             </div>
           ) : todo.map((t, i) => (
             <div key={t.id} style={{padding:"14px 16px",borderBottom:i<todo.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:12}}>
-              <div style={{width:40,height:40,borderRadius:12,background:`${PRIO_COLOR[t.priorite]}15`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>
-                {CAT_ICON[t.categorie]||"📋"}
+              <div style={{width:40,height:40,borderRadius:12,background:`${PRIO_COLOR[t.priorite]}15`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:PRIO_COLOR[t.priorite]||C.brand}}>
+                <Ico name={CAT_ICON[t.categorie]||"clipboard"} size={18}/>
               </div>
               <div style={{flex:1}}>
                 <p style={{margin:0,fontSize:14,fontWeight:600}}>{t.nom}</p>
@@ -456,7 +648,7 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
             <p style={{padding:32,textAlign:"center",color:C.textMuted,margin:0,fontSize:13}}>Aucune tâche complétée aujourd'hui</p>
           ) : done.map((t, i) => (
             <div key={t.id} style={{padding:"14px 16px",borderBottom:i<done.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:12,background:C.successLight}}>
-              <div style={{width:40,height:40,borderRadius:12,background:C.successLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{CAT_ICON[t.categorie]||"✅"}</div>
+              <div style={{width:40,height:40,borderRadius:12,background:C.successLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:C.success}}><Ico name={CAT_ICON[t.categorie]||"check"} size={18}/></div>
               <div style={{flex:1}}>
                 <p style={{margin:0,fontSize:14,fontWeight:600,color:C.success,textDecoration:"line-through"}}>{t.nom}</p>
                 <p style={{margin:"2px 0 0",fontSize:11,color:C.success,opacity:.7}}>Complétée aujourd'hui</p>
@@ -472,14 +664,21 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
         <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:"hidden"}}>
           {tasks.map((t, i) => (
             <div key={t.id} style={{padding:"12px 16px",borderBottom:i<tasks.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:12}}>
-              <span style={{fontSize:18,flexShrink:0}}>{CAT_ICON[t.categorie]||"📋"}</span>
+              <span style={{flexShrink:0,color:C.textSec}}><Ico name={CAT_ICON[t.categorie]||"clipboard"} size={18}/></span>
               <div style={{flex:1}}>
                 <p style={{margin:0,fontSize:13,fontWeight:600}}>{t.nom}</p>
                 <p style={{margin:0,fontSize:11,color:C.textSec}}>{t.frequence==="daily"?"Chaque jour":t.frequence==="weekly"?"Hebdomadaire":"Ponctuelle"} · Priorité {t.priorite}</p>
               </div>
-              <button onClick={() => deleteTask(t.id)} style={{padding:"6px",background:C.dangerLight,border:"none",borderRadius:8,cursor:"pointer",display:"flex",alignItems:"center"}}>
-                <span style={{fontSize:14}}>🗑️</span>
-              </button>
+              {pendingTaskDelete === t.id ? (
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={() => deleteTask(t.id)} style={{padding:"6px 10px",background:C.danger,color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:700}}>Supprimer ?</button>
+                  <button onClick={() => setPendingTaskDelete(null)} style={{padding:"6px 10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,cursor:"pointer",fontSize:12}}>Annuler</button>
+                </div>
+              ) : (
+                <button onClick={() => setPendingTaskDelete(t.id)} aria-label={`Supprimer la tâche ${t.nom}`} style={{padding:"6px",background:C.dangerLight,border:"none",borderRadius:8,cursor:"pointer",display:"flex",alignItems:"center"}}>
+                  <Ico name="trash" size={16} color={C.danger}/>
+                </button>
+              )}
             </div>
           ))}
         </div>
