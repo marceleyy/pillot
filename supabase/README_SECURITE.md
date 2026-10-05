@@ -9,6 +9,7 @@ Dans le SQL Editor (rôle `postgres`), dans cet ordre :
 
 1. `migrations/20261005_01_nouvelles_tables.sql` — tables `pointages`, `nettoyage_plans`, `ca_imports`, colonnes `temperature_logs.action_corrective`, `ca_history.date_debut/date_fin`.
 2. `migrations/20261005_02_rls.sql` — fonctions `my_restaurant_id()`, `my_role()`, `is_admin()`, `can_manage()`, trigger anti-escalade sur `profiles`, policies.
+3. `migrations/20261005_03_reglages.sql` — colonnes `restaurants.adresse`, `telephone`, `horaires`, `modules` (Réglages et interrupteur du module glacier). Sans elle, ces réglages affichent « mise à jour de la base nécessaire » ; le reste fonctionne.
 
 Les deux fichiers sont rejouables (idempotents).
 
