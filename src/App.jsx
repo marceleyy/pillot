@@ -791,6 +791,10 @@ const MANAGER_ROLES=new Set(["owner","manager"]);
 const canManageRole=role=>MANAGER_ROLES.has(role);
 // Appareil partagé : un compte responsable (CA, taux horaires, équipe) est déconnecté après 15 min sans activité
 const INACTIVITE_MS=15*60000,ACTIVITE_KEY="pillot_derniere_activite";
+// Arrivée par un lien d'invitation / de réinitialisation : c'est une connexion fraîche (lu avant que Supabase ne nettoie l'URL)
+if(typeof window!=="undefined"&&/(access_token=|[?&]code=|type=(invite|recovery|signup|magiclink))/.test(window.location.hash+window.location.search)){
+  try{localStorage.setItem(ACTIVITE_KEY,String(Date.now()));}catch{/* stockage indisponible */}
+}
 // Employé : pas de CA, de catalogue, d'équipements ni de réglages
 const STAFF_HIDDEN=new Set(["produits","historique","appareils","settings","scan","equipe"]);
 const navTabs=(role,{glaces}={})=>role==="admin"

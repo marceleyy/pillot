@@ -165,7 +165,9 @@ set search_path = public
 as $$
 begin
   -- Purge de conservation : pas de journal (sinon les données purgées seraient recopiées)
-  if current_setting('pillot.purge', true) = 'on' then
+  -- (réservé à rgpd_purge : refusé si la session est celle d'un utilisateur de l'API)
+  if current_setting('pillot.purge', true) = 'on'
+     and current_setting('role') not in ('authenticated', 'anon') then
     return coalesce(new, old);
   end if;
   if tg_op = 'DELETE' then
@@ -217,11 +219,15 @@ begin
      or new.restaurant_id is distinct from old.restaurant_id
      or new.saisi_par is distinct from old.saisi_par
      or (new.note is distinct from old.note
-         and new.note is distinct from concat_ws(' · ', old.note, 'Oubli de départ corrigé')) then
+         and new.note is distinct from concat_ws(' · ', nullif(old.note, ''), 'Oubli de départ corrigé')) then
     raise exception 'Seul un responsable peut corriger un pointage' using errcode = '42501';
   end if;
-  if new.fin is not null and (new.fin <= new.debut or new.fin > now() + interval '2 minutes') then
-    raise exception 'Heure de départ invalide' using errcode = '22007';
+  -- Départ : jamais dans le futur (horloge de la tablette en avance => heure du serveur)
+  if new.fin is not null then
+    new.fin := least(new.fin, now());
+    if new.fin <= new.debut then
+      raise exception 'Heure de départ invalide' using errcode = '22007';
+    end if;
   end if;
   return new;
 end;
