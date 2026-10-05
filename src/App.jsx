@@ -60,8 +60,11 @@ const Icon = ({n,sz=18,c="currentColor"})=><span style={{display:"inline-flex",w
 const gst=p=>{if(p.stock===null||p.stock===undefined)return"non_saisi";if(!p.stock_min)return"non_suivi";if(p.stock===0)return"rupture";if(p.stock<=p.stock_min)return"commander";return"ok";};
 const FOURN_COLORS=["#1E3A8A","#065F46","#92400E","#5B21B6","#7F1D1D","#0E7490","#374151"];
 const fournColor=f=>C.fourn[f]||FOURN_COLORS[[...String(f||"")].reduce((a,ch)=>(a*31+ch.charCodeAt(0))>>>0,7)%FOURN_COLORS.length];
-const coteOf=p=>p.cote==="SUCRE"?"SUCRE":"SALE";
-const gqt=p=>p.cote==="SUCRE"?Math.max(1,Math.ceil(p.stock_min-p.stock)):Math.max(1,Math.ceil(p.stock_min*2-p.stock));
+// Quantité suggérée : remonter le stock au double du minimum
+const gqt=p=>Math.max(1,Math.ceil(p.stock_min*2-(p.stock||0)));
+// Un seul CA / ratio par restaurant : les anciennes colonnes « sucré » (clôtures d'avant) sont additionnées
+const caTotal=r=>(+r?.ca_sale||0)+(+r?.ca_sucre||0);
+const ratioGlobal=r=>{const t=caTotal(r);return t>0?((+r.ratio_sale||0)*(+r.ca_sale||0)+(+r.ratio_sucre||0)*(+r.ca_sucre||0))/t:(+r?.ratio_sale||0);};
 const fmt=n=>new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",minimumFractionDigits:0}).format(n||0);
 const fmtDate=d=>new Date(d).toLocaleDateString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
 const fmtDay=d=>new Date(d).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
@@ -150,10 +153,8 @@ function Dashboard({profile,products,onTab,showCA=true}){
   const cmd=products.filter(p=>gst(p)==="commander");
   const ok=products.filter(p=>gst(p)==="ok");
   const ns=products.filter(p=>gst(p)==="non_saisi");
-  const rs=rest?.ratio_sale||0,rsu=rest?.ratio_sucre||0,obj=rest?.objectif||0.25;
-  const ca_s=rest?.ca_sale||0,ca_su=rest?.ca_sucre||0;
-  const hasSucre=products.some(p=>p.cote==="SUCRE");
-  const sides=hasSucre?[["SALE","Côté Salé",rs,ca_s],["SUCRE","Côté Sucré",rsu,ca_su]]:[["SALE","Coût matière / CA",rs,ca_s]];
+  const obj=rest?.objectif||0.25;
+  const sides=[["ALL","Coût matière / CA",ratioGlobal(rest),caTotal(rest)]];
 
   function StatCard({icon,label,value,sub,color,bg,onClick}){
     return<Card onClick={onClick} style={{padding:"18px 20px"}}>
@@ -219,7 +220,7 @@ function Dashboard({profile,products,onTab,showCA=true}){
 
 // ── INVENTAIRE ────────────────────────────────────────────────
 function Inventaire({products,restaurantId,onStockUpdate,toast}){
-  const [cote,setCote]=useState("SALE"),[search,setSearch]=useState(""),[editId,setEditId]=useState(null),[editVal,setEditVal]=useState(""),[saving,setSaving]=useState(false),[showHist,setShowHist]=useState(false),[hist,setHist]=useState([]),[loadingHist,setLoadingHist]=useState(false);
+  const [search,setSearch]=useState(""),[editId,setEditId]=useState(null),[editVal,setEditVal]=useState(""),[saving,setSaving]=useState(false),[showHist,setShowHist]=useState(false),[hist,setHist]=useState([]),[loadingHist,setLoadingHist]=useState(false);
 
   const loadHistory=async()=>{
     setLoadingHist(true);
@@ -228,9 +229,8 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
     setHist(data||[]);setLoadingHist(false);
   };
 
-  const hasSucre=products.some(p=>p.cote==="SUCRE");
-  const cats=[...new Set(products.filter(p=>coteOf(p)===cote).map(p=>p.categorie))];
-  const filtered=products.filter(p=>coteOf(p)===cote&&(!search||p.nom.toLowerCase().includes(search.toLowerCase())||p.fournisseur?.toLowerCase().includes(search.toLowerCase())));
+  const cats=[...new Set(products.map(p=>p.categorie))];
+  const filtered=products.filter(p=>(!search||p.nom.toLowerCase().includes(search.toLowerCase())||p.fournisseur?.toLowerCase().includes(search.toLowerCase())));
 
   const saveStock=async(product)=>{
     setSaving(true);const v=parseFloat(editVal);
@@ -263,12 +263,9 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
 
   return<div>
     <div style={{marginBottom:16,display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
-      <div><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Inventaire</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{products.filter(p=>coteOf(p)===cote).length} produits</p></div>
+      <div><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Inventaire</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{products.length} produit{products.length>1?"s":""}</p></div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
         <button onClick={()=>{setShowHist(true);loadHistory();}} style={{padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.textSec}}><Icon n="history" sz={14}/>Historique</button>
-        {hasSucre&&<div style={{display:"flex",gap:4,background:"#F1F5F9",padding:4,borderRadius:10}}>
-          {[["SALE","Salé"],["SUCRE","Sucré"]].map(([k,l])=><button key={k} onClick={()=>setCote(k)} style={{padding:"6px 14px",borderRadius:8,border:"none",fontSize:13,fontWeight:600,cursor:"pointer",background:cote===k?C.surface:"transparent",color:cote===k?C.text:C.textSec,boxShadow:cote===k?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{l}</button>)}
-        </div>}
       </div>
     </div>
     {products.length===0&&<Card style={{padding:20,marginBottom:14,textAlign:"center"}}>
@@ -328,67 +325,83 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
 
 // ── COMMANDES ────────────────────────────────────────────────
 function Commandes({products,profile,toast}){
-  const [copied,setCopied]=useState(null);
-  const alert=products.filter(p=>["rupture","commander"].includes(gst(p))&&p.stock_min>0);
-  const fourns=[...new Set(alert.map(p=>p.fournisseur))];
-  const genMsg=(f,ps)=>{
-    const r=ps.filter(p=>gst(p)==="rupture"),c=ps.filter(p=>gst(p)==="commander");
-    let m=`Bonjour,\nMerci de me livrer cette commande pour ${profile?.restaurants?.name||"Le restaurant"} :\n\n`;
-    if(r.length){m+="RUPTURE - stocks épuisés :\n";r.forEach(p=>m+=`- ${p.nom} : ${gqt(p)} ${p.unite}\n`);m+="\n";}
-    if(c.length){m+="À commander :\n";c.forEach(p=>m+=`- ${p.nom} : ${gqt(p)} ${p.unite}\n`);m+="\n";}
-    return m+"Merci d'avance,\n"+(profile?.restaurants?.name||"Le restaurant");
+  const resto=profile?.restaurants?.name||"Le restaurant",restId=profile?.restaurant_id;
+  const [qte,setQte]=useState({}),[off,setOff]=useState({}),[copied,setCopied]=useState(null);
+  // Dernier envoi par fournisseur, mémorisé sur cet appareil
+  const sentKey="pillot_cmd_"+restId;
+  const [sent,setSent]=useState(()=>{try{return JSON.parse(localStorage.getItem(sentKey)||"{}");}catch{return{};}});
+  const markSent=f=>{const n={...sent,[f]:Date.now()};setSent(n);try{localStorage.setItem(sentKey,JSON.stringify(n));}catch{/* stockage indisponible */}};
+  const alert=products.filter(p=>["rupture","commander"].includes(gst(p))&&p.stock_min>0).sort((a,b)=>(gst(a)==="rupture"?0:1)-(gst(b)==="rupture"?0:1)||a.nom.localeCompare(b.nom,"fr"));
+  const nonSuivis=products.filter(p=>!(p.stock_min>0)).length;
+  const fourns=[...new Set(alert.map(p=>p.fournisseur))].sort((a,b)=>String(a).localeCompare(String(b),"fr"));
+  // Saisie gardée telle quelle (permet « 1,5 ») ; q() en donne la valeur numérique
+  const q=p=>{const v=qte[p.id];if(v===undefined)return gqt(p);const n=parseFloat(String(v).replace(",","."));return n>0?Math.round(n*100)/100:0;};
+  const setQ=(p,v)=>setQte(o=>({...o,[p.id]:typeof v==="number"?Math.max(0,Math.round(v*100)/100):v}));
+  const lignes=f=>alert.filter(p=>p.fournisseur===f&&!off[p.id]&&q(p)>0);
+  const genMsg=f=>`Bonjour,\n\nPouvez-vous livrer la commande suivante pour ${resto} :\n\n${lignes(f).map(p=>`- ${p.nom} : ${q(p)} ${p.unite}`).join("\n")}\n\nMerci,\n${resto}`;
+  const copy=async f=>{try{if(!navigator.clipboard)throw new Error();await navigator.clipboard.writeText(genMsg(f));setCopied(f);markSent(f);toast("Commande copiée");setTimeout(()=>setCopied(null),2000);}catch{toast("Copie impossible, sélectionnez le texte à la main","error");}};
+  const share=async f=>{
+    const text=genMsg(f);
+    if(navigator.share){try{await navigator.share({title:"Commande "+resto,text});markSent(f);}catch{/* partage annulé */}return;}
+    window.location.href="mailto:?subject="+encodeURIComponent("Commande "+resto)+"&body="+encodeURIComponent(text);markSent(f);
   };
-  const copy=async(f,msg)=>{try{if(!navigator.clipboard)throw new Error();await navigator.clipboard.writeText(msg);setCopied(f);toast("Message copié !");setTimeout(()=>setCopied(null),2000);}catch{toast("Copie impossible — sélectionnez le texte manuellement","error");}};
-  if(!fourns.length)return<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:300,gap:12}}>
-    <div style={{width:64,height:64,borderRadius:"50%",background:C.successLight,display:"flex",alignItems:"center",justifyContent:"center"}}><Icon n="check" sz={28} c={C.success}/></div>
-    <h3 style={{margin:0,fontSize:18,fontWeight:700}}>Tout est en ordre</h3>
-    <p style={{margin:0,color:C.textSec,fontSize:14}}>Aucun produit à commander</p>
+  const sentLabel=t=>{const d=new Date(t),today=new Date().toDateString()===d.toDateString();return(today?"Envoyée aujourd'hui à ":"Envoyée le "+d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"})+" à ")+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});};
+  const nR=alert.filter(p=>gst(p)==="rupture").length;
+  if(!fourns.length)return<div>
+    <div style={{marginBottom:20}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Commandes</h1></div>
+    <Card style={{padding:"36px 20px",textAlign:"center"}}>
+      <div style={{width:56,height:56,borderRadius:"50%",background:C.successLight,display:"inline-flex",alignItems:"center",justifyContent:"center",marginBottom:10}}><Icon n="check" sz={26} c={C.success}/></div>
+      <h3 style={{margin:"0 0 6px",fontSize:17,fontWeight:700}}>Rien à commander</h3>
+      <p style={{margin:0,color:C.textSec,fontSize:14}}>Tous les produits suivis sont au-dessus de leur minimum.</p>
+      {nonSuivis>0&&<p style={{margin:"10px 0 0",color:C.textMuted,fontSize:12}}>{nonSuivis} produit{nonSuivis>1?"s":""} sans stock minimum ne {nonSuivis>1?"sont":"est"} pas suivi{nonSuivis>1?"s":""}.</p>}
+    </Card>
   </div>;
+  const stepBtn={width:36,height:36,borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,cursor:"pointer",fontSize:18,fontWeight:700,color:C.text,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0};
   return<div>
-    <div style={{marginBottom:20}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Commandes</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{alert.length} produits · {fourns.length} fournisseurs</p></div>
+    <div style={{marginBottom:16}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Commandes</h1>
+      <p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>Quantités proposées pour remonter au double du minimum. Ajustez avant d'envoyer.</p></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:10,marginBottom:16}}>
+      {[["Ruptures",nR,nR?C.danger:C.textMuted],["Sous le minimum",alert.length-nR,alert.length-nR?C.warning:C.textMuted],["Fournisseurs",fourns.length,C.text]].map(([l,v,c])=><Card key={l} style={{padding:"12px 14px"}}>
+        <p style={{margin:0,fontSize:10,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</p>
+        <p style={{margin:"4px 0 0",fontSize:22,fontWeight:800,color:c}}>{v}</p></Card>)}
+    </div>
     {fourns.map(f=>{
-      const fp=alert.filter(p=>p.fournisseur===f),col=fournColor(f);
-      const rup=fp.filter(p=>gst(p)==="rupture"),cmd=fp.filter(p=>gst(p)==="commander"),msg=genMsg(f,fp);
-      return<Card key={f} style={{marginBottom:16,overflow:"hidden"}}>
-        <div style={{background:`linear-gradient(135deg,${col},${col}BB)`,padding:"15px 18px",color:"#fff"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <div><p style={{margin:0,fontSize:16,fontWeight:800}}>{f}</p><p style={{margin:"2px 0 0",fontSize:12,opacity:.8}}>{fp.length} produit{fp.length>1?"s":""} à commander</p></div>
-            <div style={{display:"flex",gap:5}}>
-              {rup.length>0&&<span style={{background:"rgba(255,255,255,.25)",padding:"3px 9px",borderRadius:20,fontSize:11,fontWeight:700}}>{rup.length} rupture{rup.length>1?"s":""}</span>}
-            </div>
-          </div>
+      const fp=alert.filter(p=>p.fournisseur===f),col=fournColor(f),n=lignes(f).length;
+      return<Card key={f} style={{marginBottom:14,overflow:"hidden",borderLeft:`4px solid ${col}`}}>
+        <div style={{padding:"13px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+          <div><p style={{margin:0,fontSize:16,fontWeight:800,color:C.text}}>{f}</p>
+            <p style={{margin:"2px 0 0",fontSize:12,color:C.textSec}}>{n} ligne{n>1?"s":""} dans la commande</p></div>
+          {sent[f]&&<span style={{fontSize:11,fontWeight:700,color:C.success,background:C.successLight,padding:"3px 9px",borderRadius:10}}>{sentLabel(sent[f])}</span>}
         </div>
-        {rup.length>0&&<div style={{padding:"11px 14px",background:C.dangerLight,borderBottom:`1px solid ${C.border}`}}>
-          <p style={{margin:"0 0 7px",fontSize:10,fontWeight:700,color:C.danger,textTransform:"uppercase",letterSpacing:".5px"}}>🔴 Ruptures</p>
-          {rup.map(p=><div key={p.id} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderTop:"1px solid rgba(220,38,38,.1)"}}>
-            <span style={{fontSize:13}}>{p.nom}</span><span style={{fontSize:13,fontWeight:800,color:C.danger}}>{gqt(p)} {p.unite}</span>
-          </div>)}
-        </div>}
-        {cmd.length>0&&<div style={{padding:"11px 14px",borderBottom:`1px solid ${C.border}`}}>
-          <p style={{margin:"0 0 7px",fontSize:10,fontWeight:700,color:C.warning,textTransform:"uppercase",letterSpacing:".5px"}}>À commander</p>
-          {cmd.map(p=><div key={p.id} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderTop:`1px solid ${C.border}`}}>
-            <span style={{fontSize:13}}>{p.nom} <span style={{fontSize:11,color:C.textMuted}}>({p.stock}/{p.stock_min})</span></span>
-            <span style={{fontSize:13,fontWeight:700,color:C.warning}}>{gqt(p)} {p.unite}</span>
-          </div>)}
-        </div>}
-        <div style={{padding:"12px 14px"}}>
-          <p style={{margin:"0 0 7px",fontSize:10,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Message au fournisseur</p>
-          <div style={{background:"#F8FAFC",border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px",fontFamily:"monospace",fontSize:12,whiteSpace:"pre-wrap",lineHeight:1.6,maxHeight:150,overflow:"auto",marginBottom:10}}>{msg}</div>
-          <button onClick={()=>copy(f,msg)} style={{width:"100%",padding:11,background:copied===f?C.success:col,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"background .2s",boxShadow:`0 4px 12px ${col}40`}}>
-            <Icon n={copied===f?"check":"copy"} sz={16}/>{copied===f?"Copié !":"Copier le message"}
-          </button>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:8}}>
-            {[["WhatsApp","https://wa.me/?text="+encodeURIComponent(msg)],["E-mail","mailto:?subject="+encodeURIComponent("Commande "+(profile?.restaurants?.name||""))+"&body="+encodeURIComponent(msg)],["SMS","sms:?&body="+encodeURIComponent(msg)]].map(([l,href])=>
-              <a key={l} href={href} target={l==="WhatsApp"?"_blank":undefined} rel="noopener noreferrer" style={{padding:"9px 4px",borderRadius:9,border:`1px solid ${C.border}`,fontSize:13,fontWeight:600,color:C.text,textAlign:"center",textDecoration:"none",minHeight:40,display:"flex",alignItems:"center",justifyContent:"center"}}>{l}</a>)}
+        {fp.map(p=>{const st=gst(p),o=!!off[p.id];return<div key={p.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",opacity:o?.5:1}}>
+          <input type="checkbox" checked={!o} onChange={()=>setOff(x=>({...x,[p.id]:!o}))} aria-label={(o?"Ajouter ":"Retirer ")+p.nom} style={{width:20,height:20,flexShrink:0}}/>
+          <div style={{flex:"1 1 140px",minWidth:0}}>
+            <p style={{margin:0,fontSize:14,fontWeight:600,overflowWrap:"anywhere"}}>{p.nom}</p>
+            <p style={{margin:0,fontSize:12,color:st==="rupture"?C.danger:C.warning,fontWeight:600}}>{st==="rupture"?"Rupture":`Stock ${p.stock} / min ${p.stock_min}`} <span style={{color:C.textMuted,fontWeight:400}}>· {p.unite}</span></p>
           </div>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <button onClick={()=>setQ(p,q(p)-1)} disabled={o} aria-label={"Diminuer "+p.nom} style={stepBtn}>−</button>
+            <input inputMode="decimal" value={qte[p.id]??gqt(p)} disabled={o} onChange={e=>setQ(p,e.target.value)} aria-label={"Quantité "+p.nom} style={{width:58,height:36,textAlign:"center",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:16,fontWeight:700,outline:"none"}}/>
+            <button onClick={()=>setQ(p,q(p)+1)} disabled={o} aria-label={"Augmenter "+p.nom} style={stepBtn}>+</button>
+          </div>
+        </div>;})}
+        <details style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`}}>
+          <summary style={{fontSize:13,fontWeight:600,color:C.textSec,cursor:"pointer"}}>Voir le message</summary>
+          <div style={{marginTop:8,background:"#F8FAFC",border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px",fontSize:13,whiteSpace:"pre-wrap",lineHeight:1.6}}>{genMsg(f)}</div>
+        </details>
+        <div style={{padding:"12px 16px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <button onClick={()=>copy(f)} disabled={!n} style={{minHeight:44,background:copied===f?C.success:C.surface,color:copied===f?"#fff":C.text,border:`1.5px solid ${copied===f?C.success:C.border}`,borderRadius:10,fontSize:14,fontWeight:700,cursor:n?"pointer":"not-allowed",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+            <Icon n={copied===f?"check":"copy"} sz={16}/>{copied===f?"Copié":"Copier"}</button>
+          <button onClick={()=>share(f)} disabled={!n} style={{minHeight:44,background:n?C.brand:"#E2E8F0",color:n?"#fff":C.textMuted,border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:n?"pointer":"not-allowed"}}>Envoyer</button>
         </div>
       </Card>;
     })}
+    {nonSuivis>0&&<p style={{margin:"4px 0 0",fontSize:12,color:C.textMuted,textAlign:"center"}}>{nonSuivis} produit{nonSuivis>1?"s":""} sans stock minimum {nonSuivis>1?"ne sont":"n'est"} pas suivi{nonSuivis>1?"s":""} : ajoutez un minimum dans Produits.</p>}
   </div>;
 }
 
 // ── HISTORIQUE ────────────────────────────────────────────────
-function Historique({restaurantId,hasSucre,onTab,toast}){
+function Historique({restaurantId,objectif=0.25,onTab,toast}){
   const [vue,setVue]=useState("ratios");
   const [hist,setHist]=useState([]),[loading,setLoading]=useState(true),[err,setErr]=useState(false);
   const [inv,setInv]=useState(null),[open,setOpen]=useState(null);
@@ -410,10 +423,10 @@ function Historique({restaurantId,hasSucre,onTab,toast}){
     if(!stale)setInv([...days.values()].map(g=>{const vu=new Set();return{...g,valeur:g.items.reduce((a,r)=>{const pk=r.product_id??r.id;if(vu.has(pk))return a;vu.add(pk);return a+(+r.stock_reel||0)*(+r.products?.prix_achat||0);},0)};}));
   })();return()=>{stale=true;};},[vue,inv,restaurantId,toast]);
 
-  const showSucre=hasSucre||hist.some(h=>(h.ca_sucre||0)>0);
   const totCA=hist.reduce((a,h)=>a+(h.ca_sale||0)+(h.ca_sucre||0),0);
   const totCout=hist.reduce((a,h)=>a+(h.cout_sale||0)+(h.cout_sucre||0),0);
-  const avg=totCA>0?totCout/totCA:0;
+  const avg=totCA>0?totCout/totCA:0,obj=objectif;
+  const colR=r=>r<=obj?C.success:r<=obj*1.4?C.warning:C.danger;
   const dd=d=>d?new Date(d+"T00:00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"}):"";
 
   const BarChart=()=>{
@@ -422,11 +435,12 @@ function Historique({restaurantId,hasSucre,onTab,toast}){
     const yS=v=>PT+IH-(Math.min(v,maxV)/maxV)*IH;
     return<svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:"visible"}} role="img" aria-label="Ratio coût matière des dernières périodes">
       {[0,25,50].map(v=>{const y=yS(v);return<g key={v}>
-        <line x1={PL} y1={y} x2={W-PR} y2={y} stroke={v===25?C.warning:"#E2E8F0"} strokeWidth={v===25?"1":"0.5"} strokeDasharray={v===25?"4,3":""}/>
+        <line x1={PL} y1={y} x2={W-PR} y2={y} stroke="#E2E8F0" strokeWidth="0.5"/>
         <text x={PL-4} y={y+3} textAnchor="end" fontSize="8" fill={C.textMuted}>{v}%</text>
       </g>;})}
+      <line x1={PL} y1={yS(obj*100)} x2={W-PR} y2={yS(obj*100)} stroke={C.warning} strokeWidth="1" strokeDasharray="4,3"/>
       {data.map((h,i)=>{
-        const tot=(h.ca_sale||0)+(h.ca_sucre||0),r=tot>0?((h.cout_sale||0)+(h.cout_sucre||0))/tot:0,x0=PL+i*bw+gap/2,col=r<=0.25?C.success:r<=0.35?C.warning:C.danger,y=yS(r*100);
+        const tot=(h.ca_sale||0)+(h.ca_sucre||0),r=tot>0?((h.cout_sale||0)+(h.cout_sucre||0))/tot:0,x0=PL+i*bw+gap/2,col=colR(r),y=yS(r*100);
         return<g key={h.id}>
           <rect x={x0} y={y} width={bW} height={Math.max(2,PT+IH-y)} fill={col} rx="3"/>
           <text x={x0+bW/2} y={H-6} textAnchor="middle" fontSize="8" fill={C.textMuted}>{(h.periode||"").replace("Fin ","")}</text>
@@ -453,7 +467,7 @@ function Historique({restaurantId,hasSucre,onTab,toast}){
         !err&&onTab&&<button onClick={()=>onTab("settings")} style={{padding:"11px 20px",background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>Clôturer une semaine</button>)
       :<>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(100px,1fr))",gap:10,marginBottom:16}}>
-          {[["CA total",fmt(totCA),C.brand],["Coût matière",fmt(totCout),C.warning],["Ratio moyen",avg>0?(avg*100).toFixed(1)+" %":"—",avg<=0.25?C.success:avg<=0.35?C.warning:C.danger]].map(([l,v,c])=>(
+          {[["CA total",fmt(totCA),C.brand],["Coût matière",fmt(totCout),C.warning],["Ratio moyen",avg>0?(avg*100).toFixed(1)+" %":"—",colR(avg)]].map(([l,v,c])=>(
             <Card key={l} style={{padding:"14px 16px"}}>
               <p style={{margin:"0 0 6px",fontSize:10,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</p>
               <p style={{margin:0,fontSize:18,fontWeight:800,color:c}}>{v}</p>
@@ -466,16 +480,15 @@ function Historique({restaurantId,hasSucre,onTab,toast}){
         </Card>}
         <Card style={{overflow:"hidden"}}>
           {hist.map((h,i)=>{
-            const tot=(h.ca_sale||0)+(h.ca_sucre||0),r=tot>0?((h.cout_sale||0)+(h.cout_sucre||0))/tot:0;
-            const cols=showSucre?[["CA salé",fmt(h.ca_sale)],["Ratio salé",((h.ratio_sale||0)*100).toFixed(1)+" %"],["CA sucré",fmt(h.ca_sucre)],["Ratio sucré",((h.ratio_sucre||0)*100).toFixed(1)+" %"]]
-              :[["CA",fmt(h.ca_sale)],["Coût matière",fmt(h.cout_sale)],["Ratio",((h.ratio_sale||0)*100).toFixed(1)+" %"]];
+            const tot=(h.ca_sale||0)+(h.ca_sucre||0),ct=(h.cout_sale||0)+(h.cout_sucre||0),r=tot>0?ct/tot:0;
+            const cols=[["CA",fmt(tot)],["Coût matière",fmt(ct)],["Ratio",(r*100).toFixed(1)+" %"]];
             return<div key={h.id} style={{padding:"14px 18px",borderBottom:i<hist.length-1?`1px solid ${C.border}`:"none"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,gap:8}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                   <span style={{fontSize:13,fontWeight:700}}>{h.date_debut&&h.date_fin?`Du ${dd(h.date_debut)} au ${dd(h.date_fin)}`:h.periode}</span>
                   <span style={{fontSize:10,fontWeight:700,background:C.brandLight,color:C.brand,padding:"2px 8px",borderRadius:10}}>{h.type==="mensuel"?"MOIS":"SEMAINE"}</span>
                 </div>
-                {(()=>{const[t,c,bg]=r<=0.25?["Dans l'objectif",C.success,C.successLight]:r<=0.35?["À surveiller",C.warning,C.warningLight]:["Trop élevé",C.danger,C.dangerLight];return<span style={{fontSize:11,fontWeight:700,color:c,background:bg,padding:"3px 9px",borderRadius:10,whiteSpace:"nowrap"}}>{t}</span>;})()}
+                {(()=>{const[t,c,bg]=r<=obj?["Dans l'objectif",C.success,C.successLight]:r<=obj*1.4?["À surveiller",C.warning,C.warningLight]:["Trop élevé",C.danger,C.dangerLight];return<span style={{fontSize:11,fontWeight:700,color:c,background:bg,padding:"3px 9px",borderRadius:10,whiteSpace:"nowrap"}}>{t}</span>;})()}
               </div>
               <div style={{display:"grid",gridTemplateColumns:`repeat(${cols.length},1fr)`,gap:8}}>
                 {cols.map(([l,v])=><div key={l}><p style={{margin:0,fontSize:10,color:C.textMuted}}>{l}</p><p style={{margin:0,fontSize:13,fontWeight:700}}>{v}</p></div>)}
@@ -506,141 +519,261 @@ function Historique({restaurantId,hasSucre,onTab,toast}){
 }
 
 // ── FICHES TECHNIQUES ─────────────────────────────────────────
-function Recettes({restaurantId,products,toast,canManage=true}){
-  const [recettes,setRecettes]=useState([]),[loading,setLoading]=useState(true),[sel,setSel]=useState(null),[adding,setAdding]=useState(false),[newNom,setNewNom]=useState(""),[newPrix,setNewPrix]=useState(""),[items,setItems]=useState([]),[saving,setSaving]=useState(false),[addItem,setAddItem]=useState({prodId:"",qte:"",unite:""}),[confirmDel,setConfirmDel]=useState(false);
+function Recettes({restaurantId,products,toast,canManage=true,objectif=0.25}){
+  const [recettes,setRecettes]=useState([]),[loading,setLoading]=useState(true),[sel,setSel]=useState(null),[form,setForm]=useState(null),[saving,setSaving]=useState(false),[confirmDel,setConfirmDel]=useState(false),[search,setSearch]=useState(""),[tri,setTri]=useState("nom");
+  const SEL="*,recipe_items(*,products(nom,unite,prix_achat))";
+  const reload=useCallback(async()=>{const{data,error}=await supabase.from("recipes").select(SEL).eq("restaurant_id",restaurantId).order("created_at",{ascending:false});if(error){toast("Erreur de chargement des fiches","error");return false;}setRecettes(data||[]);return true;},[restaurantId,toast]);
+  useEffect(()=>{if(!restaurantId)return;reload().then(()=>setLoading(false));},[restaurantId,reload]);
 
-  useEffect(()=>{const load=async()=>{const{data,error}=await supabase.from("recipes").select("*,recipe_items(*,products(nom,unite,prix_achat))").eq("restaurant_id",restaurantId).order("created_at",{ascending:false});if(error)toast("Erreur de chargement des fiches","error");setRecettes(data||[]);setLoading(false);};if(restaurantId)load();},[restaurantId,toast]);
+  const prixOf=it=>+(it.products?.prix_achat??products.find(p=>p.id===it.product_id)?.prix_achat)||0;
+  const calcCout=r=>(r.recipe_items||[]).reduce((a,it)=>a+(+it.quantite||0)*prixOf(it),0);
+  const colR=r=>r<=0?C.textMuted:r<=objectif?C.success:r<=objectif*1.4?C.warning:C.danger;
+  const pct=r=>r>0?(r*100).toFixed(1)+" %":"—";
+  const num=v=>{const n=parseFloat(String(v).replace(",","."));return isNaN(n)?0:n;};
 
-  const calcCout=(recipe)=>(recipe.recipe_items||[]).reduce((a,it)=>a+(it.quantite||0)*(it.products?.prix_achat||0),0);
+  // Formulaire commun création / modification
+  const open=r=>setForm(r?{id:r.id,nom:r.nom||"",prix:r.prix_vente?String(r.prix_vente):"",items:(r.recipe_items||[]).map(it=>({prodId:it.product_id||"",nom:it.product_nom||it.products?.nom||"",qte:String(it.quantite??""),unite:it.unite||it.products?.unite||""})),add:""}:{nom:"",prix:"",items:[],add:""});
+  const fItems=form?form.items.map(it=>{const p=products.find(x=>x.id===it.prodId);return{...it,pa:+p?.prix_achat||0,manque:!!it.prodId&&!(p?.prix_achat>0)};}):[];
+  const fCout=fItems.reduce((a,it)=>a+num(it.qte)*it.pa,0),fPrix=num(form?.prix),fRatio=fPrix>0?fCout/fPrix:0;
+  const addProd=id=>{const p=products.find(x=>x.id===id);if(!p)return;setForm(f=>({...f,add:"",items:[...f.items,{prodId:p.id,nom:p.nom,qte:"",unite:p.unite}]}));};
+  const setItem=(i,k,v)=>setForm(f=>({...f,items:f.items.map((it,j)=>j===i?{...it,[k]:v}:it)}));
+  const delItem=i=>setForm(f=>({...f,items:f.items.filter((_,j)=>j!==i)}));
 
-  const saveRecette=async()=>{
-    if(!newNom.trim())return;setSaving(true);
-    const{data,error}=await supabase.from("recipes").insert({restaurant_id:restaurantId,nom:newNom.trim(),prix_vente:parseFloat(newPrix)||0}).select().single();
-    if(error||!data){toast("Erreur lors de la création de la fiche","error");setSaving(false);return;}
-    if(items.length>0){
-      const{error:e2}=await supabase.from("recipe_items").insert(items.map(it=>({recipe_id:data.id,product_id:it.prodId||null,product_nom:it.nom,quantite:it.qte,unite:it.unite})));
-      if(e2){await supabase.from("recipes").delete().eq("id",data.id);toast("Erreur lors de l'enregistrement des ingrédients","error");setSaving(false);return;}
+  const save=async()=>{
+    const nom=form.nom.trim();if(!nom||saving)return;
+    if(form.items.some(it=>!(num(it.qte)>0))){toast("Indiquez une quantité pour chaque ingrédient","error");return;}
+    setSaving(true);
+    const head={nom,prix_vente:fPrix};
+    const rows=id=>form.items.map(it=>({recipe_id:id,product_id:it.prodId||null,product_nom:it.nom,quantite:num(it.qte),unite:it.unite}));
+    let id=form.id;
+    if(id){
+      const old=recettes.find(r=>r.id===id);
+      const{error}=await supabase.from("recipes").update(head).eq("id",id);
+      if(error){toast("Erreur : fiche non modifiée","error");setSaving(false);return;}
+      const{error:e1}=await supabase.from("recipe_items").delete().eq("recipe_id",id);
+      const{error:e2}=e1?{error:e1}:rows(id).length?await supabase.from("recipe_items").insert(rows(id)):{error:null};
+      if(e2){
+        // Remise des anciens ingrédients si l'enregistrement a échoué en cours de route
+        if(!e1&&old?.recipe_items?.length)await supabase.from("recipe_items").insert(old.recipe_items.map(it=>({recipe_id:id,product_id:it.product_id,product_nom:it.product_nom,quantite:it.quantite,unite:it.unite})));
+        toast("Erreur lors de l'enregistrement des ingrédients","error");setSaving(false);await reload();return;
+      }
+    }else{
+      const{data,error}=await supabase.from("recipes").insert({...head,restaurant_id:restaurantId}).select().single();
+      if(error||!data){toast("Erreur lors de la création de la fiche","error");setSaving(false);return;}
+      id=data.id;
+      if(form.items.length){const{error:e2}=await supabase.from("recipe_items").insert(rows(id));if(e2){await supabase.from("recipes").delete().eq("id",id);toast("Erreur lors de l'enregistrement des ingrédients","error");setSaving(false);return;}}
     }
-    const{data:rec,error:e3}=await supabase.from("recipes").select("*,recipe_items(*,products(nom,unite,prix_achat))").eq("restaurant_id",restaurantId).order("created_at",{ascending:false});
-    if(e3)setRecettes(p=>[{...data,recipe_items:[]},...p]);else setRecettes(rec||[]);
-    toast("Fiche créée !");setAdding(false);setNewNom("");setNewPrix("");setItems([]);setSaving(false);
+    await reload();toast(form.id?"Fiche modifiée":"Fiche créée");setForm(null);setSel(id);setSaving(false);
   };
 
-  const addIngredient=()=>{
-    if(!addItem.prodId&&!addItem.nom)return;
-    const prod=products.find(p=>p.id===addItem.prodId);
-    setItems(prev=>[...prev,{prodId:addItem.prodId||null,nom:prod?.nom||addItem.nom,qte:parseFloat(addItem.qte)||1,unite:prod?.unite||addItem.unite,pa:prod?.prix_achat||0}]);
-    setAddItem({prodId:"",qte:"",unite:""});
-  };
-
-  const deleteRecette=async(id)=>{
+  const deleteRecette=async id=>{
     if(!confirmDel){setConfirmDel(true);return;}
     const{error}=await supabase.from("recipes").delete().eq("id",id);setConfirmDel(false);
     if(error){toast("Erreur lors de la suppression","error");return;}
     setRecettes(p=>p.filter(r=>r.id!==id));setSel(null);toast("Fiche supprimée");
   };
 
+  const back=(fn,l="← Retour")=><button onClick={fn} style={{minHeight:40,padding:"8px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:13}}>{l}</button>;
+  const lab={fontSize:11,fontWeight:700,color:C.textSec,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:".5px"};
+  const inp={width:"100%",boxSizing:"border-box",padding:"10px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:16,outline:"none",background:C.surface};
+
+  if(form)return<div>
+    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+      {back(()=>setForm(null),"← Annuler")}
+      <h1 style={{margin:0,fontSize:20,fontWeight:800}}>{form.id?"Modifier la fiche":"Nouvelle fiche"}</h1>
+    </div>
+    <Card style={{padding:18,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginBottom:16}}>
+        <div><label htmlFor="rec-nom" style={lab}>Nom de la recette</label><input id="rec-nom" value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))} placeholder="Ex : Burger maison" style={inp}/></div>
+        <div><label htmlFor="rec-prix" style={lab}>Prix de vente HT (€)</label><input id="rec-prix" inputMode="decimal" value={form.prix} onChange={e=>setForm(f=>({...f,prix:e.target.value}))} placeholder="0,00" style={inp}/></div>
+      </div>
+      <p style={{...lab,marginBottom:8}}>Ingrédients (quantité par portion)</p>
+      {fItems.length===0&&<p style={{margin:"0 0 10px",fontSize:13,color:C.textMuted}}>Aucun ingrédient pour l'instant.</p>}
+      {fItems.map((it,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderTop:`1px solid ${C.border}`,flexWrap:"wrap"}}>
+        <div style={{flex:"1 1 100%",minWidth:0}}>
+          <p style={{margin:0,fontSize:14,fontWeight:600,overflowWrap:"anywhere"}}>{it.nom}</p>
+          <p style={{margin:0,fontSize:12,color:it.manque?C.danger:C.textSec}}>{it.manque?"Prix d'achat manquant (à saisir dans Produits)":`${fmt(it.pa)} / ${it.unite} · ${fmt(num(it.qte)*it.pa)}`}</p>
+        </div>
+        <input inputMode="decimal" value={it.qte} onChange={e=>setItem(i,"qte",e.target.value)} placeholder="Qté" aria-label={"Quantité "+it.nom} style={{...inp,width:80,padding:"8px 10px",textAlign:"right"}}/>
+        <span style={{fontSize:13,color:C.textSec,flex:1}}>{it.unite}</span>
+        <button onClick={()=>delItem(i)} aria-label={"Retirer "+it.nom} style={{width:40,height:40,borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:C.danger}}><Icon n="trash" sz={15}/></button>
+      </div>)}
+      <select value={form.add} onChange={e=>addProd(e.target.value)} aria-label="Ajouter un ingrédient" style={{...inp,marginTop:10,fontSize:14}}>
+        <option value="">+ Ajouter un ingrédient du catalogue…</option>
+        {products.filter(p=>p.actif!==false).sort((a,b)=>a.nom.localeCompare(b.nom,"fr")).map(p=><option key={p.id} value={p.id}>{p.nom} ({p.prix_achat>0?`${fmt(p.prix_achat)}/${p.unite}`:"sans prix"})</option>)}
+      </select>
+      <div style={{marginTop:14,display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:8}}>
+        {[["Coût matière",fmt(fCout),C.text],["Marge brute",fPrix>0?fmt(fPrix-fCout):"—",C.text],["Ratio",pct(fRatio),colR(fRatio)]].map(([l,v,c])=><div key={l} style={{background:"#F8FAFC",borderRadius:10,padding:"10px 12px"}}>
+          <p style={{margin:0,fontSize:10,fontWeight:700,color:C.textSec,textTransform:"uppercase"}}>{l}</p><p style={{margin:"3px 0 0",fontSize:16,fontWeight:800,color:c}}>{v}</p></div>)}
+      </div>
+    </Card>
+    <button onClick={save} disabled={saving||!form.nom.trim()} style={{width:"100%",minHeight:48,background:form.nom.trim()?C.brand:"#E2E8F0",color:form.nom.trim()?"#fff":C.textMuted,border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:form.nom.trim()?"pointer":"not-allowed",opacity:saving?.7:1}}>
+      {saving?"Enregistrement...":form.id?"Enregistrer les modifications":"Créer la fiche technique"}</button>
+  </div>;
+
   if(sel){
     const r=recettes.find(x=>x.id===sel);if(!r)return null;
-    const cout=calcCout(r),ratio=r.prix_vente>0?cout/r.prix_vente:0;
+    const cout=calcCout(r),pv=+r.prix_vente||0,ratio=pv>0?cout/pv:0,items=r.recipe_items||[];
+    const manque=items.some(it=>it.product_id&&!(prixOf(it)>0));
     return<div>
-      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
-        <button onClick={()=>{setSel(null);setConfirmDel(false);}} style={{padding:"8px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:13}}>← Retour</button>
-        <div style={{flex:1,minWidth:0}}><h1 style={{margin:0,fontSize:20,fontWeight:800}}>{r.nom}</h1></div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+        {back(()=>{setSel(null);setConfirmDel(false);})}
+        <h1 style={{margin:0,fontSize:20,fontWeight:800,flex:"1 1 150px",minWidth:0,overflowWrap:"anywhere"}}>{r.nom}</h1>
+        {canManage&&!confirmDel&&<button onClick={()=>open(r)} style={{minHeight:44,padding:"8px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,cursor:"pointer",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:6}}><Icon n="edit" sz={15}/>Modifier</button>}
         {confirmDel&&<button onClick={()=>setConfirmDel(false)} style={{minHeight:44,padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:13}}>Annuler</button>}
         {canManage&&<button onClick={()=>deleteRecette(r.id)} aria-label={confirmDel?"Confirmer la suppression de la fiche":"Supprimer la fiche"} style={{minWidth:44,minHeight:44,padding:"8px",borderRadius:8,border:`1px solid ${confirmDel?C.danger:C.dangerLight}`,background:confirmDel?C.danger:C.dangerLight,color:confirmDel?"#fff":C.danger,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,fontWeight:700}}><Icon n="trash" sz={16} c={confirmDel?"#fff":C.danger}/>{confirmDel&&"Confirmer"}</button>}
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:16}}>
-        {[["Coût matière",fmt(cout),C.warning],["Prix vente",fmt(r.prix_vente),C.text],["Ratio",ratio>0?(ratio*100).toFixed(1)+"%":"—",ratio<=0.25?C.success:C.danger]].map(([l,v,c])=>(
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,marginBottom:16}}>
+        {[["Coût matière",fmt(cout),C.text],["Prix de vente HT",pv>0?fmt(pv):"—",C.text],["Marge brute",pv>0?fmt(pv-cout):"—",C.text],["Ratio",pct(ratio),colR(ratio)],["Coefficient",cout>0&&pv>0?"× "+(pv/cout).toFixed(2):"—",C.text]].map(([l,v,c])=>(
           <Card key={l} style={{padding:"14px"}}><p style={{margin:"0 0 4px",fontSize:10,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</p><p style={{margin:0,fontSize:18,fontWeight:800,color:c}}>{v}</p></Card>
         ))}
       </div>
+      {manque&&<p style={{margin:"0 0 12px",fontSize:13,color:C.danger}}>Certains ingrédients n'ont pas de prix d'achat : le coût est sous-estimé.</p>}
       <Card style={{overflow:"hidden"}}>
-        <div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,background:"#F8FAFC"}}><p style={{margin:0,fontSize:13,fontWeight:700}}>Ingrédients</p></div>
-        {(r.recipe_items||[]).map((it,i)=><div key={it.id} style={{padding:"11px 18px",borderBottom:i<r.recipe_items.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:10}}>
-          <div style={{flex:1}}><p style={{margin:0,fontSize:13,fontWeight:500}}>{it.product_nom||it.products?.nom}</p><p style={{margin:0,fontSize:11,color:C.textSec}}>{it.quantite} {it.unite||it.products?.unite}</p></div>
-          <span style={{fontSize:13,fontWeight:700,color:C.warning}}>{fmt((it.quantite||0)*(it.products?.prix_achat||0))}</span>
-        </div>)}
-        {r.recipe_items?.length===0&&<p style={{padding:20,textAlign:"center",color:C.textMuted,fontSize:13}}>Aucun ingrédient</p>}
+        <div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,background:"#F8FAFC",display:"flex",justifyContent:"space-between"}}><p style={{margin:0,fontSize:13,fontWeight:700}}>Ingrédients</p><p style={{margin:0,fontSize:12,color:C.textSec}}>Objectif {Math.round(objectif*100)} %</p></div>
+        {items.map((it,i)=>{const c=(+it.quantite||0)*prixOf(it);return<div key={it.id} style={{padding:"11px 18px",borderBottom:i<items.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:10}}>
+          <div style={{flex:1,minWidth:0}}><p style={{margin:0,fontSize:13,fontWeight:500}}>{it.product_nom||it.products?.nom}</p><p style={{margin:0,fontSize:11,color:C.textSec}}>{it.quantite} {it.unite||it.products?.unite}{cout>0?` · ${Math.round(c/cout*100)} % du coût`:""}</p></div>
+          <span style={{fontSize:13,fontWeight:700}}>{fmt(c)}</span>
+        </div>;})}
+        {items.length===0&&<p style={{padding:20,textAlign:"center",color:C.textMuted,fontSize:13}}>Aucun ingrédient</p>}
       </Card>
     </div>;
   }
 
-  if(adding)return<div>
-    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
-      <button onClick={()=>{setAdding(false);setNewNom("");setNewPrix("");setItems([]);}} style={{padding:"8px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:13}}>← Annuler</button>
-      <h1 style={{margin:0,fontSize:20,fontWeight:800}}>Nouvelle fiche</h1>
-    </div>
-    <Card style={{padding:20,marginBottom:14}}>
-      <div style={{display:"flex",gap:10,marginBottom:14}}>
-        <div style={{flex:2}}><label style={{fontSize:11,fontWeight:700,color:C.textSec,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:".5px"}}>Nom de la recette</label>
-          <input value={newNom} onChange={e=>setNewNom(e.target.value)} placeholder="Ex : Burger maison" style={{width:"100%",boxSizing:"border-box",padding:"10px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none"}} onFocus={e=>e.target.style.borderColor=C.brand} onBlur={e=>e.target.style.borderColor=C.border}/></div>
-        <div style={{flex:1}}><label style={{fontSize:11,fontWeight:700,color:C.textSec,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:".5px"}}>Prix vente (€)</label>
-          <input type="number" value={newPrix} onChange={e=>setNewPrix(e.target.value)} placeholder="0.00" style={{width:"100%",boxSizing:"border-box",padding:"10px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none"}} onFocus={e=>e.target.style.borderColor=C.brand} onBlur={e=>e.target.style.borderColor=C.border}/></div>
-      </div>
-      <p style={{margin:"0 0 10px",fontSize:12,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Ingrédients</p>
-      {items.map((it,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 10px",background:"#F8FAFC",borderRadius:8,marginBottom:5}}>
-        <span style={{fontSize:13}}>{it.nom} — {it.qte} {it.unite}</span>
-        <span style={{fontSize:13,color:C.warning,fontWeight:700}}>{fmt(it.qte*it.pa)}</span>
-      </div>)}
-      <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
-        <select value={addItem.prodId} onChange={e=>setAddItem(p=>({...p,prodId:e.target.value}))}
-          style={{flex:2,minWidth:140,padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,outline:"none"}}>
-          <option value="">Choisir produit...</option>
-          {products.filter(p=>p.actif&&p.prix_achat>0).map(p=><option key={p.id} value={p.id}>{p.nom} ({fmt(p.prix_achat)}/{p.unite})</option>)}
-        </select>
-        <input type="number" value={addItem.qte} onChange={e=>setAddItem(p=>({...p,qte:e.target.value}))} placeholder="Qté" style={{width:70,padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,outline:"none"}}/>
-        <button onClick={addIngredient} style={{padding:"8px 14px",background:C.brandLight,color:C.brand,border:`1px solid ${C.border}`,borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}><Icon n="plus" sz={14}/>Ajouter</button>
-      </div>
-      {items.length>0&&<div style={{marginTop:12,padding:"10px 12px",background:C.successLight,borderRadius:10}}>
-        <p style={{margin:0,fontSize:13,fontWeight:700,color:C.success}}>Coût estimé : {fmt(items.reduce((a,it)=>a+it.qte*it.pa,0))} · Ratio : {newPrix>0?((items.reduce((a,it)=>a+it.qte*it.pa,0)/parseFloat(newPrix))*100).toFixed(1)+"%":"—"}</p>
-      </div>}
-    </Card>
-    <button onClick={saveRecette} disabled={saving||!newNom} style={{width:"100%",padding:13,background:newNom?C.brand:"#E2E8F0",color:newNom?"#fff":C.textMuted,border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:newNom?"pointer":"not-allowed"}}>
-      {saving?"Enregistrement...":"Créer la fiche technique"}</button>
-  </div>;
-
+  const list=recettes.map(r=>{const cout=calcCout(r);return{r,cout,ratio:r.prix_vente>0?cout/r.prix_vente:0};})
+    .filter(x=>!search||x.r.nom.toLowerCase().includes(search.toLowerCase()))
+    .sort((a,b)=>tri==="ratio"?b.ratio-a.ratio:a.r.nom.localeCompare(b.r.nom,"fr"));
+  const hors=list.filter(x=>x.ratio>objectif).length;
   return<div>
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-      <div><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Fiches techniques</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{recettes.length} recette{recettes.length>1?"s":""}</p></div>
-      {canManage&&<button onClick={()=>setAdding(true)} style={{padding:"9px 16px",background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,boxShadow:"0 4px 12px rgba(37,99,235,.3)"}}>
+    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+      <div><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Fiches techniques</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{recettes.length} recette{recettes.length>1?"s":""}{hors?` · ${hors} au-dessus de l'objectif`:""}</p></div>
+      {canManage&&<button onClick={()=>open(null)} style={{minHeight:44,padding:"9px 16px",background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
         <Icon n="plus" sz={16}/>Nouvelle fiche</button>}
     </div>
     {loading?<p style={{textAlign:"center",color:C.textMuted,padding:40}}>Chargement...</p>:recettes.length===0?
     <Card style={{padding:40,textAlign:"center"}}>
       <Icon n="book" sz={40} c={C.textMuted}/>
       <h3 style={{margin:"12px 0 6px",fontSize:16,fontWeight:700}}>Aucune fiche technique</h3>
-      <p style={{margin:0,color:C.textSec,fontSize:13}}>Créez vos premières recettes pour calculer vos coûts matière.</p>
-    </Card>:
-    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-      {recettes.map(r=>{const cout=calcCout(r),ratio=r.prix_vente>0?cout/r.prix_vente:0;return<Card key={r.id} onClick={()=>{setSel(r.id);setConfirmDel(false);}} style={{padding:"16px 18px",display:"flex",alignItems:"center",gap:14}}>
-        <div style={{width:44,height:44,borderRadius:12,background:C.purpleLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon n="book" sz={20} c={C.purple}/></div>
-        <div style={{flex:1}}><p style={{margin:"0 0 2px",fontSize:14,fontWeight:700}}>{r.nom}</p><p style={{margin:0,fontSize:12,color:C.textSec}}>{(r.recipe_items||[]).length} ingrédient{(r.recipe_items||[]).length>1?"s":""} · coût {fmt(cout)}</p></div>
-        <div style={{textAlign:"right"}}>
-          <p style={{margin:0,fontSize:15,fontWeight:800,color:ratio<=0.25?C.success:ratio<=0.35?C.warning:C.danger}}>{ratio>0?(ratio*100).toFixed(1)+"%":"—"}</p>
-          {r.prix_vente>0&&<p style={{margin:0,fontSize:11,color:C.textMuted}}>PV {fmt(r.prix_vente)}</p>}
-        </div>
-      </Card>;})}
-    </div>}
+      <p style={{margin:0,color:C.textSec,fontSize:13}}>Créez vos recettes à partir du catalogue produits : le coût matière et la marge se calculent tout seuls.</p>
+    </Card>:<>
+    <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher une recette" aria-label="Rechercher une recette" style={{...inp,flex:"1 1 180px",width:"auto"}}/>
+      <select value={tri} onChange={e=>setTri(e.target.value)} aria-label="Trier" style={{...inp,width:"auto",fontSize:14}}><option value="nom">Tri : nom</option><option value="ratio">Tri : ratio le plus élevé</option></select>
+    </div>
+    <Card style={{overflow:"hidden"}}>
+      {list.map(({r,cout,ratio},i)=><button key={r.id} onClick={()=>{setSel(r.id);setConfirmDel(false);}} style={{width:"100%",padding:"14px 18px",display:"flex",alignItems:"center",gap:12,background:"none",border:"none",borderBottom:i<list.length-1?`1px solid ${C.border}`:"none",cursor:"pointer",textAlign:"left"}}>
+        <span style={{width:9,height:9,borderRadius:"50%",background:colR(ratio),flexShrink:0}}/>
+        <span style={{flex:1,minWidth:0}}><span style={{display:"block",fontSize:14,fontWeight:700,color:C.text,overflowWrap:"anywhere"}}>{r.nom}</span><span style={{fontSize:12,color:C.textSec}}>{(r.recipe_items||[]).length} ingrédient{(r.recipe_items||[]).length>1?"s":""} · coût {fmt(cout)}{r.prix_vente>0?` · PV ${fmt(r.prix_vente)}`:""}</span></span>
+        <span style={{fontSize:15,fontWeight:800,color:colR(ratio),whiteSpace:"nowrap"}}>{pct(ratio)}</span>
+      </button>)}
+      {!list.length&&<p style={{padding:20,textAlign:"center",color:C.textMuted,fontSize:13}}>Aucune recette ne correspond.</p>}
+    </Card></>}
   </div>;
 }
 
 // ── RÉGLAGES ─────────────────────────────────────────────────
-function Reglages({profile,toast,onSaved,hasSucre}){
+// Interrupteur (défini hors des composants : sinon recréé à chaque rendu, il perd le focus)
+const Switch=({on,onClick,label,disabled})=><button role="switch" aria-checked={on} aria-label={label} onClick={onClick} disabled={disabled} style={{width:48,height:28,borderRadius:14,border:"none",background:on?C.brand:"#CBD5E1",position:"relative",cursor:"pointer",flexShrink:0,opacity:disabled?.6:1}}>
+  <span style={{position:"absolute",top:3,left:on?23:3,width:22,height:22,borderRadius:"50%",background:"#fff",transition:"left .15s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/></button>;
+const JOURS=[["lun","Lundi"],["mar","Mardi"],["mer","Mercredi"],["jeu","Jeudi"],["ven","Vendredi"],["sam","Samedi"],["dim","Dimanche"]];
+function Reglages({profile,toast,onSaved,onTab,isAdmin,glacesVisible=false}){
   const rest=profile?.restaurants;
-  const [legal,setLegal]=useState(null);
+  const [legal,setLegal]=useState(null),[busy,setBusy]=useState(null);
+  const [info,setInfo]=useState(()=>({name:rest?.name||"",adresse:rest?.adresse||"",ville:rest?.ville||"",telephone:rest?.telephone||"",objectif:String(Math.round((rest?.objectif||0.25)*100))}));
+  const [hor,setHor]=useState(()=>Object.fromEntries(JOURS.map(([k])=>[k,{ouvert:rest?.horaires?.[k]?.ouvert??true,heures:rest?.horaires?.[k]?.heures||""}])));
+  const [pwd,setPwd]=useState({a:"",b:""});
+  const modules=rest?.modules||{};
+  // Sans choix enregistré, l'interrupteur reflète l'affichage automatique (parfums actifs)
+  const glacesOn=typeof modules.glaces==="boolean"?modules.glaces:glacesVisible;
+  const lab={fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px",display:"block",marginBottom:5};
+  const inp={width:"100%",boxSizing:"border-box",padding:"10px 12px",borderRadius:10,border:`1.5px solid ${C.border}`,fontSize:16,outline:"none",background:C.surface};
+  const btn={minHeight:44,padding:"10px 18px",background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"};
+  const h3={margin:"0 0 4px",fontSize:15,fontWeight:800};
+  const sub={margin:"0 0 14px",fontSize:13,color:C.textSec};
+  // Enregistre un morceau de la fiche restaurant ; une colonne absente (base pas encore migrée) donne un message clair
+  const upd=async(key,patch,msg)=>{
+    if(!rest?.id||busy)return false;setBusy(key);
+    const{error}=await supabase.from("restaurants").update(patch).eq("id",rest.id);
+    setBusy(null);
+    if(error){toast(error.code==="PGRST204"||/column/i.test(error.message||"")?"Ce réglage demande une mise à jour de la base":"Erreur : réglage non enregistré","error");return false;}
+    toast(msg);await onSaved?.();return true;
+  };
+  const saveInfo=async()=>{
+    const obj=parseFloat(String(info.objectif).replace(",","."));
+    if(!info.name.trim()){toast("Le nom du restaurant est obligatoire","error");return;}
+    if(!(obj>0&&obj<100)){toast("Objectif invalide (entre 1 et 99 %)","error");return;}
+    if(!await upd("info",{name:info.name.trim(),ville:info.ville.trim()||null,objectif:Math.round(obj*10)/1000},"Restaurant mis à jour"))return;
+    if((info.adresse||"")!==(rest?.adresse||"")||(info.telephone||"")!==(rest?.telephone||""))await upd("info2",{adresse:info.adresse.trim()||null,telephone:info.telephone.trim()||null},"Coordonnées enregistrées");
+  };
+  const savePwd=async()=>{
+    if(pwd.a.length<8){toast("8 caractères minimum","error");return;}
+    if(pwd.a!==pwd.b){toast("Les deux mots de passe ne correspondent pas","error");return;}
+    setBusy("pwd");const{error}=await supabase.auth.updateUser({password:pwd.a});setBusy(null);
+    if(error){toast("Mot de passe non modifié, réessayez","error");return;}
+    setPwd({a:"",b:""});toast("Mot de passe modifié");
+  };
+  const oublier=()=>{try{localStorage.removeItem("pillot_client");}catch{/* stockage indisponible */}toast("Cet appareil affichera la page d'accueil après déconnexion");};
+  const row={display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"12px 0",borderTop:`1px solid ${C.border}`};
+
   return<div>
     <div style={{marginBottom:24}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Réglages</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{rest?.name}</p></div>
-    <Card style={{padding:24,marginBottom:14}}>
-      <h3 style={{margin:"0 0 6px",fontSize:15,fontWeight:800}}>Clôture de la semaine</h3>
-      {rest?.id?<Cloture restaurantId={rest.id} hasSucre={hasSucre} toast={toast} onSaved={onSaved}/>:<p style={{margin:0,color:C.textSec,fontSize:13}}>Restaurant introuvable.</p>}
+    {rest?.id&&<>
+    <Card style={{padding:20,marginBottom:14}}>
+      <h3 style={h3}>Restaurant</h3><p style={sub}>Ces informations apparaissent sur les commandes et le registre HACCP.</p>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12}}>
+        {[["name","Nom"],["adresse","Adresse"],["ville","Ville"],["telephone","Téléphone"]].map(([k,l])=><div key={k}><label htmlFor={"reg-"+k} style={lab}>{l}</label>
+          <input id={"reg-"+k} value={info[k]} onChange={e=>setInfo(x=>({...x,[k]:e.target.value}))} inputMode={k==="telephone"?"tel":undefined} style={inp}/></div>)}
+        <div><label htmlFor="reg-obj" style={lab}>Objectif coût matière (%)</label><input id="reg-obj" inputMode="decimal" value={info.objectif} onChange={e=>setInfo(x=>({...x,objectif:e.target.value}))} style={inp}/></div>
+      </div>
+      <button onClick={saveInfo} disabled={!!busy} style={{...btn,marginTop:14,opacity:busy?.7:1}}>{busy==="info"||busy==="info2"?"Enregistrement...":"Enregistrer"}</button>
     </Card>
+
+    <Card style={{padding:20,marginBottom:14}}>
+      <h3 style={h3}>Horaires d'ouverture</h3><p style={sub}>Exemple : 11:30-14:30, 18:30-22:30.</p>
+      {JOURS.map(([k,l])=><div key={k} style={{...row,flexWrap:"wrap"}}>
+        <span style={{fontSize:14,fontWeight:600,width:90}}>{l}</span>
+        <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:C.textSec,minHeight:44}}><input type="checkbox" checked={hor[k].ouvert} onChange={e=>setHor(h=>({...h,[k]:{...h[k],ouvert:e.target.checked}}))} style={{width:18,height:18}}/>Ouvert</label>
+        <input value={hor[k].ouvert?hor[k].heures:"Fermé"} disabled={!hor[k].ouvert} onChange={e=>setHor(h=>({...h,[k]:{...h[k],heures:e.target.value}}))} aria-label={"Horaires "+l} placeholder="11:30-14:30, 18:30-22:30" style={{...inp,flex:"1 1 180px",width:"auto",fontSize:15,color:hor[k].ouvert?C.text:C.textMuted}}/>
+      </div>)}
+      <button onClick={()=>upd("hor",{horaires:hor},"Horaires enregistrés")} disabled={!!busy} style={{...btn,marginTop:10,opacity:busy?.7:1}}>{busy==="hor"?"Enregistrement...":"Enregistrer les horaires"}</button>
+    </Card>
+
+    <Card style={{padding:20,marginBottom:14}}>
+      <h3 style={h3}>Modules</h3><p style={sub}>Affichez seulement ce qui sert à votre établissement.</p>
+      <div style={row}>
+        <div><p style={{margin:0,fontSize:14,fontWeight:700}}>Glacier</p><p style={{margin:0,fontSize:12,color:C.textSec}}>Parfums, bacs, import de caisse et commandes de glaces.</p></div>
+        <Switch on={glacesOn} disabled={!!busy} label="Module glacier" onClick={()=>upd("mod",{modules:{...modules,glaces:!glacesOn}},glacesOn?"Module glacier masqué":"Module glacier activé")}/>
+      </div>
+    </Card>
+
+    <Card style={{padding:20,marginBottom:14}}>
+      <h3 style={{...h3,marginBottom:6}}>Clôture de la semaine</h3>
+      <Cloture restaurantId={rest.id} objectif={rest.objectif||0.25} toast={toast} onSaved={onSaved}/>
+    </Card>
+
+    {onTab&&!isAdmin&&<Card style={{padding:20,marginBottom:14}}>
+      <h3 style={h3}>Gestion</h3><p style={sub}>Les autres réglages de votre restaurant.</p>
+      {[["equipe","Équipe et accès","Inviter un employé, changer un rôle"],["appareils","Équipements et frigos","Frigos, congélateurs et seuils de température"],["produits","Catalogue produits","Fournisseurs, stocks minimum, prix d'achat"],["haccp","Plan de nettoyage","Tâches d'hygiène et relevés"]].map(([id,t,d])=><button key={id} onClick={()=>onTab(id)} style={{...row,width:"100%",background:"none",border:"none",borderTop:`1px solid ${C.border}`,cursor:"pointer",textAlign:"left"}}>
+        <span><span style={{display:"block",fontSize:14,fontWeight:700,color:C.text}}>{t}</span><span style={{fontSize:12,color:C.textSec}}>{d}</span></span>
+        <span style={{color:C.textMuted,fontSize:18}}>›</span></button>)}
+    </Card>}
+    </>}
+
     <Card style={{padding:20}}>
-      <h3 style={{margin:"0 0 12px",fontSize:15,fontWeight:800}}>Informations du compte</h3>
+      <h3 style={{...h3,marginBottom:12}}>Mon compte</h3>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
-        {[["Restaurant",rest?.name],["Plan",rest?.plan],["Email",profile?.email],["Rôle",roleLabel(profile?.role)]].map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"9px 12px",background:"#F8FAFC",borderRadius:8}}>
-          <span style={{fontSize:13,color:C.textSec,fontWeight:500}}>{l}</span><span style={{fontSize:13,fontWeight:700}}>{v||"—"}</span>
+        {[["Restaurant",rest?.name],["Formule",rest?.plan],["E-mail",profile?.email],["Rôle",roleLabel(profile?.role)]].map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"9px 12px",background:"#F8FAFC",borderRadius:8}}>
+          <span style={{fontSize:13,color:C.textSec,fontWeight:500}}>{l}</span><span style={{fontSize:13,fontWeight:700,overflowWrap:"anywhere",textAlign:"right"}}>{v||"—"}</span>
         </div>)}
+      </div>
+      <p style={{...lab,margin:"18px 0 8px"}}>Changer le mot de passe</p>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10}}>
+        <input type="password" autoComplete="new-password" value={pwd.a} onChange={e=>setPwd(p=>({...p,a:e.target.value}))} placeholder="Nouveau (8 caractères min.)" aria-label="Nouveau mot de passe" style={inp}/>
+        <input type="password" autoComplete="new-password" value={pwd.b} onChange={e=>setPwd(p=>({...p,b:e.target.value}))} placeholder="Confirmation" aria-label="Confirmation du mot de passe" style={inp}/>
+      </div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:10}}>
+        <button onClick={savePwd} disabled={!!busy||!pwd.a} style={{...btn,opacity:busy||!pwd.a?.6:1}}>{busy==="pwd"?"Enregistrement...":"Modifier le mot de passe"}</button>
+        <button onClick={oublier} style={{...btn,background:"transparent",color:C.textSec,border:`1px solid ${C.border}`}}>Oublier cet appareil</button>
       </div>
       <LegalLinks onOpen={setLegal}/>
     </Card>
@@ -655,7 +788,7 @@ function Admin({toast}){
   return<div>
     <div style={{marginBottom:20}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Multi-clients</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{clients.length} restaurant{clients.length>1?"s":""}</p></div>
     {loading?<p style={{color:C.textMuted,padding:40,textAlign:"center"}}>Chargement...</p>:clients.map(c=>{
-      const rs=c.ratio_sale||0,obj=c.objectif||0.25,col=rs<=obj?C.success:rs<=obj*1.4?C.warning:C.danger;
+      const rs=ratioGlobal(c),obj=c.objectif||0.25,col=rs<=obj?C.success:rs<=obj*1.4?C.warning:C.danger;
       return<Card key={c.id} style={{marginBottom:12,overflow:"hidden"}}>
         <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12}}>
           <span style={{width:10,height:10,borderRadius:"50%",background:col,display:"inline-block",flexShrink:0}}/>
@@ -664,7 +797,7 @@ function Admin({toast}){
         </div>
         <div style={{padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",gap:16}}>
-            {[["Salé",rs,col],["Sucré",c.ratio_sucre||0,"#7C3AED"],["Objectif",obj,C.textMuted]].map(([l,v,c])=>(
+            {[["Coût matière",rs,col],["Objectif",obj,C.textMuted]].map(([l,v,c])=>(
               <div key={l}><p style={{margin:0,fontSize:10,color:C.textMuted}}>{l}</p><p style={{margin:0,fontSize:16,fontWeight:800,color:c}}>{(v*100).toFixed(1)}%</p></div>
             ))}
           </div>
@@ -676,15 +809,14 @@ function Admin({toast}){
 }
 
 // ── PRODUITS (catalogue du restaurant) ───────────────────────
-const EMPTY_PROD={nom:"",unite:"kg",fournisseur:"",categorie:"",cote:"SALE",stock_min:"",prix_achat:""};
+const EMPTY_PROD={nom:"",unite:"kg",fournisseur:"",categorie:"",stock_min:"",prix_achat:""};
 function Produits({products,restaurantId,toast,onChanged}){
   const [form,setForm]=useState(null),[saving,setSaving]=useState(false),[search,setSearch]=useState(""),[pendingDel,setPendingDel]=useState(null);
-  const hasSucre=products.some(p=>p.cote==="SUCRE");
   const fourns=[...new Set(products.map(p=>p.fournisseur).filter(Boolean))].sort();
   const cats=[...new Set(products.map(p=>p.categorie).filter(Boolean))].sort();
   const list=products.filter(p=>!search||p.nom.toLowerCase().includes(search.toLowerCase())||p.fournisseur?.toLowerCase().includes(search.toLowerCase()));
   const groups=[...new Set(list.map(p=>p.categorie||"Sans catégorie"))].sort();
-  const edit=p=>setForm(p?{id:p.id,nom:p.nom||"",unite:p.unite||"",fournisseur:p.fournisseur||"",categorie:p.categorie||"",cote:coteOf(p),stock_min:p.stock_min??"",prix_achat:p.prix_achat??""}:{...EMPTY_PROD});
+  const edit=p=>setForm(p?{id:p.id,nom:p.nom||"",unite:p.unite||"",fournisseur:p.fournisseur||"",categorie:p.categorie||"",stock_min:p.stock_min??"",prix_achat:p.prix_achat??""}:{...EMPTY_PROD});
   const num=v=>{const t=String(v).trim().replace(",",".");if(t==="")return null;const n=Number(t);return isNaN(n)||n<0?NaN:n;};
   const save=async()=>{
     const nom=form.nom.trim(),unite=form.unite.trim();
@@ -694,11 +826,11 @@ function Produits({products,restaurantId,toast,onChanged}){
     const stock_min=num(form.stock_min),prix_achat=num(form.prix_achat);
     if(Number.isNaN(stock_min)||Number.isNaN(prix_achat)){toast("Stock minimum ou prix invalide","error");return;}
     if(products.some(p=>p.id!==form.id&&p.nom.trim().toLowerCase()===nom.toLowerCase())){toast("Un produit porte déjà ce nom","error");return;}
-    const row={nom,unite,fournisseur,categorie:form.categorie.trim()||null,cote:form.cote,stock_min,prix_achat};
+    const row={nom,unite,fournisseur,categorie:form.categorie.trim()||null,stock_min,prix_achat};
     setSaving(true);
     const{error}=form.id
       ?await supabase.from("products").update(row).eq("id",form.id).eq("restaurant_id",restaurantId)
-      :await supabase.from("products").insert({...row,restaurant_id:restaurantId,actif:true});
+      :await supabase.from("products").insert({...row,restaurant_id:restaurantId,actif:true,cote:"SALE"});
     setSaving(false);
     if(error){toast("Erreur : le produit n'a pas été enregistré","error");return;}
     toast(form.id?"Produit modifié":"Produit ajouté");setForm(null);await onChanged?.();
@@ -727,7 +859,7 @@ function Produits({products,restaurantId,toast,onChanged}){
       {list.filter(p=>(p.categorie||"Sans catégorie")===g).map(p=><div key={p.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
         <div style={{flex:"1 1 160px",minWidth:0}}>
           <p style={{margin:0,fontSize:14,fontWeight:700,overflowWrap:"anywhere"}}>{p.nom}</p>
-          <p style={{margin:0,fontSize:12,color:C.textSec}}>{p.fournisseur} · {p.unite}{p.stock_min?` · mini ${p.stock_min}`:""}{p.prix_achat?` · ${fmt(p.prix_achat)}`:""}{hasSucre?` · ${coteOf(p)==="SUCRE"?"Sucré":"Salé"}`:""}</p>
+          <p style={{margin:0,fontSize:12,color:C.textSec}}>{p.fournisseur} · {p.unite}{p.stock_min?` · mini ${p.stock_min}`:""}{p.prix_achat?` · ${fmt(p.prix_achat)}`:""}</p>
         </div>
         <div style={{display:"flex",gap:6}}>
           <button onClick={()=>edit(p)} aria-label={"Modifier "+p.nom} style={{minWidth:44,minHeight:44,borderRadius:9,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:C.textSec}}><Icon n="edit" sz={16}/></button>
@@ -747,7 +879,6 @@ function Produits({products,restaurantId,toast,onChanged}){
             <datalist id="prod-fourns">{fourns.map(f=><option key={f} value={f}/>)}</datalist></div>
           <div><label htmlFor="prod-cat" style={lab}>Catégorie</label><input id="prod-cat" list="prod-cats" value={form.categorie} onChange={e=>setForm(f=>({...f,categorie:e.target.value}))} placeholder="Viandes, Boissons…" style={inp}/>
             <datalist id="prod-cats">{cats.map(c=><option key={c} value={c}/>)}</datalist></div>
-          <div><label htmlFor="prod-cote" style={lab}>Rayon</label><select id="prod-cote" value={form.cote} onChange={e=>setForm(f=>({...f,cote:e.target.value}))} style={inp}><option value="SALE">Salé / cuisine</option><option value="SUCRE">Sucré / desserts</option></select></div>
           <div><label htmlFor="prod-min" style={lab}>Stock minimum</label><input id="prod-min" inputMode="decimal" value={form.stock_min} onChange={e=>setForm(f=>({...f,stock_min:e.target.value}))} placeholder="0" style={inp}/></div>
           <div><label htmlFor="prod-prix" style={lab}>Prix d'achat HT (€)</label><input id="prod-prix" inputMode="decimal" value={form.prix_achat} onChange={e=>setForm(f=>({...f,prix_achat:e.target.value}))} placeholder="0,00" style={inp}/></div>
         </div>
@@ -943,11 +1074,15 @@ export default function App(){
     if(error){showToast("Erreur de chargement du profil","error");uidRef.current=null;setLoading(false);return;}
     setProfile(data);
     if(data?.restaurant_id){
-      // Module Glaces affiché seulement si le restaurant a des parfums configurés
-      const{count,error:gErr}=await supabase.from("glaces_flavors").select("id",{count:"exact",head:true}).eq("restaurant_id",data.restaurant_id);
-      if(uidRef.current!==uid)return;
-      if(gErr)showToast("Erreur de chargement du module Glaces","error");
-      setHasGlaces((count||0)>0);
+      // Module glacier : choix fait dans Réglages ; sans choix, affiché seulement si des parfums sont actifs
+      const mg=data.restaurants?.modules?.glaces;
+      if(typeof mg==="boolean")setHasGlaces(mg);
+      else{
+        const{count,error:gErr}=await supabase.from("glaces_flavors").select("id",{count:"exact",head:true}).eq("restaurant_id",data.restaurant_id).eq("actif",true);
+        if(uidRef.current!==uid)return;
+        if(gErr)showToast("Erreur de chargement du module Glaces","error");
+        setHasGlaces((count||0)>0);
+      }
       await loadProducts(data.restaurant_id);
       if(uidRef.current!==uid)return;
     }
@@ -975,7 +1110,6 @@ export default function App(){
   const logout=async()=>{const{error}=await supabase.auth.signOut();if(error)showToast("Erreur lors de la déconnexion","error");};
   const isAdmin=profile?.role==="admin";
   const allTabs=navTabs(profile?.role,{glaces:hasGlaces});
-  const hasSucre=products.some(p=>p.cote==="SUCRE");
   const showCA=isAdmin||canManageRole(profile?.role);
   // Onglet devenu interdit (rôle, module masqué) : retour au tableau de bord
   const allowedIds=allTabs.map(([id])=>id).join(",");
@@ -1015,10 +1149,10 @@ export default function App(){
     if(tab==="produits")return<Produits products={products} restaurantId={profile?.restaurant_id} toast={showToast} onChanged={()=>loadProducts(profile.restaurant_id)}/>;
     if(tab==="stocks")return<Inventaire products={products} restaurantId={profile?.restaurant_id} onStockUpdate={onStockUpdate} toast={showToast}/>;
     if(tab==="commandes")return<Commandes products={products} profile={profile} toast={showToast}/>;
-    if(tab==="historique")return<Historique restaurantId={profile?.restaurant_id} hasSucre={hasSucre} onTab={setTab} toast={showToast}/>;
+    if(tab==="historique")return<Historique restaurantId={profile?.restaurant_id} objectif={profile?.restaurants?.objectif||0.25} onTab={setTab} toast={showToast}/>;
     if (tab === "haccp") return <HACCPComplet restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast}/>;
-    if(tab==="recettes")return<Recettes restaurantId={profile?.restaurant_id} products={products} toast={showToast} canManage={canManageRole(profile?.role)||isAdmin}/>;
-    if(tab==="settings")return<Reglages profile={profile} toast={showToast} hasSucre={hasSucre} onSaved={()=>loadProfile(profile.id)}/>;
+    if(tab==="recettes")return<Recettes restaurantId={profile?.restaurant_id} products={products} toast={showToast} canManage={canManageRole(profile?.role)||isAdmin} objectif={profile?.restaurants?.objectif||0.25}/>;
+    if(tab==="settings")return<Reglages key={profile?.restaurants?.id} profile={profile} toast={showToast} onTab={setTab} isAdmin={isAdmin} glacesVisible={hasGlaces} onSaved={()=>loadProfile(profile.id)}/>;
     if(tab==="users"&&isAdmin)return<Admin toast={showToast}/>;
     if(tab==="scan")return<InvoiceScanner restaurantId={profile?.restaurant_id} products={products} toast={showToast} onSaved={()=>loadProducts(profile.restaurant_id)}/>;
     if(tab==="equipe")return<Equipe restaurantId={profile?.restaurant_id} role={profile?.role} toast={showToast}/>;

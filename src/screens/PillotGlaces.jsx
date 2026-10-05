@@ -7,6 +7,17 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { localDate } from "../lib/dates";
 
+// Pictogrammes au trait (même style que la navigation)
+const ICONS = {
+  "ice-cream":<><path d="M12 21.5V21"/><path d="M8 11.5l4 9.5 4-9.5"/><path d="M6.5 11.5a5.5 5.5 0 1111 0z"/></>,
+  alert:<><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>,
+  chart:<><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>,
+  check:<polyline points="20 6 9 17 4 12"/>,
+};
+const Ico = ({ name, size = 20, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink:0, display:"block" }}>{ICONS[name]}</svg>
+);
+
 // ── Design System ─────────────────────────────────────────────
 const D = {
   bg: "#F9FAFB",
@@ -104,7 +115,7 @@ export default function PillotGlaces({ restaurantId, profileId, toast, restauran
   const flavorsRupture = flavors.filter(f => f.stock_bacs <= 0 && f.actif);
   const flavorsAlerte = flavors.filter(f => f.stock_bacs > 0 && f.stock_bacs <= f.stock_min_bacs && f.actif);
 
-  const TABS = [["bilan","📊 Bilan"],["parfums","🍦 Parfums"],["import","📂 Import caisse"],["commande","📋 Commander"]];
+  const TABS = [["bilan","Bilan"],["parfums","Parfums"],["import","Import caisse"],["commande","Commander"]];
 
   if (loading) return <div style={{ padding:48, textAlign:"center", color:D.textMuted }}>Chargement Pillot Glaces...</div>;
 
@@ -114,7 +125,7 @@ export default function PillotGlaces({ restaurantId, profileId, toast, restauran
       <div style={{ marginBottom:20, display:"flex", alignItems:"flex-start", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
-            <div style={{ width:32, height:32, background:"linear-gradient(135deg,#7C3AED,#5B21B6)", borderRadius:9, display:"flex", alignItems:"center", justifyContent:"center", fontSize:17 }}>🍦</div>
+            <div style={{ width:32, height:32, background:"linear-gradient(135deg,#7C3AED,#5B21B6)", borderRadius:9, display:"flex", alignItems:"center", justifyContent:"center", color:"#fff" }}><Ico name="ice-cream" size={18}/></div>
             <h1 style={{ margin:0, fontSize:22, fontWeight:700, letterSpacing:"-.03em", color:D.text }}>Pillot Glaces</h1>
           </div>
           <p style={{ margin:0, fontSize:14, color:D.textSec }}>{flavors.filter(f=>f.actif).length} parfums actifs · {fmtBac(totalBacsEnStock)} en stock</p>
@@ -124,7 +135,7 @@ export default function PillotGlaces({ restaurantId, profileId, toast, restauran
       {/* Alertes urgentes */}
       {(flavorsRupture.length > 0 || flavorsAlerte.length > 0) && (
         <div style={{ background:D.dangerLight, border:`1px solid #FECACA`, borderRadius:12, padding:"12px 16px", marginBottom:16, display:"flex", alignItems:"center", gap:12 }}>
-          <span style={{ fontSize:20 }}>⚠️</span>
+          <Ico name="alert" size={20} color={D.danger}/>
           <div>
             {flavorsRupture.length > 0 && <p style={{ margin:0, fontSize:13, fontWeight:600, color:D.danger }}>{flavorsRupture.length} parfum{flavorsRupture.length>1?"s":""} en rupture : {flavorsRupture.map(f=>f.nom).join(", ")}</p>}
             {flavorsAlerte.length > 0 && <p style={{ margin:0, fontSize:12, color:D.warning }}>Stock faible : {flavorsAlerte.map(f=>f.nom).join(", ")}</p>}
@@ -457,7 +468,7 @@ function ImportTab({ posImports, restaurantId, profileId, toast, onRefresh }) {
   if (result) return (
     <div>
       <div style={{ background:D.purpleLight, border:`1px solid ${D.purpleMid}`, borderRadius:14, padding:20, marginBottom:16 }}>
-        <p style={{ margin:"0 0 12px", fontSize:15, fontWeight:700, color:D.purple }}>🍦 Résultat de l'import</p>
+        <p style={{ margin:"0 0 12px", fontSize:15, fontWeight:700, color:D.purple }}>Résultat de l'import</p>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
           {[[fmtKg(result.theorique_kg),"Consommation théo."],[fmtBac(result.theorique_bacs),"Équiv. bacs 3,5L"],[fmt(result.totalCA),"CA glaces"]].map(([v,l])=>(
             <div key={l} style={{ background:D.surface, borderRadius:10, padding:"10px 12px", textAlign:"center" }}>
@@ -485,7 +496,7 @@ function ImportTab({ posImports, restaurantId, profileId, toast, onRefresh }) {
         style={{ background:D.surface, borderRadius:14, border:`2px dashed ${D.border}`, padding:"40px 24px", textAlign:"center", cursor:"pointer", marginBottom:16 }}
         onMouseEnter={e=>e.currentTarget.style.borderColor=D.purple} onMouseLeave={e=>e.currentTarget.style.borderColor=D.border}
         onDrop={e=>{e.preventDefault();handleFile(e.dataTransfer.files[0]);}} onDragOver={e=>e.preventDefault()}>
-        <div style={{ width:52, height:52, borderRadius:14, background:D.purpleLight, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px", fontSize:24 }}>📊</div>
+        <div style={{ width:52, height:52, borderRadius:14, background:D.purpleLight, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px", color:D.purple }}><Ico name="chart" size={24}/></div>
         <p style={{ margin:0, fontSize:15, fontWeight:600 }}>Déposer le fichier de ventes caisse</p>
         <p style={{ margin:"6px 0 0", fontSize:13, color:D.textSec }}>Calcul automatique de la consommation de glace</p>
         {loading && <p style={{ margin:"12px 0 0", fontSize:13, color:D.purple, fontWeight:600 }}>Calcul en cours...</p>}
@@ -528,7 +539,7 @@ function CommandeTab({ flavors, toast, restaurantName }) {
         </div>
         {toLow.length === 0 ? (
           <div style={{ padding:32, textAlign:"center" }}>
-            <p style={{ fontSize:22, margin:"0 0 8px" }}>✅</p>
+            <div style={{ display:"flex", justifyContent:"center", marginBottom:8, color:D.success }}><Ico name="check" size={22}/></div>
             <p style={{ margin:0, fontSize:14, fontWeight:600, color:D.success }}>Tous les parfums sont bien stockés</p>
           </div>
         ) : <>
@@ -548,7 +559,7 @@ function CommandeTab({ flavors, toast, restaurantName }) {
           <div style={{ padding:14, borderTop:`1px solid ${D.border}` }}>
             <div style={{ background:"#FAFAFA", border:`1px solid ${D.border}`, borderRadius:9, padding:12, fontFamily:"monospace", fontSize:12, whiteSpace:"pre-wrap", marginBottom:10 }}>{msg}</div>
             <button onClick={copy} style={{ width:"100%", padding:11, background:copied?D.success:"#5B21B6", color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", transition:"background .2s" }}>
-              {copied ? "✓ Copié !" : "Copier pour WhatsApp"}
+              {copied ? "Copié !" : "Copier pour WhatsApp"}
             </button>
           </div>
         </>}

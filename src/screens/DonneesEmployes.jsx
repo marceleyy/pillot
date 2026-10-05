@@ -3,7 +3,7 @@
 //  Fichier : src/screens/DonneesEmployes.jsx
 //  Export CSV des données d'un employé (accès / portabilité) et
 //  anonymisation d'un ancien employé (fonction anonymiser_employe,
-//  supabase/migrations/20261005_03_rgpd.sql). Réservé aux responsables.
+//  supabase/migrations/20261005_04_rgpd.sql). Réservé aux responsables.
 // ═══════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useCallback } from "react";

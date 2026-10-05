@@ -19,6 +19,22 @@ const C = {
   text:"#0F172A",textSec:"#64748B",textMuted:"#94A3B8"
 };
 
+// Pictogrammes au trait (même style que la navigation)
+const ICONS = {
+  sun:<><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></>,
+  moon:<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>,
+  droplet:<path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>,
+  thermometer:<path d="M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z"/>,
+  box:<><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>,
+  clipboard:<><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></>,
+  check:<polyline points="20 6 9 17 4 12"/>,
+  users:<><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></>,
+  trash:<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></>,
+};
+const Ico = ({ name, size = 20, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{flexShrink:0,display:"block"}}>{ICONS[name]}</svg>
+);
+
 const JOURS = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
 const TYPE_COULEURS = ["#2563EB","#16A34A","#D97706","#DC2626","#7C3AED","#0891B2"];
 const EMPTY_TYPE = { nom:"", heure_debut:"", heure_fin:"", couleur:TYPE_COULEURS[0] };
@@ -380,7 +396,7 @@ export function Planning({ restaurantId, toast, canManage = true }) {
 
       {employees.length === 0 ? (
         <div style={{padding:40,textAlign:"center",background:C.surface,borderRadius:14,border:`1px solid ${C.border}`}}>
-          <p style={{fontSize:32,margin:"0 0 10px"}}>👥</p>
+          <div style={{display:"flex",justifyContent:"center",marginBottom:10,color:C.textMuted}}><Ico name="users" size={32}/></div>
           <p style={{fontSize:16,fontWeight:700,margin:0}}>Aucun employé</p>
           <p style={{fontSize:13,color:C.textSec,margin:"6px 0 0"}}>Ajoutez vos employés pour créer le planning</p>
         </div>
@@ -513,7 +529,7 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
     const { error } = await supabase.from("task_completions").insert({
       task_id: task.id, restaurant_id: restaurantId, completed_by: profileId, date: today
     });
-    if (!error) { setCompletions(prev => [...prev, { task_id: task.id }]); toast("Tâche complétée ✓"); }
+    if (!error) { setCompletions(prev => [...prev, { task_id: task.id }]); toast("Tâche complétée"); }
     else toast("Erreur : la tâche n'a pas été complétée", "error");
   };
 
@@ -541,7 +557,8 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
   };
 
   const PRIO_COLOR = { haute: C.danger, normale: C.brand, basse: C.textMuted };
-  const CAT_ICON = { ouverture:"☀️", fermeture:"🌙", nettoyage:"🧹", haccp:"🌡️", stock:"📦", general:"📋" };
+  // Clés = valeurs de tasks.categorie (stockées en base) ; valeurs = pictogramme affiché
+  const CAT_ICON = { ouverture:"sun", fermeture:"moon", nettoyage:"droplet", haccp:"thermometer", stock:"box", general:"clipboard" };
 
   if (loading) return <div style={{padding:40,textAlign:"center",color:C.textMuted}}>Chargement...</div>;
 
@@ -557,7 +574,7 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                 <div><label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>Catégorie</label>
                   <select value={newTask.categorie} onChange={e=>setNewTask(p=>({...p,categorie:e.target.value}))} style={{width:"100%",padding:"9px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}>
-                    {Object.keys(CAT_ICON).map(c=><option key={c} value={c}>{CAT_ICON[c]} {c}</option>)}
+                    {Object.keys(CAT_ICON).map(c=><option key={c} value={c}>{c}</option>)}
                   </select></div>
                 <div><label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>Fréquence</label>
                   <select value={newTask.frequence} onChange={e=>setNewTask(p=>({...p,frequence:e.target.value}))} style={{width:"100%",padding:"9px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}>
@@ -621,13 +638,13 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
         <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:"hidden"}}>
           {todo.length === 0 ? (
             <div style={{padding:40,textAlign:"center"}}>
-              <p style={{fontSize:28,margin:"0 0 8px"}}>✅</p>
+              <div style={{display:"flex",justifyContent:"center",marginBottom:8,color:C.success}}><Ico name="check" size={28}/></div>
               <p style={{margin:0,fontSize:15,fontWeight:700,color:C.success}}>Toutes les tâches sont complétées !</p>
             </div>
           ) : todo.map((t, i) => (
             <div key={t.id} style={{padding:"14px 16px",borderBottom:i<todo.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:12}}>
-              <div style={{width:40,height:40,borderRadius:12,background:`${PRIO_COLOR[t.priorite]}15`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>
-                {CAT_ICON[t.categorie]||"📋"}
+              <div style={{width:40,height:40,borderRadius:12,background:`${PRIO_COLOR[t.priorite]}15`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:PRIO_COLOR[t.priorite]||C.brand}}>
+                <Ico name={CAT_ICON[t.categorie]||"clipboard"} size={18}/>
               </div>
               <div style={{flex:1}}>
                 <p style={{margin:0,fontSize:14,fontWeight:600}}>{t.nom}</p>
@@ -652,7 +669,7 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
             <p style={{padding:32,textAlign:"center",color:C.textMuted,margin:0,fontSize:13}}>Aucune tâche complétée aujourd'hui</p>
           ) : done.map((t, i) => (
             <div key={t.id} style={{padding:"14px 16px",borderBottom:i<done.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:12,background:C.successLight}}>
-              <div style={{width:40,height:40,borderRadius:12,background:C.successLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{CAT_ICON[t.categorie]||"✅"}</div>
+              <div style={{width:40,height:40,borderRadius:12,background:C.successLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:C.success}}><Ico name={CAT_ICON[t.categorie]||"check"} size={18}/></div>
               <div style={{flex:1}}>
                 <p style={{margin:0,fontSize:14,fontWeight:600,color:C.success,textDecoration:"line-through"}}>{t.nom}</p>
                 <p style={{margin:"2px 0 0",fontSize:11,color:C.success,opacity:.7}}>Complétée aujourd'hui</p>
@@ -668,7 +685,7 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
         <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:"hidden"}}>
           {tasks.map((t, i) => (
             <div key={t.id} style={{padding:"12px 16px",borderBottom:i<tasks.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:12}}>
-              <span style={{fontSize:18,flexShrink:0}}>{CAT_ICON[t.categorie]||"📋"}</span>
+              <span style={{flexShrink:0,color:C.textSec}}><Ico name={CAT_ICON[t.categorie]||"clipboard"} size={18}/></span>
               <div style={{flex:1}}>
                 <p style={{margin:0,fontSize:13,fontWeight:600}}>{t.nom}</p>
                 <p style={{margin:0,fontSize:11,color:C.textSec}}>{t.frequence==="daily"?"Chaque jour":t.frequence==="weekly"?"Hebdomadaire":"Ponctuelle"} · Priorité {t.priorite}</p>
@@ -680,7 +697,7 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
                 </div>
               ) : (
                 <button onClick={() => setPendingTaskDelete(t.id)} aria-label={`Supprimer la tâche ${t.nom}`} style={{padding:"6px",background:C.dangerLight,border:"none",borderRadius:8,cursor:"pointer",display:"flex",alignItems:"center"}}>
-                  <span style={{fontSize:14}} aria-hidden="true">🗑️</span>
+                  <Ico name="trash" size={16} color={C.danger}/>
                 </button>
               )}
             </div>

@@ -31,19 +31,34 @@ function Card({ children, style = {} }) {
   return <div style={{ background: C.surface, borderRadius: 14, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,.04)", ...style }}>{children}</div>;
 }
 
+// Pictogrammes au trait (même style que la navigation)
+const ICONS = {
+  thermometer:<path d="M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z"/>,
+  cold:<><line x1="12" y1="2" x2="12" y2="22"/><line x1="4.93" y1="7" x2="19.07" y2="17"/><line x1="4.93" y1="17" x2="19.07" y2="7"/></>,
+  hot:<path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 002.5 2.5z"/>,
+  droplet:<path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>,
+  box:<><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>,
+  check:<polyline points="20 6 9 17 4 12"/>,
+  alert:<><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>,
+  clipboard:<><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></>,
+};
+const Ico = ({ name, size = 20, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink:0, display:"block" }}>{ICONS[name]}</svg>
+);
+
 // ─── TEMPÉRATURES ───────────────────────────────────────────
-const EQUIP_ICONS = { frigo:"❄️", congelateur:"🧊", vitrine:"🛒", bain_marie:"♨️", zone_chaude:"🔥", friteuse:"🛢️" };
+const EQUIP_ICONS = { frigo:"cold", congelateur:"cold", vitrine:"cold", bain_marie:"hot", zone_chaude:"hot", friteuse:"hot" };
 const seuil = v => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v))) ? null : Number(v);
-const mapEquipement = e => ({ id: e.id, nom: e.nom, min: seuil(e.temp_min), max: seuil(e.temp_max), icon: EQUIP_ICONS[e.type] || "🌡️", type: e.type });
+const mapEquipement = e => ({ id: e.id, nom: e.nom, min: seuil(e.temp_min), max: seuil(e.temp_max), icon: EQUIP_ICONS[e.type] || "thermometer", type: e.type });
 // Liste par défaut, utilisée en secours si le restaurant n'a déclaré aucun équipement
 const EQUIPEMENTS_DEFAUT = [
-  { nom:"Frigo 1",      min:0,  max:4,  icon:"❄️" },
-  { nom:"Frigo 2",      min:0,  max:4,  icon:"❄️" },
-  { nom:"Congélateur",  min:-22,max:-18,icon:"🧊" },
-  { nom:"Zone prépa",   min:-5, max:12, icon:"🌡️" },
-  { nom:"Vitrine froide",min:0, max:6,  icon:"❄️" },
-  { nom:"Bain-marie",   min:63, max:99, icon:"♨️" },
-  { nom:"Zone chaude",  min:63, max:99, icon:"🔥" },
+  { nom:"Frigo 1",      min:0,  max:4,  icon:"cold" },
+  { nom:"Frigo 2",      min:0,  max:4,  icon:"cold" },
+  { nom:"Congélateur",  min:-22,max:-18,icon:"cold" },
+  { nom:"Zone prépa",   min:-5, max:12, icon:"thermometer" },
+  { nom:"Vitrine froide",min:0, max:6,  icon:"cold" },
+  { nom:"Bain-marie",   min:63, max:99, icon:"hot" },
+  { nom:"Zone chaude",  min:63, max:99, icon:"hot" },
 ];
 
 // ─── NETTOYAGE ───────────────────────────────────────────────
@@ -193,8 +208,8 @@ ${section("DLC (échéances du mois)", [["Produit", d => d.product_nom], ["Lot",
   };
 
   const TABS = [
-    ["temp","🌡️ Températures"],["clean","🧹 Nettoyage"],
-    ["dlc","📦 DLC"],["reception","✅ Réception"],["huile","🛢️ Huile"]
+    ["temp","Températures"],["clean","Nettoyage"],
+    ["dlc","DLC"],["reception","Réception"],["huile","Huile"]
   ];
 
   return (
@@ -211,7 +226,7 @@ ${section("DLC (échéances du mois)", [["Produit", d => d.product_nom], ["Lot",
           </button>
           <button onClick={() => setRegOpen(o => !o)} aria-expanded={regOpen}
             style={{ padding: "8px 14px", minHeight: 44, background: regOpen ? C.brandLight : C.bg, color: regOpen ? C.brand : C.text, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>
-            🖨 Registre du mois (PDF)
+            Registre du mois (PDF)
           </button>
         </div>
       </div>
@@ -291,7 +306,7 @@ function TemperaturesTab({ logs, equipements, restaurantId, profileId, toast, on
     <div>
       {sansEquipement && (
         <div style={{ padding:"10px 14px", marginBottom:12, borderRadius:10, background:C.warningLight, border:`1px solid ${C.border}`, fontSize:12, fontWeight:600, color:C.text }}>
-          ℹ️ Ajoutez vos équipements dans le menu Équipements pour des relevés à vos seuils
+          Ajoutez vos équipements dans le menu Équipements pour des relevés à vos seuils
         </div>
       )}
       {adding && (
@@ -304,7 +319,7 @@ function TemperaturesTab({ logs, equipements, restaurantId, profileId, toast, on
             {val && !isNaN(parseFloat(val)) && (
               <div style={{ padding:"8px 12px", borderRadius:8, background:isOk(adding,parseFloat(val))?C.successLight:C.dangerLight, marginBottom:12 }}>
                 <p style={{ margin:0, fontSize:13, fontWeight:700, color:isOk(adding,parseFloat(val))?C.success:C.danger }}>
-                  {isOk(adding,parseFloat(val)) ? "✅ Conforme" : "⚠️ HORS NORME — Vérifier l'équipement !"}
+                  {isOk(adding,parseFloat(val)) ? "Conforme" : "HORS NORME — Vérifier l'équipement !"}
                 </p>
               </div>
             )}
@@ -326,7 +341,7 @@ function TemperaturesTab({ logs, equipements, restaurantId, profileId, toast, on
           const ok = last ? isOk(e.nom, last.temperature) : null;
           return (
             <Card key={e.id ?? e.nom} style={{ padding:"14px 16px", display:"flex", alignItems:"center", gap:12 }}>
-              <div style={{ width:46, height:46, borderRadius:13, background:ok===null?"#F1F5F9":ok?C.successLight:C.dangerLight, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>{e.icon}</div>
+              <div style={{ width:46, height:46, borderRadius:13, background:ok===null?"#F1F5F9":ok?C.successLight:C.dangerLight, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, color:ok===null?C.textSec:ok?C.success:C.danger }}><Ico name={e.icon} size={22}/></div>
               <div style={{ flex:1 }}>
                 <p style={{ margin:0, fontSize:14, fontWeight:700 }}>{e.nom}</p>
                 <p style={{ margin:0, fontSize:11, color:C.textSec }}>{e.min ?? "—"}°C à {e.max ?? "—"}°C</p>
@@ -352,8 +367,8 @@ function TemperaturesTab({ logs, equipements, restaurantId, profileId, toast, on
           <div key={l.id} style={{ padding:"9px 16px", borderBottom:i<9?`1px solid ${C.border}`:"none", display:"flex", alignItems:"center", gap:10 }}>
             <span style={{ fontSize:13, fontWeight:800, color:isOk(l.equipement,l.temperature)?C.success:C.danger, minWidth:50 }}>{l.temperature}°C</span>
             <div style={{ flex:1 }}><p style={{ margin:0, fontSize:12, fontWeight:500 }}>{l.equipement}</p><p style={{ margin:0, fontSize:10, color:C.textMuted }}>{new Date(l.created_at).toLocaleString("fr-FR")}</p>
-              {actionOf(l) && <p style={{ margin:"2px 0 0", fontSize:11, color:C.danger }}>🛠 {actionOf(l)}</p>}</div>
-            <span style={{ fontSize:11, fontWeight:700, color:isOk(l.equipement,l.temperature)?C.success:C.danger }}>{isOk(l.equipement,l.temperature)?"✓":"⚠"}</span>
+              {actionOf(l) && <p style={{ margin:"2px 0 0", fontSize:11, color:C.danger }}>Action corrective : {actionOf(l)}</p>}</div>
+            <span style={{ fontSize:11, fontWeight:700, color:isOk(l.equipement,l.temperature)?C.success:C.danger }}>{isOk(l.equipement,l.temperature)?"✓":"✗"}</span>
           </div>
         ))}
       </Card>}
@@ -476,12 +491,12 @@ function NettoyageTab({ logs, restaurantId, profileId, toast, onRefresh, onExpor
     <div>
       {shared === false && (
         <div style={{ padding:"10px 14px", marginBottom:12, borderRadius:10, background:C.warningLight, border:`1px solid ${C.border}`, fontSize:12, fontWeight:600, color:C.text }}>
-          ℹ️ Liste stockée sur cet appareil uniquement : appliquez la migration SQL (table nettoyage_plans) pour la partager avec l'équipe
+          Liste stockée sur cet appareil uniquement : appliquez la migration SQL (table nettoyage_plans) pour la partager avec l'équipe
         </div>
       )}
       {shared && pendingLocal && (
         <div style={{ padding:"10px 14px", marginBottom:12, borderRadius:10, background:C.brandLight, border:`1px solid ${C.border}`, fontSize:12, fontWeight:600, color:C.text, display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-          <span style={{ flex:1, minWidth:180 }}>ℹ️ Liste personnalisée trouvée sur cet appareil, pas encore partagée avec l'équipe</span>
+          <span style={{ flex:1, minWidth:180 }}>Liste personnalisée trouvée sur cet appareil, pas encore partagée avec l'équipe</span>
           <button onClick={async () => { if (await upsertPlan(lists)) toast("Liste partagée avec l'équipe"); }} style={{ padding:"8px 12px", minHeight:44, background:C.brand, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer" }}>Enregistrer pour l'équipe</button>
         </div>
       )}
@@ -499,7 +514,7 @@ function NettoyageTab({ logs, restaurantId, profileId, toast, onRefresh, onExpor
       </>}
       {!editMode && Object.values(checks).some(Boolean) && (
         <button onClick={save} disabled={saving} style={{ width:"100%", padding:13, background:C.success, color:"#fff", border:"none", borderRadius:12, fontSize:15, fontWeight:700, cursor:"pointer", boxShadow:`0 4px 12px ${C.success}40` }}>
-          {saving ? "Enregistrement..." : "✅ Valider les tâches effectuées"}
+          {saving ? "Enregistrement..." : "Valider les tâches effectuées"}
         </button>
       )}
     </div>
@@ -565,7 +580,7 @@ function DLCTab({ entries, restaurantId, profileId, toast, onRefresh, onExport }
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
         <div>
           {urgent.length > 0 && <div style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"6px 12px", background:C.dangerLight, borderRadius:8, fontSize:12, fontWeight:700, color:C.danger }}>
-            ⚠️ {urgent.length} produit{urgent.length>1?"s":""} expiran{urgent.length>1?"t":"t"} bientôt
+            <Ico name="alert" size={14}/>{urgent.length} produit{urgent.length>1?"s":""} expiran{urgent.length>1?"t":"t"} bientôt
           </div>}
         </div>
         <div style={{ display:"flex", gap:8 }}>
@@ -576,7 +591,7 @@ function DLCTab({ entries, restaurantId, profileId, toast, onRefresh, onExport }
 
       {entries.length === 0 ? (
         <Card style={{ padding:40, textAlign:"center" }}>
-          <p style={{ fontSize:28, margin:"0 0 8px" }}>📦</p>
+          <div style={{ display:"flex", justifyContent:"center", marginBottom:8, color:C.textMuted }}><Ico name="box" size={28}/></div>
           <p style={{ fontSize:14, fontWeight:700, margin:0 }}>Aucune DLC enregistrée</p>
           <p style={{ fontSize:13, color:C.textSec, margin:"6px 0 0" }}>Ajoutez les DLC de vos produits pour les suivre</p>
         </Card>
@@ -642,7 +657,7 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
                   <input value={form.numero_bl} onChange={e=>setForm(p=>({...p,numero_bl:e.target.value}))} placeholder="Ex: FC26-2200" style={{ width:"100%", boxSizing:"border-box", padding:"9px 12px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:13 }}/></div>
               </div>
               <div><p style={{ margin:"0 0 10px", fontSize:12, fontWeight:700, color:C.textSec, textTransform:"uppercase", letterSpacing:".5px" }}>Points de contrôle</p>
-                {[["temperature_ok","🌡️ Température conforme"],["emballage_ok","📦 Emballage intact"],["quantites_ok","📋 Quantités conformes au BL"]].map(([k,l])=>(
+                {[["temperature_ok","Température conforme"],["emballage_ok","Emballage intact"],["quantites_ok","Quantités conformes au BL"]].map(([k,l])=>(
                   <div key={k} onClick={()=>setForm(p=>({...p,[k]:!p[k]}))}
                     role="checkbox" aria-checked={!!form[k]} tabIndex={0}
                     onKeyDown={checkboxKey(()=>setForm(p=>({...p,[k]:!p[k]})))}
@@ -673,7 +688,7 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
 
       {receptions.length === 0 ? (
         <Card style={{ padding:40, textAlign:"center" }}>
-          <p style={{ fontSize:28, margin:"0 0 8px" }}>✅</p>
+          <div style={{ display:"flex", justifyContent:"center", marginBottom:8, color:C.textMuted }}><Ico name="clipboard" size={28}/></div>
           <p style={{ fontSize:14, fontWeight:700, margin:0 }}>Aucun contrôle enregistré</p>
         </Card>
       ) : (
@@ -681,7 +696,7 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
           {receptions.map((r, i) => (
             <div key={r.id} style={{ padding:"12px 16px", borderBottom:i<receptions.length-1?`1px solid ${C.border}`:"none", display:"flex", alignItems:"center", gap:10 }}>
               <div style={{ width:38, height:38, borderRadius:10, background:r.statut==="conforme"?C.successLight:C.dangerLight, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                <span style={{ fontSize:18 }}>{r.statut==="conforme"?"✅":"⚠️"}</span>
+                <Ico name={r.statut==="conforme"?"check":"alert"} size={18} color={r.statut==="conforme"?C.success:C.danger}/>
               </div>
               <div style={{ flex:1 }}>
                 <p style={{ margin:0, fontSize:13, fontWeight:700 }}>{r.fournisseur}</p>
@@ -765,7 +780,7 @@ function HuileTab({ oils, equipements, restaurantId, profileId, toast, onRefresh
         const alert = days !== null && days > 10;
         return (
           <Card key={f} style={{ padding:"16px", marginBottom:12, display:"flex", alignItems:"center", gap:14 }}>
-            <div style={{ width:48, height:48, borderRadius:14, background:alert?"#FFF7ED":"#F0FDF4", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, flexShrink:0 }}>🛢️</div>
+            <div style={{ width:48, height:48, borderRadius:14, background:alert?"#FFF7ED":"#F0FDF4", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, color:alert?C.orange:C.success }}><Ico name="droplet" size={22}/></div>
             <div style={{ flex:1 }}>
               <p style={{ margin:0, fontSize:15, fontWeight:700 }}>{f}</p>
               {last ? <>

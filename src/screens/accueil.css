@@ -9,8 +9,8 @@
   --accent-ink: #ffffff;
   --accent-soft: rgba(37, 99, 235, 0.1);
   --radius: 14px;
-  --font-display: 'Syne', system-ui, sans-serif;
-  --font-body: 'Space Grotesk', system-ui, sans-serif;
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
 .acc {
