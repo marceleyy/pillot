@@ -13,7 +13,7 @@ Dans le SQL Editor (rôle `postgres`), dans cet ordre :
 3. `migrations/20261005_03_reglages.sql` — colonnes `restaurants.adresse`, `telephone`, `horaires`, `modules` (Réglages et interrupteur du module glacier). Sans elle, ces réglages affichent « mise à jour de la base nécessaire » ; le reste fonctionne.
 4. `migrations/20261005_04_rgpd.sql` — mesures RGPD : taux horaire déplacé dans `employees_paie` (responsables seulement), date de retrait des employés, pointages protégés (plus de suppression en cascade, historique des corrections dans `pointages_historique`, heure d'arrivée imposée par le serveur pour un employé), un responsable ne modifie que le rôle d'un autre profil, fonction `anonymiser_employe()`, purge `rgpd_purge()` (3 ans).
 
-Les quatre fichiers sont rejouables (idempotents). Déployer la nouvelle version de l'appli en même temps que le script 04 : l'ancienne ne lit pas `employees_paie` et afficherait une masse salariale à 0.
+Tous ces fichiers sont rejouables (idempotents). Déployer la nouvelle version de l'appli en même temps que le script 04 : l'ancienne ne lit pas `employees_paie` et afficherait une masse salariale à 0.
 
 Purge automatique : activer l'extension `pg_cron` (Dashboard > Database > Extensions) **avant** le script 04, qui planifie alors `rgpd_purge()` chaque dimanche à 3 h. Sans `pg_cron`, lancer `select public.rgpd_purge();` à la main de temps en temps. Durée modifiable : `select public.rgpd_purge(60);` (en mois).
 

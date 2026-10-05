@@ -1,6 +1,6 @@
 -- =====================================================================
 -- Pillot — mesures RGPD (2026-10-05)
--- Idempotent. À appliquer APRÈS 20261005_01, 02 et 03.
+-- Idempotent. À appliquer APRÈS les scripts 00 à 03.
 --   1. Taux horaire déplacé dans employees_paie (lisible par les gérants seulement)
 --   2. Date de retrait des employés (base des durées de conservation)
 --   3. Pointages : plus de suppression en cascade, historique des corrections,
