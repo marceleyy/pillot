@@ -6,6 +6,7 @@ import { EquipementSetup, InvoiceScanner, SCAN_ACTIVE } from "./screens/Equipeme
 import Equipe from "./screens/Equipe";
 import Cloture from "./screens/Cloture";
 import Pointage from "./screens/Pointage";
+import Accueil from "./screens/Accueil";
 
 import { supabase } from "./lib/supabase";
 
@@ -108,7 +109,7 @@ function Card({children,style={},onClick}){
 }
 
 // ── LOGIN ─────────────────────────────────────────────────────
-function Login(){
+function Login({onBack}){
   const [email,setEmail]=useState(""),[ pwd,setPwd]=useState(""),[ loading,setLoading]=useState(false),[ err,setErr]=useState(""),[ mode,setMode]=useState("login"),[ info,setInfo]=useState(""),[ legal,setLegal]=useState(null);
   const go=async()=>{setLoading(true);setErr("");const{error}=await supabase.auth.signInWithPassword({email,password:pwd});if(error)setErr("Email ou mot de passe incorrect");setLoading(false);};
   // Message identique que le compte existe ou non (pas d'énumération des comptes)
@@ -143,6 +144,7 @@ function Login(){
           {mode==="login"?"Mot de passe oublié ?":"Retour à la connexion"}</button>
       </div>
       <LegalLinks onOpen={setLegal}/>
+      {onBack&&<button onClick={onBack} style={{display:"block",margin:"14px auto 0",background:"none",border:"none",color:C.textSec,fontSize:13,fontWeight:600,cursor:"pointer",padding:"8px 4px"}}>← Découvrir Pillot</button>}
     </div>
     {legal&&<LegalModal doc={legal} onClose={()=>setLegal(null)}/>}
   </div>;
@@ -868,6 +870,9 @@ function BottomNav({tab,onTab,allTabs,onLogout}){
 // ── APP ──────────────────────────────────────────────────────
 export default function App(){
   const [session,setSession]=useState(null),[profile,setProfile]=useState(null),[products,setProducts]=useState([]),[tab,setTab]=useState("dashboard"),[loading,setLoading]=useState(true),[toast,setToast]=useState(null),[isMobile,setIsMobile]=useState(window.innerWidth<768),[recovery,setRecovery]=useState(false),[hasGlaces,setHasGlaces]=useState(false);
+  // Accueil public : les appareils déjà utilisés par un client (ou un lien e-mail expiré/en erreur) vont directement à la connexion
+  const [showLogin,setShowLogin]=useState(()=>{try{return localStorage.getItem("pillot_client")==="1"||/^#(connexion|.*(error|access_token))/.test(window.location.hash);}catch{return false;}}),[legalDoc,setLegalDoc]=useState(null);
+  useEffect(()=>{if(session){try{localStorage.setItem("pillot_client","1");}catch{/* stockage indisponible */}}},[session]);
 
   useEffect(()=>{const h=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
   const showToast=useCallback((msg,type="success")=>setToast({msg,type}),[]);
@@ -953,7 +958,10 @@ export default function App(){
   const STYLE=`*{font-family:'Inter',sans-serif;box-sizing:border-box;margin:0;}body{background:${C.bg};}::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:#f1f5f9;}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}input,button,textarea,select{font-family:inherit;}button:focus-visible{outline:2px solid ${C.brand};outline-offset:2px;}`;
 
   if(loading)return<><style>{STYLE}</style><div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0F172A,#1E3A5F)",flexDirection:"column",gap:14}}><div style={{width:52,height:52,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"#fff",fontSize:24,fontWeight:800}}>P</span></div><p style={{color:"rgba(255,255,255,.5)",fontSize:14}}>Chargement...</p></div></>;
-  if(!session)return<><style>{STYLE}</style><Login/></>;
+  if(!session){
+    if(!showLogin)return<><Accueil onLogin={()=>{setShowLogin(true);window.scrollTo(0,0);}} onLegal={setLegalDoc}/>{legalDoc&&<LegalModal doc={legalDoc} onClose={()=>setLegalDoc(null)}/>}</>;
+    return<><style>{STYLE}</style><Login onBack={()=>setShowLogin(false)}/></>;
+  }
   if(recovery)return<><style>{STYLE}</style><NewPassword onDone={()=>{setRecovery(false);showToast("Mot de passe modifié");}}/></>;
   if(!profile||(!isAdmin&&!profile.restaurant_id))return<><style>{STYLE}</style><div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20,background:C.bg}}>
     <Card style={{padding:28,maxWidth:380,textAlign:"center"}}>
