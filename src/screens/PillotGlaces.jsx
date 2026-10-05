@@ -445,9 +445,7 @@ function ImportTab({ posImports, restaurantId, profileId, toast, onRefresh }) {
       }, { onConflict:"restaurant_id,date" });
       if (dailyErr) throw new Error("mise à jour du bilan du jour impossible (" + dailyErr.message + ")");
 
-      // Mettre à jour CA sucré du restaurant
-      const { error: restoErr } = await supabase.from("restaurants").update({ ca_sucre: totalCA }).eq("id", restaurantId);
-      if (restoErr) throw new Error("mise à jour du CA sucré impossible (" + restoErr.message + ")");
+      // Le CA sucré hebdomadaire est saisi à la clôture (Réglages), pas ici : un import = une journée
 
       setResult({ theorique_kg, theorique_bacs, totalCA, detail });
       await onRefresh();

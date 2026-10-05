@@ -21,6 +21,10 @@ const fmt = d => d ? new Date(d).toLocaleDateString("fr-FR") : "—";
 const today = () => localDate();
 const saveErr = (toast, error) => toast("Échec de l'enregistrement : " + (error?.message || "erreur inconnue"), "error");
 const STATUT_LABEL = s => s === "non_conforme" ? "Non conforme" : s === "conforme" ? "Conforme" : String(s ?? "").replace(/_/g, " ");
+// Colonne/table absente (migration SQL non appliquée) — PostgREST ou Postgres
+const missingCol = (error, col) => !!error && (error.code === "PGRST204" || String(error.message || "").includes(col));
+const missingTable = (error, table) => !!error && (error.code === "42P01" || error.code === "PGRST205" || String(error.message || "").includes(table));
+const escHtml = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 const checkboxKey = fn => e => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); fn(); } };
 
 function Card({ children, style = {} }) {
@@ -47,16 +51,19 @@ const NETTOYAGE_QUOTIDIEN = ["Plans de travail","Sol cuisine","Frigos (extérieu
 const NETTOYAGE_HEBDO = ["Hottes et filtres","Intérieur frigos","Congélateur","Four & appareils cuisson","Derrière les appareils","Vitres & surfaces verticales"];
 const NETTOYAGE_DEFAUT = () => ({ quotidien: [...NETTOYAGE_QUOTIDIEN], hebdo: [...NETTOYAGE_HEBDO] });
 const nettoyageKey = restaurantId => `pillot_nettoyage_${restaurantId}`;
-const loadNettoyage = restaurantId => {
+const parseNettoyage = parsed => {
+  const clean = arr => Array.isArray(arr) ? [...new Set(arr.filter(t => typeof t === "string" && t.trim()).map(t => t.trim()))] : null;
+  const quotidien = clean(parsed?.quotidien), hebdo = clean(parsed?.hebdo);
+  return { quotidien: quotidien ?? [...NETTOYAGE_QUOTIDIEN], hebdo: hebdo ?? [...NETTOYAGE_HEBDO] };
+};
+// null = aucune liste locale
+const loadNettoyageLocal = restaurantId => {
   try {
     const raw = localStorage.getItem(nettoyageKey(restaurantId));
-    if (!raw) return NETTOYAGE_DEFAUT();
-    const parsed = JSON.parse(raw);
-    const clean = arr => Array.isArray(arr) ? [...new Set(arr.filter(t => typeof t === "string" && t.trim()).map(t => t.trim()))] : null;
-    const quotidien = clean(parsed?.quotidien), hebdo = clean(parsed?.hebdo);
-    return { quotidien: quotidien ?? [...NETTOYAGE_QUOTIDIEN], hebdo: hebdo ?? [...NETTOYAGE_HEBDO] };
-  } catch { return NETTOYAGE_DEFAUT(); }
+    return raw ? parseNettoyage(JSON.parse(raw)) : null;
+  } catch { return null; }
 };
+const loadNettoyage = restaurantId => loadNettoyageLocal(restaurantId) ?? NETTOYAGE_DEFAUT();
 const saveNettoyage = (restaurantId, lists) => {
   try { localStorage.setItem(nettoyageKey(restaurantId), JSON.stringify(lists)); return true; } catch { return false; }
 };
@@ -75,6 +82,7 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
   // null = pas encore chargé (ou erreur) ; [] = restaurant sans équipement déclaré
   const [equipements, setEquipements] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [regOpen, setRegOpen] = useState(false), [regMonth, setRegMonth] = useState(() => today().slice(0, 7)), [regBusy, setRegBusy] = useState(false);
 
   useEffect(() => { loadAll(); }, [restaurantId]);
 
@@ -122,18 +130,66 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
   };
 
   // Registre complet des 12 derniers mois (les listes affichées sont limitées aux dernières saisies)
-  const exportFull = async (table, dateCol, filename) => {
-    const since = new Date(); since.setFullYear(since.getFullYear() - 1);
-    const from = dateCol === "created_at" ? since.toISOString() : localDate(since);
+  // Lecture paginée [from ; to[ (to optionnel) — renvoie null en cas d'erreur
+  const fetchAll = async (table, dateCol, from, to) => {
     const rows = [];
     for (let off = 0; ; off += 1000) {
-      const { data, error } = await supabase.from(table).select("*").eq("restaurant_id", restaurantId)
-        .gte(dateCol, from).order(dateCol, { ascending: true }).order("id", { ascending: true }).range(off, off + 999);
-      if (error) { toast("Erreur : export impossible", "error"); return; }
+      let q = supabase.from(table).select("*").eq("restaurant_id", restaurantId).gte(dateCol, from);
+      if (to) q = q.lt(dateCol, to);
+      const { data, error } = await q.order(dateCol, { ascending: true }).order("id", { ascending: true }).range(off, off + 999);
+      if (error) return null;
       rows.push(...(data || []));
       if (!data || data.length < 1000) break;
     }
+    return rows;
+  };
+  const exportFull = async (table, dateCol, filename) => {
+    const since = new Date(); since.setFullYear(since.getFullYear() - 1);
+    const rows = await fetchAll(table, dateCol, dateCol === "created_at" ? since.toISOString() : localDate(since));
+    if (!rows) { toast("Erreur : export impossible", "error"); return; }
     exportCSV(rows, `${filename}_12mois`);
+  };
+
+  // Registre mensuel imprimable (l'utilisateur choisit « Enregistrer en PDF » dans la boîte d'impression)
+  const printRegistre = async () => {
+    const [y, m] = regMonth.split("-").map(Number);
+    if (!y || !m) { toast("Choisissez un mois", "error"); return; }
+    // Ouverture synchrone dans le clic, sinon le navigateur bloque la fenêtre
+    const w = window.open("", "_blank");
+    if (!w) { toast("Fenêtre bloquée par le navigateur : autorisez les pop-ups pour ce site puis réessayez", "error"); return; }
+    w.document.write("<p style='font-family:sans-serif'>Chargement du registre…</p>");
+    setRegBusy(true);
+    const start = new Date(y, m - 1, 1), end = new Date(y, m, 1);
+    const ts = [start.toISOString(), end.toISOString()], dt = [localDate(start), localDate(end)];
+    const [temps, cleans, recs, oils, dlcs, rRest] = await Promise.all([
+      fetchAll("temperature_logs", "created_at", ...ts), fetchAll("cleaning_logs", "created_at", ...ts),
+      fetchAll("reception_controls", "created_at", ...ts), fetchAll("oil_changes", "date_changement", ...dt),
+      fetchAll("dlc_entries", "dlc_date", ...dt),
+      supabase.from("restaurants").select("*").eq("id", restaurantId).maybeSingle(),
+    ]);
+    setRegBusy(false);
+    if ([temps, cleans, recs, oils, dlcs].some(r => !r)) { w.close(); toast("Erreur : registre impossible à charger", "error"); return; }
+    const resto = rRest.data?.name || rRest.data?.nom || "";
+    const mois = start.toLocaleDateString("fr-FR", { month:"long", year:"numeric" });
+    const dh = v => v ? new Date(v).toLocaleString("fr-FR", { dateStyle:"short", timeStyle:"short" }) : "—";
+    const oui = v => v === true ? "Oui" : v === false ? "<b class='ko'>Non</b>" : "—";
+    const tOk = l => (l.temperature_min == null || l.temperature >= l.temperature_min) && (l.temperature_max == null || l.temperature <= l.temperature_max);
+    // Colonnes : [libellé, valeur (échappée), html brut optionnel]
+    const section = (title, cols, rows) => `<h2>${escHtml(title)} <small>(${rows.length})</small></h2>` + (rows.length ? `<table><thead><tr>${cols.map(c => `<th>${escHtml(c[0])}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${cols.map(c => `<td>${c[2] ? c[2](r) : escHtml(c[1](r) ?? "—")}</td>`).join("")}</tr>`).join("")}</tbody></table>` : "<p class='vide'>Aucun enregistrement ce mois-ci.</p>");
+    const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${escHtml(`Registre HACCP – ${resto ? resto + " – " : ""}${mois}`)}</title><style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#0F172A;margin:24px;font-size:12px}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:22px 0 6px;border-bottom:2px solid #0F172A;padding-bottom:3px}h2 small{font-weight:400;color:#64748B}
+table{width:100%;border-collapse:collapse;page-break-inside:auto}tr{page-break-inside:avoid}th,td{border:1px solid #CBD5E1;padding:4px 6px;text-align:left;vertical-align:top}th{background:#F1F5F9;font-size:11px}.ko,.ac{color:#DC2626;font-weight:700}.vide{color:#64748B;font-style:italic}.meta{color:#64748B;margin:0 0 8px}
+.visa{margin-top:36px;display:flex;gap:24px;page-break-inside:avoid}.visa div{flex:1;border:1px solid #0F172A;height:90px;padding:6px 8px;font-weight:700}@media print{body{margin:10mm}}</style></head><body>
+<h1>${escHtml(`Registre HACCP – ${resto ? resto + " – " : ""}${mois}`)}</h1><p class="meta">Édité le ${escHtml(new Date().toLocaleString("fr-FR"))}</p>
+${section("Relevés de températures", [["Date / heure", l => dh(l.created_at)], ["Équipement", l => l.equipement], ["T° relevée", l => l.temperature != null ? l.temperature + " °C" : "—"], ["Plage", l => `${l.temperature_min ?? "—"} à ${l.temperature_max ?? "—"} °C`], ["Conformité", null, l => tOk(l) ? "Conforme" : "<span class='ko'>Hors norme</span>"], ["Action corrective", null, l => { const a = l.action_corrective || ["commentaire","note","notes"].map(k => l[k]).find(v => String(v ?? "").startsWith("Action corrective")); return a ? `<span class="ac">${escHtml(a)}</span>` : "—"; }]], temps)}
+${section("Nettoyage", [["Date / heure", l => dh(l.created_at)], ["Tâche", l => l.tache], ["Fait", null, l => oui(l.fait)]], cleans)}
+${section("Contrôles à réception", [["Date", r => dh(r.created_at)], ["Fournisseur", r => r.fournisseur], ["N° BL", r => r.numero_bl || "—"], ["Température", null, r => oui(r.temperature_ok)], ["Emballage", null, r => oui(r.emballage_ok)], ["Quantités", null, r => oui(r.quantites_ok)], ["Statut", null, r => r.statut === "non_conforme" ? "<span class='ko'>Non conforme</span>" : escHtml(STATUT_LABEL(r.statut))], ["Note", r => r.note || "—"]], recs)}
+${section("Changements d'huile", [["Date", o => fmt(o.date_changement)], ["Équipement", o => o.equipement], ["TPO", o => o.tpo != null ? o.tpo + " %" : "—"], ["Statut", o => o.statut], ["Prochain changement", o => fmt(o.prochain_changement)], ["Note", o => o.note || "—"]], oils)}
+${section("DLC (échéances du mois)", [["Produit", d => d.product_nom], ["Lot", d => d.lot || "—"], ["Fournisseur", d => d.fournisseur || "—"], ["Quantité", d => [d.quantite, d.unite].filter(v => v != null && v !== "").join(" ") || "—"], ["DLC", d => fmt(d.dlc_date)], ["Statut", d => d.statut]], dlcs)}
+<div class="visa"><div>Visa responsable (nom, date, signature)</div><div>Observations</div></div>
+</body></html>`;
+    w.document.open(); w.document.write(html); w.document.close();
+    w.focus(); setTimeout(() => w.print(), 300);
   };
 
   const TABS = [
@@ -148,11 +204,29 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: "-.5px" }}>HACCP</h1>
           <p style={{ margin: "4px 0 0", fontSize: 14, color: C.textSec }}>Traçabilité hygiène · {new Date().toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" })}</p>
         </div>
-        <button onClick={() => exportFull("temperature_logs", "created_at", "temperatures")}
-          style={{ padding: "8px 14px", minHeight: 44, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
-          ↓ Exporter CSV
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={() => exportFull("temperature_logs", "created_at", "temperatures")}
+            style={{ padding: "8px 14px", minHeight: 44, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+            ↓ Exporter CSV
+          </button>
+          <button onClick={() => setRegOpen(o => !o)} aria-expanded={regOpen}
+            style={{ padding: "8px 14px", minHeight: 44, background: regOpen ? C.brandLight : C.bg, color: regOpen ? C.brand : C.text, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>
+            🖨 Registre du mois (PDF)
+          </button>
+        </div>
       </div>
+      {regOpen && (
+        <Card style={{ padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <label htmlFor="haccp-reg-mois" style={{ fontSize: 12, fontWeight: 600, color: C.textSec }}>Mois</label>
+          <input id="haccp-reg-mois" type="month" value={regMonth} max={today().slice(0, 7)} onChange={e => setRegMonth(e.target.value)}
+            style={{ padding: "8px 10px", minHeight: 44, boxSizing: "border-box", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 16 }}/>
+          <button onClick={printRegistre} disabled={regBusy || !regMonth}
+            style={{ padding: "8px 14px", minHeight: 44, background: C.brand, color: "#fff", border: "none", borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            {regBusy ? "Chargement..." : "Générer et imprimer"}
+          </button>
+          <span style={{ fontSize: 11, color: C.textMuted }}>Choisissez « Enregistrer en PDF » dans la fenêtre d'impression</span>
+        </Card>
+      )}
 
       {/* Onglets */}
       <div style={{ display: "flex", gap: 4, overflowX: "auto", marginBottom: 16, paddingBottom: 4 }}>
@@ -181,7 +255,11 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
 function TemperaturesTab({ logs, equipements, restaurantId, profileId, toast, onRefresh }) {
   const sansEquipement = Array.isArray(equipements) && equipements.length === 0;
   const EQUIPEMENTS = equipements?.length ? equipements : EQUIPEMENTS_DEFAUT;
-  const [adding, setAdding] = useState(null), [val, setVal] = useState(""), [saving, setSaving] = useState(false);
+  const [adding, setAdding] = useState(null), [val, setVal] = useState(""), [saving, setSaving] = useState(false), [action, setAction] = useState("");
+  // Repli si la colonne action_corrective manque : champ commentaire existant détecté dans les relevés chargés
+  const noteCol = ["commentaire","commentaires","note","notes","remarque","observations"].find(k => logs.some(l => k in l));
+  const actionOf = l => l.action_corrective ? "Action corrective : " + l.action_corrective : noteCol && String(l[noteCol] ?? "").startsWith("Action corrective") ? l[noteCol] : "";
+  const close = () => { setAdding(null); setVal(""); setAction(""); };
 
   const isOk = (equip, temp) => {
     const e = EQUIPEMENTS.find(x => x.nom === equip);
@@ -193,11 +271,19 @@ function TemperaturesTab({ logs, equipements, restaurantId, profileId, toast, on
     if (isNaN(v)) { toast("Valeur invalide","error"); return; }
     // Garde-fou contre les fautes de frappe (ex. 300 au lieu de 3,0)
     if (v < -40 || v > 250) { toast("Température improbable : vérifiez la saisie (entre -40 et 250 °C)","error"); return; }
+    const horsNorme = !isOk(adding, v), act = action.trim();
+    if (horsNorme && !act) { toast("Hors norme : décrivez l'action corrective","error"); return; }
     setSaving(true);
     const e = EQUIPEMENTS.find(x => x.nom === adding);
-    const { error } = await supabase.from("temperature_logs").insert({ restaurant_id:restaurantId, saisi_par:profileId, equipement:adding, temperature:v, temperature_min:e?.min, temperature_max:e?.max });
+    const row = { restaurant_id:restaurantId, saisi_par:profileId, equipement:adding, temperature:v, temperature_min:e?.min, temperature_max:e?.max };
+    let { error } = await supabase.from("temperature_logs").insert(horsNorme ? { ...row, action_corrective:act } : row);
+    let warn = null;
+    if (horsNorme && missingCol(error, "action_corrective")) {
+      ({ error } = await supabase.from("temperature_logs").insert(noteCol ? { ...row, [noteCol]:"Action corrective : " + act } : row));
+      if (!noteCol) warn = "Action corrective non enregistrée : appliquer la migration SQL";
+    }
     if (error) { saveErr(toast, error); setSaving(false); return; }
-    await onRefresh(); toast("Température enregistrée"); setAdding(null); setVal("");
+    await onRefresh(); toast(warn || "Température enregistrée", warn ? "warning" : undefined); close();
     setSaving(false);
   };
 
@@ -222,9 +308,14 @@ function TemperaturesTab({ logs, equipements, restaurantId, profileId, toast, on
                 </p>
               </div>
             )}
+            {val && !isNaN(parseFloat(val)) && !isOk(adding,parseFloat(val)) && <>
+              <label style={{ fontSize:11, fontWeight:600, color:C.danger, display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:".5px" }}>Action corrective *</label>
+              <textarea value={action} onChange={e=>setAction(e.target.value)} rows={2} placeholder="Produits déplacés, technicien appelé…" aria-required="true"
+                style={{ width:"100%", boxSizing:"border-box", padding:"8px 12px", borderRadius:8, border:`1.5px solid ${action.trim()?C.border:C.danger}`, fontSize:16, resize:"none", marginBottom:12 }}/>
+            </>}
             <div style={{ display:"flex", gap:8 }}>
-              <button onClick={save} disabled={saving||!val} style={{ flex:1, padding:12, background:C.brand, color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:700, cursor:"pointer" }}>{saving?"...":"Enregistrer"}</button>
-              <button onClick={()=>{setAdding(null);setVal("");}} style={{ padding:"12px 16px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:10, cursor:"pointer" }}>Annuler</button>
+              <button onClick={save} disabled={saving||!val||(!isNaN(parseFloat(val))&&!isOk(adding,parseFloat(val))&&!action.trim())} style={{ flex:1, padding:12, background:C.brand, color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:700, cursor:"pointer" }}>{saving?"...":"Enregistrer"}</button>
+              <button onClick={close} style={{ padding:"12px 16px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:10, cursor:"pointer" }}>Annuler</button>
             </div>
           </div>
         </div>
@@ -260,7 +351,8 @@ function TemperaturesTab({ logs, equipements, restaurantId, profileId, toast, on
         {logs.slice(0,10).map((l,i) => (
           <div key={l.id} style={{ padding:"9px 16px", borderBottom:i<9?`1px solid ${C.border}`:"none", display:"flex", alignItems:"center", gap:10 }}>
             <span style={{ fontSize:13, fontWeight:800, color:isOk(l.equipement,l.temperature)?C.success:C.danger, minWidth:50 }}>{l.temperature}°C</span>
-            <div style={{ flex:1 }}><p style={{ margin:0, fontSize:12, fontWeight:500 }}>{l.equipement}</p><p style={{ margin:0, fontSize:10, color:C.textMuted }}>{new Date(l.created_at).toLocaleString("fr-FR")}</p></div>
+            <div style={{ flex:1 }}><p style={{ margin:0, fontSize:12, fontWeight:500 }}>{l.equipement}</p><p style={{ margin:0, fontSize:10, color:C.textMuted }}>{new Date(l.created_at).toLocaleString("fr-FR")}</p>
+              {actionOf(l) && <p style={{ margin:"2px 0 0", fontSize:11, color:C.danger }}>🛠 {actionOf(l)}</p>}</div>
             <span style={{ fontSize:11, fontWeight:700, color:isOk(l.equipement,l.temperature)?C.success:C.danger }}>{isOk(l.equipement,l.temperature)?"✓":"⚠"}</span>
           </div>
         ))}
@@ -272,14 +364,37 @@ function TemperaturesTab({ logs, equipements, restaurantId, profileId, toast, on
 // ── NETTOYAGE ─────────────────────────────────────────────────
 function NettoyageTab({ logs, restaurantId, profileId, toast, onRefresh, onExport }) {
   const [checks, setChecks] = useState({}), [saving, setSaving] = useState(false);
-  // Liste personnalisée par restaurant (localStorage) — le composant est remonté à chaque changement de restaurant (key)
+  // Liste partagée (table nettoyage_plans), localStorage en cache/repli — le composant est remonté à chaque changement de restaurant (key)
   const [lists, setLists] = useState(() => loadNettoyage(restaurantId));
+  const [shared, setShared] = useState(null); // null = chargement, true = nettoyage_plans, false = repli localStorage
+  const [pendingLocal, setPendingLocal] = useState(false); // liste locale pas encore partagée
   const [editMode, setEditMode] = useState(false);
   const [newTask, setNewTask] = useState({ quotidien: "", hebdo: "" });
 
+  useEffect(() => {
+    let off = false;
+    (async () => {
+      const { data, error } = await supabase.from("nettoyage_plans").select("taches").eq("restaurant_id", restaurantId).maybeSingle();
+      if (off) return;
+      if (error) { if (!missingTable(error, "nettoyage_plans")) console.warn("nettoyage_plans :", error.message); setShared(false); return; }
+      setShared(true);
+      if (data?.taches) { const l = parseNettoyage(data.taches); setLists(l); saveNettoyage(restaurantId, l); return; }
+      const local = loadNettoyageLocal(restaurantId);
+      if (local) { setLists(local); setPendingLocal(true); }
+    })();
+    return () => { off = true; };
+  }, [restaurantId]);
+
+  const upsertPlan = async next => {
+    const { error } = await supabase.from("nettoyage_plans").upsert({ restaurant_id:restaurantId, taches:next }, { onConflict:"restaurant_id" });
+    if (error) { saveErr(toast, error); return false; }
+    setPendingLocal(false); return true;
+  };
   const persist = next => {
     setLists(next);
-    if (!saveNettoyage(restaurantId, next)) toast("Liste modifiée, mais non sauvegardée sur cet appareil", "warning");
+    const local = saveNettoyage(restaurantId, next);
+    if (shared) upsertPlan(next);
+    else if (!local) toast("Liste modifiée, mais non sauvegardée sur cet appareil", "warning");
   };
   const addTask = kind => {
     const t = newTask[kind].trim();
@@ -296,6 +411,7 @@ function NettoyageTab({ logs, restaurantId, profileId, toast, onRefresh, onExpor
     if (!window.confirm("Réinitialiser la liste de nettoyage par défaut ?")) return;
     resetNettoyage(restaurantId);
     setLists(NETTOYAGE_DEFAUT());
+    if (shared) upsertPlan(NETTOYAGE_DEFAUT());
     setChecks({});
     toast("Liste réinitialisée");
   };
@@ -358,9 +474,20 @@ function NettoyageTab({ logs, restaurantId, profileId, toast, onRefresh, onExpor
 
   return (
     <div>
+      {shared === false && (
+        <div style={{ padding:"10px 14px", marginBottom:12, borderRadius:10, background:C.warningLight, border:`1px solid ${C.border}`, fontSize:12, fontWeight:600, color:C.text }}>
+          ℹ️ Liste stockée sur cet appareil uniquement : appliquez la migration SQL (table nettoyage_plans) pour la partager avec l'équipe
+        </div>
+      )}
+      {shared && pendingLocal && (
+        <div style={{ padding:"10px 14px", marginBottom:12, borderRadius:10, background:C.brandLight, border:`1px solid ${C.border}`, fontSize:12, fontWeight:600, color:C.text, display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+          <span style={{ flex:1, minWidth:180 }}>ℹ️ Liste personnalisée trouvée sur cet appareil, pas encore partagée avec l'équipe</span>
+          <button onClick={async () => { if (await upsertPlan(lists)) toast("Liste partagée avec l'équipe"); }} style={{ padding:"8px 12px", minHeight:44, background:C.brand, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer" }}>Enregistrer pour l'équipe</button>
+        </div>
+      )}
       <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginBottom:14, flexWrap:"wrap" }}>
         {editMode && <button onClick={resetLists} style={{ padding:"8px 12px", minHeight:44, background:"transparent", border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>↺ Réinitialiser</button>}
-        <button onClick={() => setEditMode(m => !m)} style={{ padding:"8px 12px", minHeight:44, background:editMode?C.brand:C.brandLight, color:editMode?"#fff":C.brand, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer" }}>{editMode ? "✓ Terminer" : "✎ Modifier la liste"}</button>
+        <button onClick={() => setEditMode(m => !m)} disabled={shared === null} style={{ padding:"8px 12px", minHeight:44, background:editMode?C.brand:C.brandLight, color:editMode?"#fff":C.brand, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer" }}>{editMode ? "✓ Terminer" : "✎ Modifier la liste"}</button>
         <button onClick={onExport} style={{ padding:"8px 12px", minHeight:44, background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>↓ Export</button>
       </div>
       {editMode ? <>

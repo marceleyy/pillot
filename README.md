@@ -33,3 +33,9 @@ Tout rôle inconnu ou vide est traité comme `employee`. Ces restrictions sont a
 Le module « Pillot Glaces » (glaciers) n'apparaît que si le restaurant a au moins un parfum dans `glaces_flavors`. Pour l'activer chez un nouveau client, insérer un premier parfum dans cette table.
 
 La liste du plan de nettoyage personnalisée est enregistrée sur chaque appareil (stockage local du navigateur).
+
+## Sécurité, fonctions serveur et nouveaux modules
+
+- `supabase/migrations/` : nouvelles tables (pointages, plan de nettoyage, imports de caisse) et règles de sécurité par restaurant et par rôle. Mode d'emploi : `supabase/README_SECURITE.md` (faire une sauvegarde avant).
+- `supabase/functions/` : `scan-facture` (lecture de factures, clé Anthropic côté serveur) et `invite-employe` (invitations d'équipe). Déploiement : `supabase/functions/README.md`. Le scan n'apparaît que si `VITE_SCAN_FACTURE=1`.
+- Réglages > Clôture de la semaine : CA (saisi ou importé d'un export de caisse), achats et variation de stock donnent le ratio coût matière.

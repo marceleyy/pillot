@@ -2,7 +2,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Planning, Taches } from "./screens/Planning_Taches";
 import HACCPComplet from "./screens/HACCP_complet";
 import PillotGlaces from "./screens/PillotGlaces";
-import { EquipementSetup } from "./screens/EquipementSetup";
+import { EquipementSetup, InvoiceScanner, SCAN_ACTIVE } from "./screens/EquipementSetup";
+import Equipe from "./screens/Equipe";
+import Cloture from "./screens/Cloture";
+import Pointage from "./screens/Pointage";
 
 import { supabase } from "./lib/supabase";
 
@@ -42,6 +45,7 @@ const ICONS = {
   key:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>,
   x:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   trend:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>,
+  clock:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
   calendar:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="5" width="16" height="16" rx="2"/><line x1="16" y1="3" x2="16" y2="7"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="4" y1="11" x2="20" y2="11"/></svg>,
   "ice-cream":<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21.5V21"/><path d="M8 11.5l4 9.5 4-9.5"/><path d="M6.5 11.5a5.5 5.5 0 1111 0z"/></svg>,
   camera:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 7h1a2 2 0 002-2 1 1 0 011-1h6a1 1 0 011 1 2 2 0 002 2h1a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2"/><circle cx="12" cy="13" r="3"/></svg>,
@@ -462,7 +466,7 @@ function Historique({restaurantId}){
 }
 
 // ── FICHES TECHNIQUES ─────────────────────────────────────────
-function Recettes({restaurantId,products,toast}){
+function Recettes({restaurantId,products,toast,canManage=true}){
   const [recettes,setRecettes]=useState([]),[loading,setLoading]=useState(true),[sel,setSel]=useState(null),[adding,setAdding]=useState(false),[newNom,setNewNom]=useState(""),[newPrix,setNewPrix]=useState(""),[items,setItems]=useState([]),[saving,setSaving]=useState(false),[addItem,setAddItem]=useState({prodId:"",qte:"",unite:""}),[confirmDel,setConfirmDel]=useState(false);
 
   useEffect(()=>{const load=async()=>{const{data,error}=await supabase.from("recipes").select("*,recipe_items(*,products(nom,unite,prix_achat))").eq("restaurant_id",restaurantId).order("created_at",{ascending:false});if(error)toast("Erreur de chargement des fiches","error");setRecettes(data||[]);setLoading(false);};if(restaurantId)load();},[restaurantId,toast]);
@@ -504,7 +508,7 @@ function Recettes({restaurantId,products,toast}){
         <button onClick={()=>{setSel(null);setConfirmDel(false);}} style={{padding:"8px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:13}}>← Retour</button>
         <div style={{flex:1,minWidth:0}}><h1 style={{margin:0,fontSize:20,fontWeight:800}}>{r.nom}</h1></div>
         {confirmDel&&<button onClick={()=>setConfirmDel(false)} style={{minHeight:44,padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:13}}>Annuler</button>}
-        <button onClick={()=>deleteRecette(r.id)} aria-label={confirmDel?"Confirmer la suppression de la fiche":"Supprimer la fiche"} style={{minWidth:44,minHeight:44,padding:"8px",borderRadius:8,border:`1px solid ${confirmDel?C.danger:C.dangerLight}`,background:confirmDel?C.danger:C.dangerLight,color:confirmDel?"#fff":C.danger,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,fontWeight:700}}><Icon n="trash" sz={16} c={confirmDel?"#fff":C.danger}/>{confirmDel&&"Confirmer"}</button>
+        {canManage&&<button onClick={()=>deleteRecette(r.id)} aria-label={confirmDel?"Confirmer la suppression de la fiche":"Supprimer la fiche"} style={{minWidth:44,minHeight:44,padding:"8px",borderRadius:8,border:`1px solid ${confirmDel?C.danger:C.dangerLight}`,background:confirmDel?C.danger:C.dangerLight,color:confirmDel?"#fff":C.danger,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,fontWeight:700}}><Icon n="trash" sz={16} c={confirmDel?"#fff":C.danger}/>{confirmDel&&"Confirmer"}</button>}
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:16}}>
         {[["Coût matière",fmt(cout),C.warning],["Prix vente",fmt(r.prix_vente),C.text],["Ratio",ratio>0?(ratio*100).toFixed(1)+"%":"—",ratio<=0.25?C.success:C.danger]].map(([l,v,c])=>(
@@ -559,8 +563,8 @@ function Recettes({restaurantId,products,toast}){
   return<div>
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
       <div><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Fiches techniques</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{recettes.length} recette{recettes.length>1?"s":""}</p></div>
-      <button onClick={()=>setAdding(true)} style={{padding:"9px 16px",background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,boxShadow:"0 4px 12px rgba(37,99,235,.3)"}}>
-        <Icon n="plus" sz={16}/>Nouvelle fiche</button>
+      {canManage&&<button onClick={()=>setAdding(true)} style={{padding:"9px 16px",background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,boxShadow:"0 4px 12px rgba(37,99,235,.3)"}}>
+        <Icon n="plus" sz={16}/>Nouvelle fiche</button>}
     </div>
     {loading?<p style={{textAlign:"center",color:C.textMuted,padding:40}}>Chargement...</p>:recettes.length===0?
     <Card style={{padding:40,textAlign:"center"}}>
@@ -585,31 +589,11 @@ function Recettes({restaurantId,products,toast}){
 function Reglages({profile,toast,onSaved,hasSucre}){
   const rest=profile?.restaurants;
   const [legal,setLegal]=useState(null);
-  const [ca_s,setCaS]=useState(rest?.ca_sale!=null?String(rest.ca_sale):""),[ ca_su,setCaSu]=useState(rest?.ca_sucre!=null?String(rest.ca_sucre):""),[ saving,setSaving]=useState(false);
-  const saveCa=async()=>{
-    const upd={};
-    for(const[k,v]of[["ca_sale",ca_s],["ca_sucre",ca_su]]){if(String(v).trim()==="")continue;const n=parseFloat(v);if(isNaN(n)||n<0){toast("Montant de CA invalide","error");return;}upd[k]=n;}
-    if(!Object.keys(upd).length){toast("Saisissez au moins un CA","error");return;}
-    if(!rest?.id){toast("Restaurant introuvable","error");return;}
-    setSaving(true);
-    const{error}=await supabase.from("restaurants").update(upd).eq("id",rest.id);
-    if(error)toast("Erreur lors de l'enregistrement du CA","error");else{toast("CA mis à jour");await onSaved?.();}
-    setSaving(false);
-  };
-  const inp={width:"100%",boxSizing:"border-box",padding:"11px 14px",borderRadius:10,border:`1.5px solid ${C.border}`,fontSize:15,fontWeight:700,outline:"none"};
   return<div>
     <div style={{marginBottom:24}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Réglages</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{rest?.name}</p></div>
     <Card style={{padding:24,marginBottom:14}}>
-      <h3 style={{margin:"0 0 6px",fontSize:15,fontWeight:800}}>CA de la semaine en cours</h3>
-      <p style={{margin:"0 0 16px",fontSize:13,color:C.textSec}}>Le ratio coût/CA est calculé à partir de ces valeurs.</p>
-      <div style={{display:"grid",gridTemplateColumns:hasSucre?"1fr 1fr":"1fr",gap:12,marginBottom:16}}>
-        {(hasSucre?[["CA HT Salé (€)",ca_s,setCaS],["CA HT Sucré (€)",ca_su,setCaSu]]:[["CA HT (€)",ca_s,setCaS]]).map(([l,v,set])=><div key={l}>
-          <label style={{fontSize:11,fontWeight:700,color:C.textSec,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</label>
-          <input type="number" value={v} onChange={e=>set(e.target.value)} placeholder="0" style={inp} onFocus={e=>e.target.style.borderColor=C.brand} onBlur={e=>e.target.style.borderColor=C.border}/>
-        </div>)}
-      </div>
-      <button onClick={saveCa} disabled={saving} style={{padding:"11px 24px",background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>
-        {saving?"Enregistrement...":"Enregistrer le CA"}</button>
+      <h3 style={{margin:"0 0 6px",fontSize:15,fontWeight:800}}>Clôture de la semaine</h3>
+      {rest?.id?<Cloture restaurantId={rest.id} hasSucre={hasSucre} toast={toast} onSaved={onSaved}/>:<p style={{margin:0,color:C.textSec,fontSize:13}}>Restaurant introuvable.</p>}
     </Card>
     <Card style={{padding:20}}>
       <h3 style={{margin:"0 0 12px",fontSize:15,fontWeight:800}}>Informations du compte</h3>
@@ -800,15 +784,15 @@ function LegalModal({doc,onClose}){
 }
 
 // ── NAVIGATION (source unique Sidebar + menu mobile) ─────────
-const ALL_TABS=[["dashboard","Tableau de bord","home"],["stocks","Inventaire","box"],["commandes","Commandes","cart"],["produits","Produits","edit"],["historique","Historique","chart"],["haccp","HACCP","thermometer"],["recettes","Fiches techniques","book"],["planning","Planning","calendar"],["taches","Tâches","clipboard"],["glaces","Pillot Glaces","ice-cream"],["appareils","Équipements","device-desktop"],["settings","Réglages","settings"]];
+const ALL_TABS=[["dashboard","Tableau de bord","home"],["stocks","Inventaire","box"],["commandes","Commandes","cart"],["produits","Produits","edit"],["historique","Historique","chart"],["haccp","HACCP","thermometer"],["recettes","Fiches techniques","book"],["planning","Planning","calendar"],["pointage","Pointage","clock"],["taches","Tâches","clipboard"],["glaces","Pillot Glaces","ice-cream"],["appareils","Équipements","device-desktop"],["scan","Scanner facture","camera"],["equipe","Équipe","users"],["settings","Réglages","settings"]];
 // Liste blanche : tout rôle autre que gérant/manager/admin (vide, inconnu, faute de frappe) est traité comme employé
 const MANAGER_ROLES=new Set(["owner","manager"]);
 const canManageRole=role=>MANAGER_ROLES.has(role);
 // Employé : pas de CA, de catalogue, d'équipements ni de réglages
-const STAFF_HIDDEN=new Set(["produits","historique","appareils","settings"]);
+const STAFF_HIDDEN=new Set(["produits","historique","appareils","settings","scan","equipe"]);
 const navTabs=(role,{glaces}={})=>role==="admin"
   ?[["dashboard","Tableau de bord","home"],["users","Clients","users"],["settings","Réglages","settings"]]
-  :ALL_TABS.filter(([id])=>(id!=="glaces"||glaces)&&(canManageRole(role)||!STAFF_HIDDEN.has(id)));
+  :ALL_TABS.filter(([id])=>(id!=="glaces"||glaces)&&(id!=="scan"||SCAN_ACTIVE)&&(canManageRole(role)||!STAFF_HIDDEN.has(id)));
 const ROLE_LABELS={owner:"Gérant",admin:"Administrateur",manager:"Manager",employee:"Employé"};
 const roleLabel=r=>ROLE_LABELS[r]||r;
 
@@ -953,9 +937,12 @@ export default function App(){
     if(tab==="commandes")return<Commandes products={products} profile={profile} toast={showToast}/>;
     if(tab==="historique")return<Historique restaurantId={profile?.restaurant_id}/>;
     if (tab === "haccp") return <HACCPComplet restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast}/>;
-    if(tab==="recettes")return<Recettes restaurantId={profile?.restaurant_id} products={products} toast={showToast}/>;
+    if(tab==="recettes")return<Recettes restaurantId={profile?.restaurant_id} products={products} toast={showToast} canManage={canManageRole(profile?.role)||isAdmin}/>;
     if(tab==="settings")return<Reglages profile={profile} toast={showToast} hasSucre={hasSucre} onSaved={()=>loadProfile(profile.id)}/>;
     if(tab==="users"&&isAdmin)return<Admin toast={showToast}/>;
+    if(tab==="scan")return<InvoiceScanner restaurantId={profile?.restaurant_id} products={products} toast={showToast} onSaved={()=>loadProducts(profile.restaurant_id)}/>;
+    if(tab==="equipe")return<Equipe restaurantId={profile?.restaurant_id} role={profile?.role} toast={showToast}/>;
+    if (tab === "pointage") return <Pointage restaurantId={profile?.restaurant_id} toast={showToast} canManage={canManageRole(profile?.role)}/>;
     if (tab === "planning") return <Planning restaurantId={profile?.restaurant_id} toast={showToast} canManage={canManageRole(profile?.role)}/>;
     if (tab === "taches") return <Taches restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast} isOwner={canManageRole(profile?.role)}/>;
     if (tab === "glaces")    return <PillotGlaces restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast} restaurantName={profile?.restaurants?.name}/>;
