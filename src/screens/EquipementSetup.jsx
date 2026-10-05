@@ -448,6 +448,9 @@ export function InvoiceScanner({ restaurantId, products, toast, onSaved }) {
           3. Vous corrigez si besoin et validez : l'inventaire et les prix sont mis à jour<br/>
           4. Une alerte s'affiche si un prix a augmenté
         </p>
+        <p style={{ margin:"8px 0 0", fontSize:11, color:"#78350F", lineHeight:1.5 }}>
+          Le document est envoyé à Anthropic (États-Unis) pour être analysé ; Pillot ne conserve pas le fichier. N'y laissez pas de données personnelles inutiles (ex. coordonnées d'un client).
+        </p>
       </div>
     </div>
   );

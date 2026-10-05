@@ -2,7 +2,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 export const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
+  // ALLOWED_ORIGIN (secret Supabase) = URL de l'appli en production ; "*" tant qu'il n'est pas défini
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "*",
+  "Vary": "Origin",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };

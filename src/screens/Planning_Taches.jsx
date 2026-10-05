@@ -7,6 +7,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { localDate } from "../lib/dates";
+import DonneesEmployes from "./DonneesEmployes";
 
 const C = {
   brand:"#2563EB",brandLight:"#EFF6FF",navy:"#0F172A",
@@ -68,6 +69,7 @@ export function Planning({ restaurantId, toast, canManage = true }) {
   const [newType, setNewType] = useState(EMPTY_TYPE);
   const [savingType, setSavingType] = useState(false);
   const [pendingTypeDelete, setPendingTypeDelete] = useState(null); // id du type de poste à confirmer
+  const [donneesModal, setDonneesModal] = useState(false);
   const published = shifts.length > 0 && shifts.every(s => s.published);
 
   const days = getWeekDates(week);
@@ -113,7 +115,19 @@ export function Planning({ restaurantId, toast, canManage = true }) {
     ]);
     const loadErr = [rEmp, rSt, rSh].find(r => r.error);
     if (loadErr) toast("Erreur de chargement du planning", "error");
-    if (!rEmp.error) setEmployees(rEmp.data || []);
+    if (!rEmp.error) {
+      let emps = rEmp.data || [];
+      // Taux horaires dans employees_paie (lisible par les responsables seulement).
+      // Si la migration RGPD n'est pas jouée, la table manque : on garde employees.salaire_horaire.
+      if (canManage && emps.length) {
+        const { data: paie, error: pErr } = await supabase.from("employees_paie").select("employee_id,salaire_horaire").in("employee_id", emps.map(e => e.id));
+        if (!pErr) {
+          const taux = Object.fromEntries((paie || []).map(p => [p.employee_id, p.salaire_horaire]));
+          emps = emps.map(e => ({ ...e, salaire_horaire: taux[e.id] ?? e.salaire_horaire }));
+        }
+      }
+      setEmployees(emps);
+    }
     if (!rSt.error) setShiftTypes(rSt.data || []);
     if (!rSh.error) setShifts(rSh.data || []);
     setLoading(false);
@@ -245,6 +259,8 @@ export function Planning({ restaurantId, toast, canManage = true }) {
       )}
 
       {/* Modal types de poste */}
+      {donneesModal && <DonneesEmployes restaurantId={restaurantId} toast={toast} onClose={() => setDonneesModal(false)} onChange={loadAll}/>}
+
       {typesModal && (
         <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
           <div style={{background:C.surface,borderRadius:16,padding:24,width:"100%",maxWidth:400,maxHeight:"90vh",overflowY:"auto",boxSizing:"border-box",boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
@@ -308,6 +324,9 @@ export function Planning({ restaurantId, toast, canManage = true }) {
         {canManage && <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <button onClick={() => setTypesModal(true)} style={{padding:"8px 14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer"}}>
             Types de poste
+          </button>
+          <button onClick={() => setDonneesModal(true)} style={{padding:"8px 14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer"}}>
+            Données personnelles
           </button>
           <button onClick={() => setAddEmp(true)} style={{padding:"8px 14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
             + Employé
