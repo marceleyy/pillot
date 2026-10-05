@@ -30,7 +30,7 @@ function Card({ children, style = {} }) {
 // ─── TEMPÉRATURES ───────────────────────────────────────────
 const EQUIP_ICONS = { frigo:"❄️", congelateur:"🧊", vitrine:"🛒", bain_marie:"♨️", zone_chaude:"🔥", friteuse:"🛢️" };
 const seuil = v => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v))) ? null : Number(v);
-const mapEquipement = e => ({ id: e.id, nom: e.nom, min: seuil(e.temp_min), max: seuil(e.temp_max), icon: EQUIP_ICONS[e.type] || "🌡️" });
+const mapEquipement = e => ({ id: e.id, nom: e.nom, min: seuil(e.temp_min), max: seuil(e.temp_max), icon: EQUIP_ICONS[e.type] || "🌡️", type: e.type });
 // Liste par défaut, utilisée en secours si le restaurant n'a déclaré aucun équipement
 const EQUIPEMENTS_DEFAUT = [
   { nom:"Frigo 1",      min:0,  max:4,  icon:"❄️" },
@@ -168,9 +168,9 @@ export default function HACCPComplet({ restaurantId, profileId, toast }) {
         <>
           {onglet === "temp" && <TemperaturesTab logs={tempLogs} equipements={equipements} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll}/>}
           {onglet === "clean" && <NettoyageTab key={restaurantId} logs={cleanLogs} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll} onExport={() => exportFull("cleaning_logs", "created_at", "nettoyage")}/>}
-          {onglet === "dlc" && <DLCTab entries={dlcEntries} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll} onExport={() => exportCSV(dlcEntries, "dlc")}/>}
+          {onglet === "dlc" && <DLCTab entries={dlcEntries} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll} onExport={() => exportFull("dlc_entries", "dlc_date", "dlc")}/>}
           {onglet === "reception" && <ReceptionTab receptions={receptions} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll} onExport={() => exportFull("reception_controls", "created_at", "receptions")}/>}
-          {onglet === "huile" && <HuileTab oils={oilChanges} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll} onExport={() => exportFull("oil_changes", "date_changement", "huile")}/>}
+          {onglet === "huile" && <HuileTab oils={oilChanges} equipements={equipements} restaurantId={restaurantId} profileId={profileId} toast={toast} onRefresh={loadAll} onExport={() => exportFull("oil_changes", "date_changement", "huile")}/>}
         </>
       )}
     </div>
@@ -191,6 +191,8 @@ function TemperaturesTab({ logs, equipements, restaurantId, profileId, toast, on
   const save = async () => {
     const v = parseFloat(val);
     if (isNaN(v)) { toast("Valeur invalide","error"); return; }
+    // Garde-fou contre les fautes de frappe (ex. 300 au lieu de 3,0)
+    if (v < -40 || v > 250) { toast("Température improbable : vérifiez la saisie (entre -40 et 250 °C)","error"); return; }
     setSaving(true);
     const e = EQUIPEMENTS.find(x => x.nom === adding);
     const { error } = await supabase.from("temperature_logs").insert({ restaurant_id:restaurantId, saisi_par:profileId, equipement:adding, temperature:v, temperature_min:e?.min, temperature_max:e?.max });
@@ -414,7 +416,7 @@ function DLCTab({ entries, restaurantId, profileId, toast, onRefresh, onExport }
           <div style={{ background:C.surface, borderRadius:16, padding:24, maxWidth:400, width:"100%", boxShadow:"0 20px 50px rgba(0,0,0,.3)" }}>
             <h3 style={{ margin:"0 0 16px", fontSize:16, fontWeight:800 }}>Nouvelle DLC</h3>
             <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:14 }}>
-              {[["Produit *",form.product_nom,v=>setForm(p=>({...p,product_nom:v})),"text","Ex: Emmental râpé 1kg"],["Fournisseur",form.fournisseur,v=>setForm(p=>({...p,fournisseur:v})),"text","Ex: TAD MARKET"],["N° de lot",form.lot,v=>setForm(p=>({...p,lot:v})),"text","Ex: FR 74 012"]].map(([l,v,set,t,ph])=>(
+              {[["Produit *",form.product_nom,v=>setForm(p=>({...p,product_nom:v})),"text","Ex: Emmental râpé 1kg"],["Fournisseur",form.fournisseur,v=>setForm(p=>({...p,fournisseur:v})),"text","Ex : Metro"],["N° de lot",form.lot,v=>setForm(p=>({...p,lot:v})),"text","Ex: FR 74 012"]].map(([l,v,set,t,ph])=>(
                 <div key={l}><label style={{ fontSize:11, fontWeight:600, color:C.textSec, display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:".5px" }}>{l}</label>
                   <input type={t} value={v} onChange={e=>set(e.target.value)} placeholder={ph} style={{ width:"100%", boxSizing:"border-box", padding:"9px 12px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:13 }}/></div>
               ))}
@@ -488,7 +490,7 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
-    if (!form.fournisseur) { toast("Fournisseur obligatoire","error"); return; }
+    if (!form.fournisseur.trim()) { toast("Fournisseur obligatoire","error"); return; }
     setSaving(true);
     const all_ok = form.temperature_ok && form.emballage_ok && form.quantites_ok;
     const { error } = await supabase.from("reception_controls").insert({ restaurant_id:restaurantId, saisi_par:profileId, date_reception:today(), ...form, statut: all_ok ? "conforme" : "non_conforme" });
@@ -498,7 +500,6 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
     await onRefresh(); setSaving(false);
   };
 
-  const FOURNS = ["TAD MARKET","METRO","ALPAGEL","ODYSSÉE DES GLACES","LAVAZZA"];
 
   return (
     <div>
@@ -509,10 +510,7 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
             <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:16 }}>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
                 <div><label style={{ fontSize:11, fontWeight:600, color:C.textSec, display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:".5px" }}>Fournisseur *</label>
-                  <select value={form.fournisseur} onChange={e=>setForm(p=>({...p,fournisseur:e.target.value}))} style={{ width:"100%", padding:"9px 10px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:13 }}>
-                    <option value="">Choisir...</option>
-                    {FOURNS.map(f=><option key={f} value={f}>{f}</option>)}
-                  </select></div>
+                  <input value={form.fournisseur} onChange={e=>setForm(p=>({...p,fournisseur:e.target.value}))} placeholder="Ex : Metro" style={{ width:"100%", boxSizing:"border-box", padding:"9px 12px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:16 }}/></div>
                 <div><label style={{ fontSize:11, fontWeight:600, color:C.textSec, display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:".5px" }}>N° de BL</label>
                   <input value={form.numero_bl} onChange={e=>setForm(p=>({...p,numero_bl:e.target.value}))} placeholder="Ex: FC26-2200" style={{ width:"100%", boxSizing:"border-box", padding:"9px 12px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:13 }}/></div>
               </div>
@@ -534,7 +532,7 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
                   style={{ width:"100%", boxSizing:"border-box", padding:"8px 12px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:13, resize:"none" }}/></div>
             </div>
             <div style={{ display:"flex", gap:8 }}>
-              <button onClick={save} disabled={saving||!form.fournisseur} style={{ flex:1, padding:12, background:C.brand, color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:700, cursor:"pointer" }}>{saving?"...":"Valider la réception"}</button>
+              <button onClick={save} disabled={saving||!form.fournisseur.trim()} style={{ flex:1, padding:12, background:C.brand, color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:700, cursor:"pointer" }}>{saving?"...":"Valider la réception"}</button>
               <button onClick={()=>setModal(false)} style={{ padding:"12px 14px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:10, cursor:"pointer" }}>Annuler</button>
             </div>
           </div>
@@ -577,9 +575,13 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
 }
 
 // ── HUILE ─────────────────────────────────────────────────────
-function HuileTab({ oils, restaurantId, profileId, toast, onRefresh, onExport }) {
+function HuileTab({ oils, equipements, restaurantId, profileId, toast, onRefresh, onExport }) {
+  // Friteuses déclarées dans Équipements + noms déjà présents dans l'historique ; à défaut, une seule « Friteuse »
+  const declarees = (equipements || []).filter(e => e.type === "friteuse").map(e => e.nom);
+  const connues = [...new Set([...declarees, ...oils.map(o => o.equipement).filter(Boolean)])];
+  const FRITEUSES = connues.length ? connues : ["Friteuse"];
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ equipement:"Friteuse 1", tpo:0, statut:"ok", note:"" });
+  const [form, setForm] = useState({ equipement:FRITEUSES[0], tpo:0, statut:"ok", note:"" });
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -589,7 +591,7 @@ function HuileTab({ oils, restaurantId, profileId, toast, onRefresh, onExport })
     const { error } = await supabase.from("oil_changes").insert({ restaurant_id:restaurantId, saisi_par:profileId, date_changement:today(), prochain_changement:localDate(prochain), ...form, tpo, statut:tpo>25?"critique":tpo>20?"alerte":"ok" });
     if (error) { saveErr(toast, error); setSaving(false); return; }
     toast("Changement d'huile enregistré"); setModal(false);
-    setForm({ equipement:"Friteuse 1", tpo:0, statut:"ok", note:"" });
+    setForm({ equipement:FRITEUSES[0], tpo:0, statut:"ok", note:"" });
     await onRefresh(); setSaving(false);
   };
 
@@ -598,7 +600,6 @@ function HuileTab({ oils, restaurantId, profileId, toast, onRefresh, onExport })
     const n = -daysFromToday(String(d).slice(0, 10));
     return Number.isFinite(n) ? n : null;
   };
-  const FRITEUSES = ["Friteuse 1","Friteuse 2","Friteuse 3","Bain-marie"];
 
   return (
     <div>
@@ -628,10 +629,10 @@ function HuileTab({ oils, restaurantId, profileId, toast, onRefresh, onExport })
 
       <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginBottom:14 }}>
         <button onClick={onExport} style={{ padding:"8px 12px", minHeight:44, background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>↓ Export</button>
-        <button onClick={()=>setModal(true)} style={{ padding:"8px 16px", minHeight:44, background:C.brand, color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Changement d'huile</button>
+        <button onClick={()=>{ setForm(p => ({ ...p, equipement: FRITEUSES.includes(p.equipement) ? p.equipement : FRITEUSES[0] })); setModal(true); }} style={{ padding:"8px 16px", minHeight:44, background:C.brand, color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Changement d'huile</button>
       </div>
 
-      {FRITEUSES.slice(0,2).map(f => {
+      {FRITEUSES.map(f => {
         const last = oils.find(o => o.equipement === f);
         const days = last ? daysSince(last.date_changement) : null;
         const alert = days !== null && days > 10;

@@ -60,7 +60,8 @@ export function Planning({ restaurantId, toast, canManage = true }) {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // {empId, date}
   const [addEmp, setAddEmp] = useState(false);
-  const [newEmp, setNewEmp] = useState({ nom:"", prenom:"", heures_contrat:35, salaire_horaire:11.65 });
+  const [newEmp, setNewEmp] = useState({ nom:"", prenom:"", heures_contrat:35, salaire_horaire:"" });
+  const [pendingEmpRemove, setPendingEmpRemove] = useState(null);
   const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null); // id du créneau à confirmer
   const [typesModal, setTypesModal] = useState(false);
@@ -93,21 +94,28 @@ export function Planning({ restaurantId, toast, canManage = true }) {
     const t = setTimeout(() => setPendingTypeDelete(null), 4000);
     return () => clearTimeout(t);
   }, [pendingTypeDelete]);
+  useEffect(() => {
+    if (pendingEmpRemove === null) return;
+    const t = setTimeout(() => setPendingEmpRemove(null), 4000);
+    return () => clearTimeout(t);
+  }, [pendingEmpRemove]);
 
   const loadAll = async () => {
     if (!restaurantId) { setLoading(false); return; }
     setLoading(true);
-    const [{ data: emps }, { data: sts }, { data: sh }] = await Promise.all([
-      supabase.from("employees").select("*").eq("restaurant_id", restaurantId).eq("actif", true).order("nom"),
+    const [rEmp, rSt, rSh] = await Promise.all([
+      supabase.from("employees").select(canManage ? "*" : "id,nom,prenom,heures_contrat").eq("restaurant_id", restaurantId).eq("actif", true).order("nom"),
       supabase.from("shift_types").select("*").eq("restaurant_id", restaurantId),
       (canManage ? supabase.from("shifts").select("*").eq("restaurant_id", restaurantId)
         : supabase.from("shifts").select("*").eq("restaurant_id", restaurantId).eq("published", true))
         .gte("date", localDate(days[0]))
         .lte("date", localDate(days[6]))
     ]);
-    setEmployees(emps || []);
-    setShiftTypes(sts || []);
-    setShifts(sh || []);
+    const loadErr = [rEmp, rSt, rSh].find(r => r.error);
+    if (loadErr) toast("Erreur de chargement du planning", "error");
+    if (!rEmp.error) setEmployees(rEmp.data || []);
+    if (!rSt.error) setShiftTypes(rSt.data || []);
+    if (!rSh.error) setShifts(rSh.data || []);
     setLoading(false);
   };
 
@@ -166,12 +174,25 @@ export function Planning({ restaurantId, toast, canManage = true }) {
   };
 
   const saveEmployee = async () => {
-    if (!newEmp.nom.trim()) return;
+    if (!newEmp.nom.trim()) { toast("Nom obligatoire", "error"); return; }
+    const taux = Number(String(newEmp.salaire_horaire).replace(",", "."));
+    const heures = Number(String(newEmp.heures_contrat).replace(",", "."));
+    if (!(taux > 0)) { toast("Taux horaire obligatoire", "error"); return; }
+    if (!(heures > 0)) { toast("Heures par semaine invalides", "error"); return; }
     setSaving(true);
-    const { error } = await supabase.from("employees").insert({ restaurant_id: restaurantId, ...newEmp });
-    if (!error) { await loadAll(); toast("Employé ajouté"); setAddEmp(false); setNewEmp({ nom:"", prenom:"", heures_contrat:35, salaire_horaire:11.65 }); }
+    const { error } = await supabase.from("employees").insert({ restaurant_id: restaurantId, ...newEmp, salaire_horaire: taux, heures_contrat: heures });
+    if (!error) { await loadAll(); toast("Employé ajouté"); setAddEmp(false); setNewEmp({ nom:"", prenom:"", heures_contrat:35, salaire_horaire:"" }); }
     else toast("Erreur", "error");
     setSaving(false);
+  };
+
+  // Retrait d'un employé (archivé : ses services passés restent dans l'historique)
+  const removeEmployee = async (id) => {
+    setPendingEmpRemove(null);
+    const { error } = await supabase.from("employees").update({ actif: false }).eq("id", id).eq("restaurant_id", restaurantId);
+    if (error) { toast("Erreur : l'employé n'a pas été retiré", "error"); return; }
+    setEmployees(p => p.filter(e => e.id !== id));
+    toast("Employé retiré du planning");
   };
 
   const publishPlanning = async () => {
@@ -187,7 +208,7 @@ export function Planning({ restaurantId, toast, canManage = true }) {
   // Total masse salariale
   const totalMasse = employees.reduce((total, emp) => {
     const heures = calcHeures(shifts.filter(s => s.employee_id === emp.id));
-    return total + heures * (emp.salaire_horaire || 11.65);
+    return total + heures * (Number(emp.salaire_horaire) || 0);
   }, 0);
 
   if (loading) return <div style={{padding:40,textAlign:"center",color:C.textMuted}}>Chargement du planning...</div>;
@@ -326,7 +347,7 @@ export function Planning({ restaurantId, toast, canManage = true }) {
             ))}
             {[["Heures/semaine",newEmp.heures_contrat,v=>setNewEmp(p=>({...p,heures_contrat:v})),"number"],["Taux horaire (€)",newEmp.salaire_horaire,v=>setNewEmp(p=>({...p,salaire_horaire:v})),"number"]].map(([l,v,set,t])=>(
               <div key={l}><label style={{fontSize:11,fontWeight:600,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</label>
-              <input type={t} value={v} onChange={e=>set(parseFloat(e.target.value))} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}/></div>
+              <input type={t} inputMode="decimal" value={v} onChange={e=>set(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}/></div>
             ))}
           </div>
           <div style={{display:"flex",gap:8}}>
@@ -371,6 +392,9 @@ export function Planning({ restaurantId, toast, canManage = true }) {
                 <div style={{padding:"10px 12px",borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",justifyContent:"center",position:"sticky",left:0,zIndex:1,background:C.surface,minWidth:0}}>
                   <p style={{margin:0,fontSize:13,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.prenom} {emp.nom}</p>
                   <p style={{margin:0,fontSize:11,color:C.textSec}}>{(emp.heures_contrat||35)}h | <span style={{color:surplus>0?C.success:surplus<-1?C.danger:C.textSec}}>{heuresTotales.toFixed(1)}h</span></p>
+                  {canManage && <button onClick={() => pendingEmpRemove===emp.id ? removeEmployee(emp.id) : setPendingEmpRemove(emp.id)}
+                    style={{alignSelf:"flex-start",marginTop:2,padding:"6px 8px 6px 0",minHeight:32,background:"none",border:"none",cursor:"pointer",fontSize:12,fontWeight:600,color:pendingEmpRemove===emp.id?C.danger:C.textMuted}}>
+                    {pendingEmpRemove===emp.id ? "Confirmer le retrait" : "Retirer"}</button>}
                 </div>
                 {/* Cellules jours */}
                 {days.map((d, di) => {

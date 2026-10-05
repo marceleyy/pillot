@@ -89,7 +89,7 @@ function Gauge({ratio,obj=0.25}){
 function Toast({msg,type="success",onClose}){
   useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t);},[onClose]);
   const bg=type==="success"?C.success:type==="error"?C.danger:C.warning;
-  return<div style={{position:"fixed",top:20,right:20,zIndex:9999,background:bg,color:"#fff",padding:"12px 16px",borderRadius:10,display:"flex",alignItems:"center",gap:10,boxShadow:"0 4px 20px rgba(0,0,0,.2)",fontSize:14,fontWeight:500,maxWidth:320}}>
+  return<div style={{position:"fixed",top:"calc(20px + env(safe-area-inset-top))",right:16,left:16,marginLeft:"auto",width:"fit-content",zIndex:9999,background:bg,color:"#fff",padding:"12px 16px",borderRadius:10,display:"flex",alignItems:"center",gap:10,boxShadow:"0 4px 20px rgba(0,0,0,.2)",fontSize:14,fontWeight:500,maxWidth:320}}>
     <Icon n={type==="success"?"check":"alert"} sz={16}/>{msg}
     <button onClick={onClose} aria-label="Fermer" style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",marginLeft:"auto"}}><Icon n="x" sz={14}/></button>
   </div>;
@@ -187,7 +187,7 @@ function Dashboard({profile,products,onTab,showCA=true}){
         <Card key={k} style={{padding:"18px",textAlign:"center"}}>
           <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</p>
           <Gauge ratio={r} obj={obj}/>
-          {ca>0?<div style={{marginTop:6,padding:"3px 10px",borderRadius:20,display:"inline-block",background:r<=obj?C.successLight:C.dangerLight}}>
+          {ca>0&&!(r>0)?<p style={{margin:"6px 0 0",fontSize:11,color:C.textMuted}}>Ratio pas encore calculé</p>:ca>0?<div style={{marginTop:6,padding:"3px 10px",borderRadius:20,display:"inline-block",background:r<=obj?C.successLight:C.dangerLight}}>
             <span style={{fontSize:11,fontWeight:700,color:r<=obj?C.success:C.danger}}>{r<=obj?"Dans l'objectif":`+${((r-obj)*100).toFixed(1)}% au-dessus`}</span>
           </div>:<button onClick={()=>onTab("settings")} style={{marginTop:8,fontSize:12,color:C.brand,background:"none",border:"none",cursor:"pointer",fontWeight:500}}>Saisir le CA →</button>}
           {ca>0&&<p style={{margin:"6px 0 0",fontSize:11,color:C.textMuted}}>CA {fmt(ca)}</p>}
@@ -272,6 +272,10 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
         </div>}
       </div>
     </div>
+    {products.length===0&&<Card style={{padding:20,marginBottom:14,textAlign:"center"}}>
+      <p style={{margin:"0 0 4px",fontSize:15,fontWeight:700}}>Aucun produit pour l'instant</p>
+      <p style={{margin:0,fontSize:13,color:C.textSec}}>Le gérant ajoute les produits depuis le menu Produits ; ils apparaîtront ici pour l'inventaire.</p>
+    </Card>}
     <div style={{position:"relative",marginBottom:14}}>
       <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:C.textMuted}}><Icon n="search" sz={16}/></span>
       <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher un produit ou fournisseur..."
@@ -312,7 +316,7 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
               <div style={{textAlign:"right",flexShrink:0}}>
                 <p style={{margin:0,fontSize:14,fontWeight:700,color:st==="rupture"?C.danger:st==="commander"?C.warning:st==="ok"?C.success:C.textMuted}}>
                   {p.stock!==null&&p.stock!==undefined?`${p.stock} ${p.unite}`:"—"}</p>
-                <p style={{margin:0,fontSize:11,color:C.textMuted}}>min {p.stock_min}</p>
+                {p.stock_min?<p style={{margin:0,fontSize:11,color:C.textMuted}}>min {p.stock_min}</p>:null}
               </div>
               <Icon n="edit" sz={14} c={C.textMuted}/>
             </div>;
@@ -418,7 +422,7 @@ function Historique({restaurantId}){
   if(!hist.length)return<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:300,gap:12,textAlign:"center",padding:20}}>
     <div style={{width:64,height:64,borderRadius:"50%",background:"#F1F5F9",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon n="chart" sz={28} c={C.textMuted}/></div>
     <h3 style={{margin:0,fontSize:18,fontWeight:700}}>Pas encore de données</h3>
-    <p style={{margin:0,color:C.textSec,fontSize:14,maxWidth:280}}>L'historique se remplira automatiquement chaque dimanche via Google Sheets.</p>
+    <p style={{margin:0,color:C.textSec,fontSize:14,maxWidth:280}}>Aucune période enregistrée pour l'instant. Les ratios coût/CA de chaque semaine apparaîtront ici.</p>
   </div>;
 
   return<div>
@@ -526,7 +530,7 @@ function Recettes({restaurantId,products,toast}){
     <Card style={{padding:20,marginBottom:14}}>
       <div style={{display:"flex",gap:10,marginBottom:14}}>
         <div style={{flex:2}}><label style={{fontSize:11,fontWeight:700,color:C.textSec,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:".5px"}}>Nom de la recette</label>
-          <input value={newNom} onChange={e=>setNewNom(e.target.value)} placeholder="Ex: Chichi classique" style={{width:"100%",boxSizing:"border-box",padding:"10px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none"}} onFocus={e=>e.target.style.borderColor=C.brand} onBlur={e=>e.target.style.borderColor=C.border}/></div>
+          <input value={newNom} onChange={e=>setNewNom(e.target.value)} placeholder="Ex : Burger maison" style={{width:"100%",boxSizing:"border-box",padding:"10px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none"}} onFocus={e=>e.target.style.borderColor=C.brand} onBlur={e=>e.target.style.borderColor=C.border}/></div>
         <div style={{flex:1}}><label style={{fontSize:11,fontWeight:700,color:C.textSec,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:".5px"}}>Prix vente (€)</label>
           <input type="number" value={newPrix} onChange={e=>setNewPrix(e.target.value)} placeholder="0.00" style={{width:"100%",boxSizing:"border-box",padding:"10px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none"}} onFocus={e=>e.target.style.borderColor=C.brand} onBlur={e=>e.target.style.borderColor=C.border}/></div>
       </div>
@@ -770,8 +774,8 @@ const LEGAL={
     ["Qui traite vos données","Le restaurant client est responsable des données qu'il saisit (équipe, plannings, relevés). L'éditeur de Pillot agit comme sous-traitant au sens de l'article 28 du RGPD, selon le contrat signé avec le restaurant."],
     ["Données traitées","Comptes utilisateurs (e-mail, rôle), noms et plannings des employés, relevés d'hygiène (HACCP), stocks, commandes et chiffres d'affaires saisis. Aucune donnée n'est revendue ni utilisée à des fins publicitaires."],
     ["Conservation","Les données sont conservées pendant la durée de l'abonnement, puis supprimées ou restituées au restaurant à sa demande dans un délai de 3 mois après la fin du contrat."],
-    ["Prestataires","Supabase (base de données et authentification) et Vercel (hébergement de l'interface). Certains prestataires sont situés hors de l'Union européenne ; les transferts s'appuient sur les garanties prévues par le RGPD."],
-    ["Cookies","Pillot n'utilise aucun cookie publicitaire ni outil de mesure d'audience. Seul un stockage local est utilisé pour garder votre session ouverte."],
+    ["Prestataires","Supabase (base de données et authentification), Vercel (hébergement de l'interface) et Google Fonts (polices de caractères, qui reçoit l'adresse IP de l'appareil). Certains prestataires sont situés hors de l'Union européenne ; les transferts s'appuient sur les garanties prévues par le RGPD."],
+    ["Cookies","Pillot n'utilise aucun cookie publicitaire ni outil de mesure d'audience. Le stockage local de l'appareil sert à garder votre session ouverte et à mémoriser la liste du plan de nettoyage."],
     ["Vos droits","Accès, rectification, effacement, opposition, limitation et portabilité : écrivez à marcele.monpole@gmail.com ou à votre employeur. Vous pouvez saisir la CNIL (www.cnil.fr)."],
   ]},
 };
@@ -923,7 +927,7 @@ export default function App(){
       if(event==="PASSWORD_RECOVERY")setRecovery(true);
       if(event==="SIGNED_OUT"||!s){uidRef.current=null;setProfile(null);setProducts([]);setHasGlaces(false);setTab("dashboard");setLoading(false);return;}
       if((event==="INITIAL_SESSION"||event==="SIGNED_IN")&&s.user.id!==uidRef.current){
-        uidRef.current=s.user.id;
+        uidRef.current=s.user.id;setLoading(true);
         // différé : éviter d'appeler supabase dans le callback (risque de deadlock du verrou d'auth)
         setTimeout(()=>loadProfile(s.user.id),0);
       }
@@ -953,7 +957,7 @@ export default function App(){
     if(tab==="settings")return<Reglages profile={profile} toast={showToast} hasSucre={hasSucre} onSaved={()=>loadProfile(profile.id)}/>;
     if(tab==="users"&&isAdmin)return<Admin toast={showToast}/>;
     if (tab === "planning") return <Planning restaurantId={profile?.restaurant_id} toast={showToast} canManage={canManageRole(profile?.role)}/>;
-    if (tab === "taches") return <Taches restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast} isOwner={profile?.role==="owner"}/>;
+    if (tab === "taches") return <Taches restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast} isOwner={canManageRole(profile?.role)}/>;
     if (tab === "glaces")    return <PillotGlaces restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast} restaurantName={profile?.restaurants?.name}/>;
     if (tab === "appareils") return <EquipementSetup restaurantId={profile?.restaurant_id} toast={showToast}/>;
     return<Dashboard profile={profile} products={products} onTab={setTab} showCA={showCA}/>;
@@ -964,6 +968,16 @@ export default function App(){
   if(loading)return<><style>{STYLE}</style><div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0F172A,#1E3A5F)",flexDirection:"column",gap:14}}><div style={{width:52,height:52,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"#fff",fontSize:24,fontWeight:800}}>P</span></div><p style={{color:"rgba(255,255,255,.5)",fontSize:14}}>Chargement...</p></div></>;
   if(!session)return<><style>{STYLE}</style><Login/></>;
   if(recovery)return<><style>{STYLE}</style><NewPassword onDone={()=>{setRecovery(false);showToast("Mot de passe modifié");}}/></>;
+  if(!profile||(!isAdmin&&!profile.restaurant_id))return<><style>{STYLE}</style><div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20,background:C.bg}}>
+    <Card style={{padding:28,maxWidth:380,textAlign:"center"}}>
+      <h1 style={{margin:"0 0 8px",fontSize:18,fontWeight:800}}>Compte pas encore configuré</h1>
+      <p style={{margin:"0 0 16px",fontSize:14,color:C.textSec}}>Votre compte n'est rattaché à aucun restaurant, ou la connexion a échoué. Réessayez, ou contactez votre gérant.</p>
+      <div style={{display:"flex",gap:8,justifyContent:"center"}}>
+        <button onClick={()=>{if(session?.user?.id){uidRef.current=session.user.id;setLoading(true);loadProfile(session.user.id);}}} style={{padding:"11px 18px",background:C.brand,color:"#fff",border:"none",borderRadius:10,fontWeight:700,cursor:"pointer"}}>Réessayer</button>
+        <button onClick={logout} style={{padding:"11px 18px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:10,cursor:"pointer"}}>Déconnexion</button>
+      </div>
+    </Card>
+  </div></>;
 
   return<><style>{STYLE}</style>
     {toast&&<Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
