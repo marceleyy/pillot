@@ -130,8 +130,11 @@ export default function Cloture({ restaurantId, objectif = 0.25, toast, onSaved 
     if (caT <= 0) { toast("Saisissez le CA de la période", "error"); return; }
     setSaving(true);
     const r2 = n => Math.round(n*100)/100, r4 = n => Math.round(n*10000)/10000;
-    const [, mm, dd] = fin.split("-");
-    const row = { restaurant_id:restaurantId, periode:`Fin ${dd}/${mm}`, type:"hebdo",
+    const [yy, mm, dd] = fin.split("-");
+    // annee est obligatoire en base ; semaine = numéro ISO de la semaine de fin
+    const t = dayStart(fin); t.setDate(t.getDate() + 3 - (t.getDay()+6)%7);
+    const semaine = 1 + Math.round(((t - new Date(t.getFullYear(), 0, 4)) / 864e5 - 3 + (new Date(t.getFullYear(), 0, 4).getDay()+6)%7) / 7);
+    const row = { restaurant_id:restaurantId, periode:`Fin ${dd}/${mm}`, type:"hebdo", annee:+yy, mois:+mm, semaine,
       ca_sale:r2(caT), ca_sucre:0, cout_sale:r2(cout), cout_sucre:0, ratio_sale:r4(ratio), ratio_sucre:0 }; // colonnes « sale » = total du restaurant
     let { error } = await supabase.from("ca_history").insert({ ...row, date_debut:debut, date_fin:fin });
     if (error && (error.code === "PGRST204" || /date_debut|date_fin/.test(error.message||""))) ({ error } = await supabase.from("ca_history").insert(row));
