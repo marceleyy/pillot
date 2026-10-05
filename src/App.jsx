@@ -927,11 +927,12 @@ const LEGAL={
   ]},
   confidentialite:{titre:"Confidentialité",blocs:[
     ["Qui traite vos données","Le restaurant client est responsable des données qu'il saisit (équipe, plannings, relevés). L'éditeur de Pillot agit comme sous-traitant au sens de l'article 28 du RGPD, selon le contrat signé avec le restaurant."],
-    ["Données traitées","Comptes utilisateurs (e-mail, rôle), noms et plannings des employés, relevés d'hygiène (HACCP), stocks, commandes et chiffres d'affaires saisis. Aucune donnée n'est revendue ni utilisée à des fins publicitaires."],
-    ["Conservation","Les données sont conservées pendant la durée de l'abonnement, puis supprimées ou restituées au restaurant à sa demande dans un délai de 3 mois après la fin du contrat."],
-    ["Prestataires","Supabase (base de données et authentification), Vercel (hébergement de l'interface) et Google Fonts (polices de caractères, qui reçoit l'adresse IP de l'appareil). Certains prestataires sont situés hors de l'Union européenne ; les transferts s'appuient sur les garanties prévues par le RGPD."],
-    ["Cookies","Pillot n'utilise aucun cookie publicitaire ni outil de mesure d'audience. Le stockage local de l'appareil sert à garder votre session ouverte et à mémoriser la liste du plan de nettoyage."],
-    ["Vos droits","Accès, rectification, effacement, opposition, limitation et portabilité : écrivez à marcele.monpole@gmail.com ou à votre employeur. Vous pouvez saisir la CNIL (www.cnil.fr)."],
+    ["Données traitées","Comptes utilisateurs (e-mail, rôle), noms, plannings et heures de pointage des employés, taux horaires (visibles des seuls responsables), relevés d'hygiène (HACCP) avec leur auteur, stocks, commandes et chiffres d'affaires saisis. Aucune donnée n'est revendue ni utilisée à des fins publicitaires."],
+    ["Conservation","Pointages, plannings et historique des corrections : 3 ans, puis suppression automatique. Anciens employés : anonymisés 3 ans après leur retrait (ou plus tôt à leur demande). Le reste est conservé pendant l'abonnement, puis supprimé ou restitué au restaurant à sa demande dans un délai de 3 mois après la fin du contrat."],
+    ["Prestataires",`Supabase (base de données, authentification et envoi des e-mails de connexion et d'invitation), Vercel (hébergement de l'interface)${SCAN_ACTIVE?" et Anthropic (lecture automatique des factures scannées : Pillot ne conserve pas le fichier envoyé)":""}. Certains prestataires sont situés hors de l'Union européenne (États-Unis notamment) ; les transferts s'appuient sur les garanties prévues par le RGPD (cadre de protection des données UE–États-Unis ou clauses contractuelles types).`],
+    ["Sécurité","Chaque restaurant n'accède qu'à ses propres données. Sur un appareil partagé, les comptes responsables sont déconnectés après 15 minutes sans activité."],
+    ["Cookies","Pillot n'utilise aucun cookie publicitaire ni outil de mesure d'audience. Le stockage local de l'appareil sert à garder votre session ouverte, à mesurer l'inactivité et à mémoriser la liste du plan de nettoyage."],
+    ["Vos droits","Accès, rectification, effacement, opposition, limitation et portabilité : adressez-vous d'abord à votre employeur, qui est responsable de vos données et peut exporter ou anonymiser vos informations depuis Pillot. Vous pouvez aussi écrire à marcele.monpole@gmail.com, qui l'aidera à vous répondre. Vous pouvez saisir la CNIL (www.cnil.fr)."],
   ]},
 };
 function LegalLinks({onOpen}){
@@ -959,6 +960,12 @@ const ALL_TABS=[["dashboard","Tableau de bord","home"],["stocks","Inventaire","b
 // Liste blanche : tout rôle autre que gérant/manager/admin (vide, inconnu, faute de frappe) est traité comme employé
 const MANAGER_ROLES=new Set(["owner","manager"]);
 const canManageRole=role=>MANAGER_ROLES.has(role);
+// Appareil partagé : un compte responsable (CA, taux horaires, équipe) est déconnecté après 15 min sans activité
+const INACTIVITE_MS=15*60000,ACTIVITE_KEY="pillot_derniere_activite";
+// Arrivée par un lien d'invitation / de réinitialisation : c'est une connexion fraîche (lu avant que Supabase ne nettoie l'URL)
+if(typeof window!=="undefined"&&/(access_token=|[?&]code=|type=(invite|recovery|signup|magiclink))/.test(window.location.hash+window.location.search)){
+  try{localStorage.setItem(ACTIVITE_KEY,String(Date.now()));}catch{/* stockage indisponible */}
+}
 // Employé : pas de CA, de catalogue, d'équipements ni de réglages
 const STAFF_HIDDEN=new Set(["produits","historique","appareils","settings","scan","equipe"]);
 const navTabs=(role,{glaces}={})=>role==="admin"
@@ -1087,6 +1094,8 @@ export default function App(){
     const{data:{subscription}}=supabase.auth.onAuthStateChange((event,s)=>{
       setSession(s);
       if(event==="PASSWORD_RECOVERY")setRecovery(true);
+      // Vraie connexion (pas un simple retour sur l'onglet, même utilisateur) : départ du délai d'inactivité, heure de l'appareil
+      if((event==="SIGNED_IN"&&s&&s.user.id!==uidRef.current)||event==="PASSWORD_RECOVERY"){try{localStorage.setItem(ACTIVITE_KEY,String(Date.now()));}catch{/* stockage indisponible */}}
       if(event==="SIGNED_OUT"||!s){uidRef.current=null;setProfile(null);setProducts([]);setHasGlaces(false);setTab("dashboard");setLoading(false);return;}
       if((event==="INITIAL_SESSION"||event==="SIGNED_IN")&&s.user.id!==uidRef.current){
         uidRef.current=s.user.id;setLoading(true);
@@ -1105,6 +1114,34 @@ export default function App(){
   // Onglet devenu interdit (rôle, module masqué) : retour au tableau de bord
   const allowedIds=allTabs.map(([id])=>id).join(",");
   useEffect(()=>{if(profile&&!allowedIds.split(",").includes(tab))setTab("dashboard");},[profile,allowedIds,tab]);
+
+  const compteSensible=isAdmin||canManageRole(profile?.role);
+  useEffect(()=>{
+    if(!compteSensible)return;
+    // null = stockage indisponible ou vide : on s'en tient alors à l'activité vue en mémoire
+    const lire=()=>{try{const v=Number(localStorage.getItem(ACTIVITE_KEY));return v>0?v:null;}catch{return null;}};
+    let ecrit=0,memoire=Date.now();
+    const noter=()=>{const n=Date.now();if(n-ecrit<30000)return;ecrit=n;try{localStorage.setItem(ACTIVITE_KEY,String(n));}catch{/* stockage indisponible */}};
+    const activite=()=>{memoire=Date.now();noter();};
+    const verifier=(retour)=>{
+      const stocke=lire();
+      // Au retour sur l'appli, seule l'activité enregistrée compte (sinon la mémoire, remise à zéro au rechargement, suffit)
+      const derniere=retour&&stocke!==null?stocke:Math.max(stocke||0,memoire);
+      if(Date.now()-derniere>INACTIVITE_MS){
+        supabase.auth.signOut({scope:"local"});
+        showToast("Déconnecté après 15 min d'inactivité");
+        return false;
+      }
+      return true;
+    };
+    if(verifier(true))noter();
+    const evts=["pointerdown","keydown","wheel","touchstart"];
+    evts.forEach(e=>window.addEventListener(e,activite,{passive:true}));
+    const onVis=()=>{if(document.visibilityState==="visible")verifier(true);};
+    document.addEventListener("visibilitychange",onVis);
+    const t=setInterval(()=>verifier(false),30000);
+    return()=>{clearInterval(t);evts.forEach(e=>window.removeEventListener(e,activite));document.removeEventListener("visibilitychange",onVis);};
+  },[compteSensible,showToast]);
 
   const renderScreen=()=>{
     // Onglet non autorisé pour ce rôle : retour au tableau de bord
@@ -1127,7 +1164,7 @@ export default function App(){
     return<Dashboard profile={profile} products={products} onTab={setTab} showCA={showCA}/>;
   };
 
-  const STYLE=`*{font-family:'Inter',sans-serif;box-sizing:border-box;margin:0;}body{background:${C.bg};}::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:#f1f5f9;}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}input,button,textarea,select{font-family:inherit;}button:focus-visible{outline:2px solid ${C.brand};outline-offset:2px;}`;
+  const STYLE=`*{font-family:'Inter Variable','Inter',sans-serif;box-sizing:border-box;margin:0;}body{background:${C.bg};}::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:#f1f5f9;}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}input,button,textarea,select{font-family:inherit;}button:focus-visible{outline:2px solid ${C.brand};outline-offset:2px;}`;
 
   if(loading)return<><style>{STYLE}</style><div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0F172A,#1E3A5F)",flexDirection:"column",gap:14}}><div style={{width:52,height:52,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"#fff",fontSize:24,fontWeight:800}}>P</span></div><p style={{color:"rgba(255,255,255,.5)",fontSize:14}}>Chargement...</p></div></>;
   if(!session){

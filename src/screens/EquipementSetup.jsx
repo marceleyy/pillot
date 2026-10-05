@@ -610,6 +610,9 @@ export function InvoiceScanner({ restaurantId, products, toast, onSaved }) {
           <li>Les produits, quantités et prix sont lus automatiquement.</li>
           <li>Vous associez chaque ligne à un produit, corrigez si besoin et validez : le stock et les prix d'achat sont mis à jour.</li>
         </ol>
+        <p style={{ margin:"8px 0 0", fontSize:12, color:D.textSec, lineHeight:1.5 }}>
+          Le document est envoyé à Anthropic (États-Unis) pour être analysé ; Pillot ne conserve pas le fichier. N'y laissez pas de données personnelles inutiles (ex. coordonnées d'un client).
+        </p>
       </div>
     </div>
   );

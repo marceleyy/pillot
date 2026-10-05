@@ -16,6 +16,10 @@ supabase link --project-ref <ref-du-projet>
 # Clé Claude : secret serveur, jamais dans le code du navigateur
 supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 
+# Origine autorisée (CORS) : l'URL de l'appli en production
+supabase secrets set ALLOWED_ORIGIN=https://<url-de-l-appli>
+# (une seule origine : les previews Vercel et localhost sont alors refusés ; ne pas le définir sur un projet de test)
+
 supabase functions deploy scan-facture
 supabase functions deploy invite-employe
 ```
