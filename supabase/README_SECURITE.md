@@ -48,6 +48,8 @@ un `admin` (voit tout) et en `set local role anon` (ne voit rien).
   réservées à owner/manager/admin) : l'écran Recettes doit masquer le bouton pour eux.
 - Taux horaire : après le script 03, `employees.salaire_horaire` reste toujours vide
   (un trigger déplace toute valeur écrite vers `employees_paie`).
+- Un employé qui a des pointages ne peut plus être supprimé (clé étrangère `restrict`) :
+  le retirer du planning puis l'anonymiser (Planning > Données personnelles).
 - Badgeuse sur tablette : la connecter avec un compte **employé** dédié, jamais celui
   du gérant (les comptes responsables sont déconnectés après 15 min d'inactivité).
 - Insertion dans `profiles` : admin seulement. Les invitations passent par une

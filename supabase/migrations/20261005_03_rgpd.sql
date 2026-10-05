@@ -29,7 +29,11 @@ drop policy if exists tenant_all on public.employees_paie;
 create policy tenant_all on public.employees_paie
   for all to authenticated
   using ((restaurant_id = public.my_restaurant_id() and public.can_manage()) or public.is_admin())
-  with check ((restaurant_id = public.my_restaurant_id() and public.can_manage()) or public.is_admin());
+  with check (
+    ((restaurant_id = public.my_restaurant_id() and public.can_manage()) or public.is_admin())
+    and exists (select 1 from public.employees e
+                where e.id = employees_paie.employee_id and e.restaurant_id = employees_paie.restaurant_id)
+  );
 
 do $$
 begin
@@ -85,7 +89,9 @@ language plpgsql
 set search_path = public
 as $$
 begin
-  if new.actif is false and old.actif is distinct from false then
+  if tg_op = 'INSERT' then
+    new.retire_le := case when new.actif is false then now() end;
+  elsif new.actif is false and old.actif is distinct from false then
     new.retire_le := now();
   elsif new.actif is distinct from false then
     new.retire_le := null;
@@ -100,7 +106,7 @@ begin
              where table_schema = 'public' and table_name = 'employees' and column_name = 'actif') then
     drop trigger if exists employees_retire_le on public.employees;
     create trigger employees_retire_le
-      before update of actif on public.employees
+      before insert or update of actif on public.employees
       for each row execute function public.employees_retire_le();
     update public.employees set retire_le = now() where actif is false and retire_le is null;
   end if;
@@ -158,6 +164,10 @@ language plpgsql security definer
 set search_path = public
 as $$
 begin
+  -- Purge de conservation : pas de journal (sinon les données purgées seraient recopiées)
+  if current_setting('pillot.purge', true) = 'on' then
+    return coalesce(new, old);
+  end if;
   if tg_op = 'DELETE' then
     insert into public.pointages_historique (pointage_id, restaurant_id, employee_id, operation, avant, modifie_par)
     values (old.id, old.restaurant_id, old.employee_id, 'DELETE', to_jsonb(old), auth.uid());
@@ -205,7 +215,9 @@ begin
   if new.debut is distinct from old.debut
      or new.employee_id is distinct from old.employee_id
      or new.restaurant_id is distinct from old.restaurant_id
-     or new.saisi_par is distinct from old.saisi_par then
+     or new.saisi_par is distinct from old.saisi_par
+     or (new.note is distinct from old.note
+         and new.note is distinct from concat_ws(' · ', old.note, 'Oubli de départ corrigé')) then
     raise exception 'Seul un responsable peut corriger un pointage' using errcode = '42501';
   end if;
   if new.fin is not null and (new.fin <= new.debut or new.fin > now() + interval '2 minutes') then
@@ -214,6 +226,15 @@ begin
   return new;
 end;
 $$;
+
+-- La policy pointages_update_open (script 02) n'a pas de WITH CHECK : son USING
+-- (fin is null) s'appliquait aussi à la ligne modifiée et empêchait un employé de
+-- fermer son pointage. La nouvelle ligne est contrôlée par pointages_guard.
+drop policy if exists pointages_update_open on public.pointages;
+create policy pointages_update_open on public.pointages
+  as restrictive for update to authenticated
+  using (public.can_manage() or fin is null)
+  with check (true);
 
 drop trigger if exists pointages_guard on public.pointages;
 create trigger pointages_guard
@@ -272,6 +293,9 @@ begin
   update public.employees set nom = 'Ancien employé', prenom = '' where id = p_employee_id;
   delete from public.employees_paie where employee_id = p_employee_id;
   update public.pointages set note = null where employee_id = p_employee_id and note is not null;
+  update public.pointages_historique
+     set avant = avant - 'note', apres = apres - 'note'
+   where employee_id = p_employee_id;
 end;
 $$;
 revoke execute on function public.anonymiser_employe(uuid) from public, anon;
@@ -290,16 +314,26 @@ as $$
 declare
   limite timestamptz := now() - make_interval(months => p_mois);
 begin
-  delete from public.pointages_historique where modifie_le < limite;
+  perform set_config('pillot.purge', 'on', true);
   delete from public.pointages where debut < limite;
-  if to_regclass('public.shifts') is not null then
+  delete from public.pointages_historique where modifie_le < limite;
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'shifts' and column_name = 'date') then
     execute 'delete from public.shifts where "date" < $1::date' using limite;
   end if;
+  update public.pointages_historique h
+     set avant = h.avant - 'note', apres = h.apres - 'note'
+    from public.employees e
+   where e.id = h.employee_id and e.actif is false and e.retire_le < limite;
+  update public.pointages p set note = null
+    from public.employees e
+   where e.id = p.employee_id and e.actif is false and e.retire_le < limite and p.note is not null;
   update public.employees set nom = 'Ancien employé', prenom = ''
    where actif is false and retire_le < limite and nom is distinct from 'Ancien employé';
   delete from public.employees_paie p
    using public.employees e
    where e.id = p.employee_id and e.actif is false and e.retire_le < limite;
+  perform set_config('pillot.purge', 'off', true);
 end;
 $$;
 revoke execute on function public.rgpd_purge(int) from public, anon, authenticated;

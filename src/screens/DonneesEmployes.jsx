@@ -19,7 +19,9 @@ const modalBox = {background:C.surface,borderRadius:16,padding:20,width:"100%",m
 const btn = {minHeight:36,padding:"0 10px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:12,fontWeight:600};
 
 function csvCell(v) {
-  const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+  let s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+  // Neutralise les formules à l'ouverture dans un tableur (= + - @)
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
@@ -54,10 +56,11 @@ export default function DonneesEmployes({ restaurantId, toast, onClose, onChange
 
   const exporter = async emp => {
     setBusy(emp.id);
-    const [rPaie, rShifts, rPointages] = await Promise.all([
+    const [rPaie, rShifts, rPointages, rHisto] = await Promise.all([
       supabase.from("employees_paie").select("salaire_horaire,updated_at").eq("employee_id", emp.id),
       supabase.from("shifts").select("*").eq("employee_id", emp.id).eq("restaurant_id", restaurantId).order("date"),
       supabase.from("pointages").select("debut,fin,note,created_at").eq("employee_id", emp.id).eq("restaurant_id", restaurantId).order("debut"),
+      supabase.from("pointages_historique").select("operation,avant,apres,modifie_le").eq("employee_id", emp.id).eq("restaurant_id", restaurantId).order("modifie_le"),
     ]);
     setBusy(null);
     // employees_paie peut ne pas exister si la migration 03 n'est pas jouée : section vide
@@ -67,6 +70,7 @@ export default function DonneesEmployes({ restaurantId, toast, onClose, onChange
       ["Rémunération", rPaie.error ? [] : rPaie.data || []],
       ["Planning", rShifts.data || []],
       ["Pointages", rPointages.data || []],
+      ["Corrections de pointages", rHisto.error ? [] : rHisto.data || []],
     ]);
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");

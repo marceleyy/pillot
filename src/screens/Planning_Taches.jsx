@@ -121,6 +121,8 @@ export function Planning({ restaurantId, toast, canManage = true }) {
       // Si la migration RGPD n'est pas jouée, la table manque : on garde employees.salaire_horaire.
       if (canManage && emps.length) {
         const { data: paie, error: pErr } = await supabase.from("employees_paie").select("employee_id,salaire_horaire").in("employee_id", emps.map(e => e.id));
+        const tableAbsente = pErr && (pErr.code === "42P01" || pErr.code === "PGRST205");
+        if (pErr && !tableAbsente) toast("Erreur de chargement des taux horaires", "error");
         if (!pErr) {
           const taux = Object.fromEntries((paie || []).map(p => [p.employee_id, p.salaire_horaire]));
           emps = emps.map(e => ({ ...e, salaire_horaire: taux[e.id] ?? e.salaire_horaire }));

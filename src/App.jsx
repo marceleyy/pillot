@@ -912,6 +912,8 @@ export default function App(){
     const{data:{subscription}}=supabase.auth.onAuthStateChange((event,s)=>{
       setSession(s);
       if(event==="PASSWORD_RECOVERY")setRecovery(true);
+      // Vraie connexion (pas un simple retour sur l'onglet, même utilisateur) : départ du délai d'inactivité, heure de l'appareil
+      if((event==="SIGNED_IN"&&s&&s.user.id!==uidRef.current)||event==="PASSWORD_RECOVERY"){try{localStorage.setItem(ACTIVITE_KEY,String(Date.now()));}catch{/* stockage indisponible */}}
       if(event==="SIGNED_OUT"||!s){uidRef.current=null;setProfile(null);setProducts([]);setHasGlaces(false);setTab("dashboard");setLoading(false);return;}
       if((event==="INITIAL_SESSION"||event==="SIGNED_IN")&&s.user.id!==uidRef.current){
         uidRef.current=s.user.id;setLoading(true);
@@ -933,32 +935,32 @@ export default function App(){
   useEffect(()=>{if(profile&&!allowedIds.split(",").includes(tab))setTab("dashboard");},[profile,allowedIds,tab]);
 
   const compteSensible=isAdmin||canManageRole(profile?.role);
-  const derniereConnexion=session?.user?.last_sign_in_at;
   useEffect(()=>{
     if(!compteSensible)return;
-    const connexion=Date.parse(derniereConnexion)||0;
-    const lire=()=>{try{return Number(localStorage.getItem(ACTIVITE_KEY))||0;}catch{return 0;}};
-    let ecrit=0;
-    const noter=()=>{const n=Date.now();if(n-ecrit<30000)return;ecrit=n;try{localStorage.setItem(ACTIVITE_KEY,String(n));}catch{/* stockage indisponible : contrôle en mémoire seulement */}};
-    let memoire=Date.now();
+    // null = stockage indisponible ou vide : on s'en tient alors à l'activité vue en mémoire
+    const lire=()=>{try{const v=Number(localStorage.getItem(ACTIVITE_KEY));return v>0?v:null;}catch{return null;}};
+    let ecrit=0,memoire=Date.now();
+    const noter=()=>{const n=Date.now();if(n-ecrit<30000)return;ecrit=n;try{localStorage.setItem(ACTIVITE_KEY,String(n));}catch{/* stockage indisponible */}};
     const activite=()=>{memoire=Date.now();noter();};
-    const verifier=()=>{
-      // Une connexion plus récente que la dernière activité notée compte comme activité
-      const derniere=Math.max(lire(),memoire,connexion);
+    const verifier=(retour)=>{
+      const stocke=lire();
+      // Au retour sur l'appli, seule l'activité enregistrée compte (sinon la mémoire, remise à zéro au rechargement, suffit)
+      const derniere=retour&&stocke!==null?stocke:Math.max(stocke||0,memoire);
       if(Date.now()-derniere>INACTIVITE_MS){
         supabase.auth.signOut({scope:"local"});
         showToast("Déconnecté après 15 min d'inactivité");
+        return false;
       }
+      return true;
     };
-    // Au retour sur l'appli (tablette restée allumée, appli rouverte) : contrôle avant toute nouvelle activité
-    memoire=0;verifier();memoire=Date.now();noter();
+    if(verifier(true))noter();
     const evts=["pointerdown","keydown","wheel","touchstart"];
     evts.forEach(e=>window.addEventListener(e,activite,{passive:true}));
-    const onVis=()=>{if(document.visibilityState==="visible"){memoire=0;verifier();memoire=Date.now();}};
+    const onVis=()=>{if(document.visibilityState==="visible")verifier(true);};
     document.addEventListener("visibilitychange",onVis);
-    const t=setInterval(verifier,30000);
+    const t=setInterval(()=>verifier(false),30000);
     return()=>{clearInterval(t);evts.forEach(e=>window.removeEventListener(e,activite));document.removeEventListener("visibilitychange",onVis);};
-  },[compteSensible,derniereConnexion,showToast]);
+  },[compteSensible,showToast]);
 
   const renderScreen=()=>{
     // Onglet non autorisé pour ce rôle : retour au tableau de bord
