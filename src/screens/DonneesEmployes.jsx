@@ -63,7 +63,7 @@ export default function DonneesEmployes({ restaurantId, toast, onClose, onChange
       supabase.from("pointages_historique").select("operation,avant,apres,modifie_le").eq("employee_id", emp.id).eq("restaurant_id", restaurantId).order("modifie_le"),
     ]);
     setBusy(null);
-    // employees_paie peut ne pas exister si la migration 03 n'est pas jouée : section vide
+    // employees_paie peut ne pas exister si la migration 04 (RGPD) n'est pas jouée : section vide
     if (rShifts.error || rPointages.error) { toast("Erreur : export incomplet, réessayez", "error"); return; }
     const csv = toCsv([
       ["Fiche employé", [emp]],
