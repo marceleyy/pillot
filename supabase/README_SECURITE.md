@@ -7,6 +7,7 @@ Faire une sauvegarde de la base (Dashboard > Database > Backups, ou `pg_dump`)
 ## 1. Ordre d'application
 Dans le SQL Editor (rôle `postgres`), dans cet ordre :
 
+0. `migrations/20261005_00_tables_manquantes.sql` — crée les 8 tables utilisées par l'appli mais absentes de la base : `equipements`, `dlc_entries`, `glaces_flavors`, `glaces_daily`, `pos_imports`, `pos_sales`, `scanned_invoices`, `scanned_invoice_items`.
 1. `migrations/20261005_01_nouvelles_tables.sql` — tables `pointages`, `nettoyage_plans`, `ca_imports`, colonnes `temperature_logs.action_corrective`, `ca_history.date_debut/date_fin`.
 2. `migrations/20261005_02_rls.sql` — fonctions `my_restaurant_id()`, `my_role()`, `is_admin()`, `can_manage()`, trigger anti-escalade sur `profiles`, policies.
 3. `migrations/20261005_03_reglages.sql` — colonnes `restaurants.adresse`, `telephone`, `horaires`, `modules` (Réglages et interrupteur du module glacier). Sans elle, ces réglages affichent « mise à jour de la base nécessaire » ; le reste fonctionne.
