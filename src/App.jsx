@@ -50,6 +50,7 @@ const Icon = ({n,sz=18,c="currentColor"})=><span style={{display:"inline-flex",w
 const gst=p=>{if(p.stock===null||p.stock===undefined)return"non_saisi";if(!p.stock_min)return"non_suivi";if(p.stock===0)return"rupture";if(p.stock<=p.stock_min)return"commander";return"ok";};
 const gqt=p=>p.cote==="SUCRE"?Math.max(1,Math.ceil(p.stock_min-p.stock)):Math.max(1,Math.ceil(p.stock_min*2-p.stock));
 const fmt=n=>new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",minimumFractionDigits:0}).format(n||0);
+const fmtPrix=n=>new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",minimumFractionDigits:2,maximumFractionDigits:2}).format(n||0);
 const fmtDate=d=>new Date(d).toLocaleDateString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
 const fmtDay=d=>new Date(d).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
 
@@ -283,6 +284,7 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
                 <p style={{margin:0,fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.nom}</p>
                 <p style={{margin:0,fontSize:11,color:C.textSec}}>{p.fournisseur}</p>
               </div>
+              {p.prix_achat>0&&<span style={{fontSize:12,fontWeight:600,color:C.textSec,flexShrink:0,whiteSpace:"nowrap"}}>{fmtPrix(p.prix_achat)}/{p.unite}</span>}
               <div style={{textAlign:"right",flexShrink:0}}>
                 <p style={{margin:0,fontSize:14,fontWeight:700,color:st==="rupture"?C.danger:st==="commander"?C.warning:st==="ok"?C.success:C.textMuted}}>
                   {p.stock!==null&&p.stock!==undefined?`${p.stock} ${p.unite}`:"—"}</p>
