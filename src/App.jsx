@@ -4,6 +4,7 @@ import HACCPComplet from "./screens/HACCP_complet";
 import PillotGlaces from "./screens/PillotGlaces";
 import { EquipementSetup, InvoiceScanner } from "./screens/EquipementSetup";
 
+import * as XLSX from "xlsx";
 import { supabase } from "./lib/supabase";
 
 // ── Palette ──────────────────────────────────────────────────
@@ -43,6 +44,7 @@ const ICONS = {
   x:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   trend:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>,
   droplet:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg>,
+  download:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
 };
 const Icon = ({n,sz=18,c="currentColor"})=><span style={{display:"inline-flex",width:sz,height:sz,color:c,flexShrink:0}}>{ICONS[n]}</span>;
 
@@ -217,6 +219,19 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
     setEditId(null);setSaving(false);
   };
 
+  const exportExcel=()=>{
+    const ST={rupture:"Rupture",commander:"À commander",ok:"OK",non_saisi:"Non saisi",non_suivi:"Non suivi"};
+    const rows=[...products].sort((a,b)=>(a.cote||"").localeCompare(b.cote||"")||(a.categorie||"").localeCompare(b.categorie||"")||(a.nom||"").localeCompare(b.nom||"")).map(p=>{
+      const stock=p.stock??null,prix=Number(p.prix_achat)||0;
+      return{"Côté":p.cote==="SUCRE"?"Sucré":"Salé","Catégorie":p.categorie||"","Produit":p.nom,"Fournisseur":p.fournisseur||"","Unité":p.unite||"","Prix d'achat (€)":prix,"Stock":stock??"","Stock min":p.stock_min??"","Valeur stock (€)":stock!==null?Math.round(stock*prix*100)/100:"","Statut":ST[gst(p)]};
+    });
+    const ws=XLSX.utils.json_to_sheet(rows);
+    ws["!cols"]=[8,18,34,20,10,14,8,10,16,12].map(w=>({wch:w}));
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Inventaire");
+    XLSX.writeFile(wb,`inventaire_${new Date().toISOString().slice(0,10)}.xlsx`);
+    toast("Export Excel téléchargé");
+  };
+
   const DOT={rupture:C.danger,commander:C.warning,ok:C.success,non_saisi:"#CBD5E1",non_suivi:C.textMuted};
 
   if(showHist)return<div>
@@ -242,6 +257,7 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
       <div><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Inventaire</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{products.filter(p=>p.cote===cote).length} produits</p></div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
         <button onClick={()=>{setShowHist(true);loadHistory();}} style={{padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.textSec}}><Icon n="history" sz={14}/>Historique</button>
+        <button onClick={exportExcel} disabled={!products.length} style={{padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.textSec}}><Icon n="download" sz={14}/>Excel</button>
         <div style={{display:"flex",gap:4,background:"#F1F5F9",padding:4,borderRadius:10}}>
           {[["SALE","Salé"],["SUCRE","Sucré"]].map(([k,l])=><button key={k} onClick={()=>setCote(k)} style={{padding:"6px 14px",borderRadius:8,border:"none",fontSize:13,fontWeight:600,cursor:"pointer",background:cote===k?C.surface:"transparent",color:cote===k?C.text:C.textSec,boxShadow:cote===k?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{l}</button>)}
         </div>
