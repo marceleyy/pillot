@@ -5,7 +5,7 @@ import { PARAMETRES_DEFAUT } from "../parametres";
 
 // ── HISTORIQUE ────────────────────────────────────────────────
 export default function Historique({restaurantId,params=PARAMETRES_DEFAUT}){
-  const obj=params.objectif,alerte=obj*1.4;
+  const obj=params.objectif,alerte=params.alerte;
   const [hist,setHist]=useState([]),[loading,setLoading]=useState(true);
   useEffect(()=>{const load=async()=>{const{data}=await supabase.from("ca_history").select("*").eq("restaurant_id",restaurantId).order("created_at",{ascending:false}).limit(20);setHist(data||[]);setLoading(false);};if(restaurantId)load();else setLoading(false);},[restaurantId]);
   const totCA=hist.reduce((a,h)=>a+(h.ca_sale||0)+(h.ca_sucre||0),0);
@@ -66,8 +66,8 @@ export default function Historique({restaurantId,params=PARAMETRES_DEFAUT}){
             </div>
             <Chip status={rs<=obj?"ok":rs<=alerte?"commander":"rupture"} small/>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
-            {[[`CA ${params.nomSection("SALE")}`,fmt(h.ca_sale)],[`Ratio ${params.nomSection("SALE")}`,(rs*100).toFixed(1)+"%"],...(params.sectionsActives.length>1?[[`CA ${params.nomSection("SUCRE")}`,fmt(h.ca_sucre)],[`Ratio ${params.nomSection("SUCRE")}`,(ru*100).toFixed(1)+"%"]]:[])].map(([l,v])=>(
+          <div style={{display:"grid",gridTemplateColumns:`repeat(${params.deuxSections?4:2},1fr)`,gap:8}}>
+            {[[`CA ${params.nomSection("SALE")}`,fmt(h.ca_sale)],[`Ratio ${params.nomSection("SALE")}`,(rs*100).toFixed(1)+"%"],...(params.deuxSections?[[`CA ${params.nomSection("SUCRE")}`,fmt(h.ca_sucre)],[`Ratio ${params.nomSection("SUCRE")}`,(ru*100).toFixed(1)+"%"]]:[])].map(([l,v])=>(
               <div key={l}><p style={{margin:0,fontSize:10,color:C.textMuted}}>{l}</p><p style={{margin:0,fontSize:13,fontWeight:700}}>{v}</p></div>
             ))}
           </div>

@@ -6,7 +6,7 @@ import { C, Icon, gst, qteNum, valeurProduits, fmtPrix, fmtDate, Card } from "..
 
 // ── INVENTAIRE ────────────────────────────────────────────────
 export default function Inventaire({products,restaurantId,onStockUpdate,toast,params=PARAMETRES_DEFAUT}){
-  const deuxSections=params.sectionsActives.length>1;
+  const deuxSections=params.deuxSections;
   // Une seule section : tout le stock s'affiche. Un produit sans section compte dans la 1re.
   const dansSection=p=>!deuxSections||(p.cote==="SUCRE"?"SUCRE":"SALE")===cote;
   const [cote,setCote]=useState("SALE"),[search,setSearch]=useState(""),[editId,setEditId]=useState(null),[editVal,setEditVal]=useState(""),[saving,setSaving]=useState(false),[showHist,setShowHist]=useState(false),[hist,setHist]=useState([]),[loadingHist,setLoadingHist]=useState(false);
@@ -58,7 +58,7 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
     const ST={rupture:"Rupture",commander:"À commander",ok:"OK",non_saisi:"Non saisi",non_suivi:"Non suivi"};
     const rows=[...products].sort((a,b)=>(a.cote||"").localeCompare(b.cote||"")||(a.categorie||"").localeCompare(b.categorie||"")||(a.nom||"").localeCompare(b.nom||"")).map(p=>{
       const stock=p.stock??null,prix=Number(p.prix_achat)||0;
-      return{"Section":params.nomSection(p.cote),"Catégorie":p.categorie||"","Produit":p.nom,"Fournisseur":p.fournisseur||"","Unité":p.unite||"","Prix d'achat (€)":prix,"Stock":stock??"","Stock min":p.stock_min??"","Valeur stock (€)":stock!==null?Math.round(stock*prix*100)/100:"","Statut":ST[gst(p)]};
+      return{"Côté":params.nomSection(p.cote),"Catégorie":p.categorie||"","Produit":p.nom,"Fournisseur":p.fournisseur||"","Unité":p.unite||"","Prix d'achat (€)":prix,"Stock":stock??"","Stock min":p.stock_min??"","Valeur stock (€)":stock!==null?Math.round(stock*prix*100)/100:"","Statut":ST[gst(p)]};
     });
     const ws=XLSX.utils.json_to_sheet(rows);
     ws["!cols"]=[8,18,34,20,10,14,8,10,16,12].map(w=>({wch:w}));

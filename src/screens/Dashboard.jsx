@@ -37,7 +37,7 @@ export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFA
       <StatCard icon="check" label="OK" value={ok.length} sub="stocks suffisants" color={C.success} bg={C.successLight}/>
       <StatCard icon="box" label="Non saisis" value={ns.length} sub="à mettre à jour" color={C.textSec} bg="#F8FAFC" onClick={()=>onTab("stocks")}/>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:params.sectionsActives.length>1?"1fr 1fr":"1fr",gap:12,marginBottom:20}}>
+    <div style={{display:"grid",gridTemplateColumns:params.deuxSections?"1fr 1fr":"1fr",gap:12,marginBottom:20}}>
       {[["SALE",rs,ca_s],["SUCRE",rsu,ca_su]].filter(([k])=>params.sectionsActives.some(x=>x.code===k)).map(([k,r,ca])=>[k,params.nomSection(k),r,ca]).map(([k,l,r,ca])=>(
         <Card key={k} style={{padding:"18px",textAlign:"center"}}>
           <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</p>

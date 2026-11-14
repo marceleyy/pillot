@@ -5,7 +5,7 @@ import { PARAMETRES_DEFAUT } from "../parametres";
 
 // ── FICHES TECHNIQUES ─────────────────────────────────────────
 export default function Recettes({restaurantId,products,toast,params=PARAMETRES_DEFAUT}){
-  const obj=params.objectif,alerte=obj*1.4;
+  const obj=params.objectif,alerte=params.alerte;
   const [recettes,setRecettes]=useState([]),[loading,setLoading]=useState(true),[sel,setSel]=useState(null),[adding,setAdding]=useState(false),[newNom,setNewNom]=useState(""),[newPrix,setNewPrix]=useState(""),[items,setItems]=useState([]),[saving,setSaving]=useState(false),[addItem,setAddItem]=useState({prodId:"",qte:"",unite:""});
 
   useEffect(()=>{const load=async()=>{const{data}=await supabase.from("recipes").select("*,recipe_items(*,products(nom,unite,prix_achat))").eq("restaurant_id",restaurantId).order("created_at",{ascending:false});setRecettes(data||[]);setLoading(false);};if(restaurantId)load();},[restaurantId]);

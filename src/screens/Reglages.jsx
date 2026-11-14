@@ -10,7 +10,9 @@ export default function Reglages({profile,toast,params=PARAMETRES_DEFAUT,product
   const saveCa=async()=>{
     setSaving(true);
     const cout_s=products_cost_estimate(rest?.id);
-    const{error}=await supabase.from("restaurants").update({ca_sale:parseFloat(ca_s)||0,ca_sucre:parseFloat(ca_su)||0}).eq("id",rest?.id);
+    // Section 2 non utilisée : son CA n'est pas affiché, donc pas écrasé.
+    const maj={ca_sale:parseFloat(ca_s)||0,...(params.deuxSections?{ca_sucre:parseFloat(ca_su)||0}:{})};
+    const{error}=await supabase.from("restaurants").update(maj).eq("id",rest?.id);
     if(!error)toast("CA mis à jour — rechargez le tableau de bord");else toast("Erreur","error");
     setSaving(false);
   };
@@ -21,8 +23,8 @@ export default function Reglages({profile,toast,params=PARAMETRES_DEFAUT,product
     <Card style={{padding:24,marginBottom:14}}>
       <h3 style={{margin:"0 0 6px",fontSize:15,fontWeight:800}}>CA de la semaine en cours</h3>
       <p style={{margin:"0 0 16px",fontSize:13,color:C.textSec}}>Le ratio coût/CA est calculé à partir de ces valeurs.</p>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-        {[[`CA HT ${params.nomSection("SALE")} (€)`,ca_s,setCaS],...(params.sectionsActives.length>1?[[`CA HT ${params.nomSection("SUCRE")} (€)`,ca_su,setCaSu]]:[])].map(([l,v,set])=><div key={l}>
+      <div style={{display:"grid",gridTemplateColumns:params.deuxSections?"1fr 1fr":"1fr",gap:12,marginBottom:16}}>
+        {[[`CA HT ${params.nomSection("SALE")} (€)`,ca_s,setCaS],...(params.deuxSections?[[`CA HT ${params.nomSection("SUCRE")} (€)`,ca_su,setCaSu]]:[])].map(([l,v,set])=><div key={l}>
           <label style={{fontSize:11,fontWeight:700,color:C.textSec,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</label>
           <input type="number" value={v} onChange={e=>set(e.target.value)} placeholder="0" style={inp} onFocus={e=>e.target.style.borderColor=C.brand} onBlur={e=>e.target.style.borderColor=C.border}/>
         </div>)}
@@ -30,7 +32,7 @@ export default function Reglages({profile,toast,params=PARAMETRES_DEFAUT,product
       <button onClick={saveCa} disabled={saving} style={{padding:"11px 24px",background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>
         {saving?"Enregistrement...":"Enregistrer le CA"}</button>
     </Card>
-    <ReglagesCommerce rest={rest} params={params} products={products} toast={toast} onSaved={onSaved}/>
+    {["owner","manager","admin"].includes(profile?.role)&&rest?.id&&<ReglagesCommerce rest={rest} params={params} products={products} toast={toast} onSaved={onSaved}/>}
     <Card style={{padding:20}}>
       <h3 style={{margin:"0 0 12px",fontSize:15,fontWeight:800}}>Informations du compte</h3>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -47,11 +49,12 @@ function ReglagesCommerce({rest,params,products,toast,onSaved}){
   const [sections,setSections]=useState(()=>params.sections.map(x=>({...x})));
   const [objectif,setObjectif]=useState(()=>String(Math.round(params.objectif*1000)/10));
   const [modules,setModules]=useState(()=>({...params.modules}));
+  const [modulesDepart]=useState(()=>({...params.modules}));
   const [saving,setSaving]=useState(false);
   const nbSucre=products.filter(p=>p.cote==="SUCRE").length;
   const majSection=(code,champ,v)=>setSections(prev=>prev.map(x=>x.code===code?{...x,[champ]:v}:x));
   const obj=Number(String(objectif).replace(",","."));
-  const objOk=Number.isFinite(obj)&&obj>0&&obj<100;
+  const objOk=Number.isFinite(obj)&&obj>=1&&obj<=90;
   const nomsOk=sections.every(x=>!x.actif||x.nom.trim());
 
   const enregistrer=async()=>{
@@ -59,8 +62,12 @@ function ReglagesCommerce({rest,params,products,toast,onSaved}){
     setSaving(true);
     const parametres={...(rest.parametres&&typeof rest.parametres==="object"?rest.parametres:{}),
       sections:Object.fromEntries(sections.map(x=>[x.code,{nom:x.nom.trim(),actif:x.actif,commande:x.commande}]))};
-    const{error}=await supabase.from("restaurants").update({parametres,objectif:Math.round(obj*10)/1000,modules:{...(rest.modules||{}),...modules}}).eq("id",rest.id);
+    // Seuls les modules que le gérant a changés deviennent un choix fixe : les autres gardent leur réglage
+    // (Glaces reste automatique tant qu'on n'y touche pas).
+    const choix={};Object.keys(modules).forEach(k=>{if(modules[k]!==modulesDepart[k])choix[k]=modules[k];});
+    const{data,error}=await supabase.from("restaurants").update({parametres,objectif:Math.round(obj*10)/1000,modules:{...(rest.modules||{}),...choix}}).eq("id",rest.id).select("id");
     setSaving(false);
+    if(!error&&!data?.length){toast("Seul le gérant peut modifier ces réglages","error");return;}
     if(error){
       const manque=error.code==="PGRST204"||error.code==="42703";
       toast(manque?"Mise à jour de la base nécessaire pour enregistrer ces réglages":"Réglages non enregistrés","error");
@@ -88,7 +95,7 @@ function ReglagesCommerce({rest,params,products,toast,onSaved}){
     </div>)}
     <p style={{margin:"0 0 18px",fontSize:12,color:C.textMuted}}>Exemples : Cuisine et Bar, Salé et Sucré, ou une seule section. {nbSucre>0?"La 2e section contient des produits : elle ne peut pas être retirée.":""}</p>
 
-    <label style={lab} htmlFor="objectif-ratio">Objectif de coût matière (% du CA)</label>
+    <label style={lab} htmlFor="objectif-ratio">Objectif de coût matière (% du CA, de 1 à 90)</label>
     <input id="objectif-ratio" type="text" inputMode="decimal" value={objectif} onChange={e=>setObjectif(e.target.value)} style={{...champ,maxWidth:140,marginBottom:4,borderColor:objOk?C.border:C.danger}}/>
     <p style={{margin:"0 0 18px",fontSize:12,color:C.textMuted}}>Sert aux jauges du tableau de bord, à l'historique et aux fiches techniques.</p>
 

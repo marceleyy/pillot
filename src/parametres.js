@@ -40,7 +40,8 @@ export function lireParametres(rest, { aDesGlaces = false } = {}) {
       commande: v.commande === 1 || v.commande === 2 ? v.commande : d.commande,
     };
   });
-  const obj = Number(rest?.objectif);
+  // objectif : fraction (0,25). Une valeur saisie en pourcentage (25) est ramenée en fraction.
+  const o = Number(rest?.objectif), obj = o > 0 && o < 1 ? o : o >= 1 && o < 100 ? o / 100 : 0.25;
   const m = rest?.modules && typeof rest.modules === "object" ? rest.modules : {};
   const modules = {};
   MODULES.forEach(({ id, auto }) => {
@@ -51,7 +52,10 @@ export function lireParametres(rest, { aDesGlaces = false } = {}) {
     sectionsActives: sections.filter(x => x.actif),
     nomSection: code => (sections.find(x => x.code === code) || sections[0]).nom,
     commande: code => (sections.find(x => x.code === code) || sections[0]).commande,
-    objectif: obj > 0 && obj < 1 ? obj : 0.25,
+    deuxSections: sections.filter(x => x.actif).length > 1,
+    objectif: obj,
+    // Au-delà de l'objectif mais en dessous de ce seuil : orange ; au-dessus : rouge.
+    alerte: obj * 1.4,
     modules,
   };
 }

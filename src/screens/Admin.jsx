@@ -39,7 +39,7 @@ export default function Admin({adminProfile,toast}){
         </div>
         <div style={{padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",gap:16}}>
-            {[[pc.nomSection("SALE"),rs,col],...(pc.sectionsActives.length>1?[[pc.nomSection("SUCRE"),c.ratio_sucre||0,"#7C3AED"]]:[]),["Objectif",obj,C.textMuted]].map(([l,v,c])=>(
+            {[[pc.nomSection("SALE"),rs,col],...(pc.deuxSections?[[pc.nomSection("SUCRE"),c.ratio_sucre||0,"#7C3AED"]]:[]),["Objectif",obj,C.textMuted]].map(([l,v,c])=>(
               <div key={l}><p style={{margin:0,fontSize:10,color:C.textMuted}}>{l}</p><p style={{margin:0,fontSize:16,fontWeight:800,color:c}}>{(v*100).toFixed(1)}%</p></div>
             ))}
           </div>

@@ -25,7 +25,7 @@ export default function App(){
 
   useEffect(()=>{
     supabase.auth.getSession().then(({data:{session}})=>{setSession(session);if(session)loadProfile(session.user.id);else setLoading(false);});
-    const{data:{subscription}}=supabase.auth.onAuthStateChange((_,s)=>{setSession(s);if(s)loadProfile(s.user.id);else{setProfile(null);setProducts([]);setLoading(false);}});
+    const{data:{subscription}}=supabase.auth.onAuthStateChange((_,s)=>{setSession(s);if(s)loadProfile(s.user.id);else{setProfile(null);setProducts([]);setADesGlaces(false);setLoading(false);}});
     return()=>subscription.unsubscribe();
   },[]);
 
@@ -48,6 +48,10 @@ export default function App(){
   };
 
   const params=useMemo(()=>lireParametres(profile?.restaurants,{aDesGlaces}),[profile?.restaurants,aDesGlaces]);
+  const isAdmin=profile?.role==="admin";
+  // Onglet d'un module désactivé : retour au tableau de bord.
+  const tabCoupe=!isAdmin&&params.modules[tab]===false;
+  useEffect(()=>{if(tabCoupe)setTab("dashboard");},[tabCoupe]);
 
   const loadProducts=async(restId)=>{
     const{data:prods}=await supabase.from("products").select("*").eq("restaurant_id",restId).eq("actif",true).order("categorie");
@@ -58,10 +62,9 @@ export default function App(){
 
   const onStockUpdate=(id,v)=>setProducts(p=>p.map(x=>x.id===id?{...x,stock:v}:x));
   const logout=()=>supabase.auth.signOut();
-  const isAdmin=profile?.role==="admin";
 
   const renderScreen=()=>{
-    if(!isAdmin&&params.modules[tab]===false)return<Dashboard profile={profile} products={products} onTab={setTab} params={params}/>;
+    if(tabCoupe)return<Dashboard profile={profile} products={products} onTab={setTab} params={params}/>;
     if(tab==="stocks")return<Inventaire key={profile?.restaurant_id||"aucun"} products={products} restaurantId={profile?.restaurant_id} onStockUpdate={onStockUpdate} toast={showToast} params={params}/>;
     if(tab==="commandes")return<Commandes products={products} profile={profile} toast={showToast} params={params}/>;
     if(tab==="historique")return<Historique restaurantId={profile?.restaurant_id} params={params}/>;
