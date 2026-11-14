@@ -9,6 +9,7 @@
 | `20261005_01_nouvelles_tables` | appliquée |
 | `20261005_02_rls` | appliquée |
 | `20261005_03_reglages` | appliquée |
+| `20261005_04_rgpd` | pas encore dans `main` ni en ligne (branche non fusionnée), à reprendre avec les rôles |
 | `20261114_00_inventaires` | à appliquer (inventaires datés aux prix figés) |
 | `20261114_01_order_items` | à appliquer (règle d'accès des lignes de commande) |
 
