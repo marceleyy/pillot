@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { PARAMETRES_DEFAUT } from "../parametres";
 import * as XLSX from "xlsx";
 import { C, Icon, gst, qteNum, valeurProduits, fmtPrix, fmtDate, Card } from "../ui";
 
 // ── INVENTAIRE ────────────────────────────────────────────────
-export default function Inventaire({products,restaurantId,onStockUpdate,toast}){
+export default function Inventaire({products,restaurantId,onStockUpdate,toast,params=PARAMETRES_DEFAUT}){
+  const deuxSections=params.sectionsActives.length>1;
+  // Une seule section : tout le stock s'affiche. Un produit sans section compte dans la 1re.
+  const dansSection=p=>!deuxSections||(p.cote==="SUCRE"?"SUCRE":"SALE")===cote;
   const [cote,setCote]=useState("SALE"),[search,setSearch]=useState(""),[editId,setEditId]=useState(null),[editVal,setEditVal]=useState(""),[saving,setSaving]=useState(false),[showHist,setShowHist]=useState(false),[hist,setHist]=useState([]),[loadingHist,setLoadingHist]=useState(false);
   const cleBrouillon=`pillot:inventaire:${restaurantId}`;
   const [mode,setMode]=useState("liste"),[histTab,setHistTab]=useState("inventaires"),[invs,setInvs]=useState([]),[invErr,setInvErr]=useState(false),[selInv,setSelInv]=useState(null),[validating,setValidating]=useState(false);
@@ -38,8 +42,8 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast}){
     setHist(data||[]);
   };
 
-  const cats=[...new Set(products.filter(p=>p.cote===cote).map(p=>p.categorie))];
-  const filtered=products.filter(p=>p.cote===cote&&(!search||p.nom.toLowerCase().includes(search.toLowerCase())||p.fournisseur?.toLowerCase().includes(search.toLowerCase())));
+  const cats=[...new Set(products.filter(p=>dansSection(p)).map(p=>p.categorie))];
+  const filtered=products.filter(p=>dansSection(p)&&(!search||p.nom.toLowerCase().includes(search.toLowerCase())||p.fournisseur?.toLowerCase().includes(search.toLowerCase())));
 
   const saveStock=async(product)=>{
     setSaving(true);const v=parseFloat(editVal);
@@ -54,7 +58,7 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast}){
     const ST={rupture:"Rupture",commander:"À commander",ok:"OK",non_saisi:"Non saisi",non_suivi:"Non suivi"};
     const rows=[...products].sort((a,b)=>(a.cote||"").localeCompare(b.cote||"")||(a.categorie||"").localeCompare(b.categorie||"")||(a.nom||"").localeCompare(b.nom||"")).map(p=>{
       const stock=p.stock??null,prix=Number(p.prix_achat)||0;
-      return{"Côté":p.cote==="SUCRE"?"Sucré":"Salé","Catégorie":p.categorie||"","Produit":p.nom,"Fournisseur":p.fournisseur||"","Unité":p.unite||"","Prix d'achat (€)":prix,"Stock":stock??"","Stock min":p.stock_min??"","Valeur stock (€)":stock!==null?Math.round(stock*prix*100)/100:"","Statut":ST[gst(p)]};
+      return{"Section":params.nomSection(p.cote),"Catégorie":p.categorie||"","Produit":p.nom,"Fournisseur":p.fournisseur||"","Unité":p.unite||"","Prix d'achat (€)":prix,"Stock":stock??"","Stock min":p.stock_min??"","Valeur stock (€)":stock!==null?Math.round(stock*prix*100)/100:"","Statut":ST[gst(p)]};
     });
     const ws=XLSX.utils.json_to_sheet(rows);
     ws["!cols"]=[8,18,34,20,10,14,8,10,16,12].map(w=>({wch:w}));
@@ -76,14 +80,14 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast}){
         <div><h1 style={{margin:0,fontSize:20,fontWeight:800}}>Inventaire du {fmtDate(inv.created_at)}</h1><p style={{margin:0,fontSize:13,color:C.textSec}}>{inv.nb_produits} produit{inv.nb_produits>1?"s":""} compté{inv.nb_produits>1?"s":""}</p></div>
       </div>
       <Card style={{padding:"14px 18px",marginBottom:14,display:"flex",gap:18,flexWrap:"wrap"}}>
-        {[["Valeur",inv.valeur_totale],["Salé",inv.valeur_sale],["Sucré",inv.valeur_sucre]].map(([l,v],i)=><div key={l}><p style={{margin:0,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",color:C.textSec}}>{l}</p><p style={{margin:"2px 0 0",fontSize:i?15:20,fontWeight:800}}>{fmtPrix(Number(v))}</p></div>)}
+        {[["Valeur",inv.valeur_totale],...(deuxSections?[[params.nomSection("SALE"),inv.valeur_sale],[params.nomSection("SUCRE"),inv.valeur_sucre]]:[])].map(([l,v],i)=><div key={l}><p style={{margin:0,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",color:C.textSec}}>{l}</p><p style={{margin:"2px 0 0",fontSize:i?15:20,fontWeight:800}}>{fmtPrix(Number(v))}</p></div>)}
         <p style={{flexBasis:"100%",margin:0,fontSize:11,color:C.textMuted}}>Calculée avec les prix d'achat du jour de l'inventaire.{inv.nb_sans_prix>0?` ${inv.nb_sans_prix} produit${inv.nb_sans_prix>1?"s":""} sans prix, hors total.`:""}</p>
       </Card>
       <Card style={{overflow:"hidden"}}>
         {ls.map((l,i)=>{const q=Number(l.quantite),px=Number(l.prix)||0,av=l.avant===null||l.avant===undefined?null:Number(l.avant),e=ecartStyle(av===null?null:q-av);return<div key={l.product_id||i} style={{padding:"11px 18px",borderBottom:i<ls.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:12}}>
           <div style={{flex:1,minWidth:0}}>
             <p style={{margin:0,fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.nom}</p>
-            <p style={{margin:0,fontSize:11,color:C.textSec}}>{l.cote==="SUCRE"?"Sucré":"Salé"} · {l.categorie||"—"}{px>0?` · ${fmtPrix(px)}/${l.unite}`:""}</p>
+            <p style={{margin:0,fontSize:11,color:C.textSec}}>{deuxSections?`${params.nomSection(l.cote)} · `:""}{l.categorie||"—"}{px>0?` · ${fmtPrix(px)}/${l.unite}`:""}</p>
           </div>
           <div style={{textAlign:"right",flexShrink:0}}>
             <p style={{margin:0,fontSize:13,fontWeight:700}}>{q} {l.unite} <span style={{fontSize:11,fontWeight:600,color:e.c}}>{e.t}</span></p>
@@ -130,8 +134,8 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast}){
     </Card>}
   </div>;
 
-  const barreCote=<div style={{display:"flex",gap:4,background:"#F1F5F9",padding:4,borderRadius:10}}>
-    {[["SALE","Salé"],["SUCRE","Sucré"]].map(([k,l])=><button key={k} onClick={()=>setCote(k)} style={{padding:"6px 14px",borderRadius:8,border:"none",fontSize:13,fontWeight:600,cursor:"pointer",background:cote===k?C.surface:"transparent",color:cote===k?C.text:C.textSec,boxShadow:cote===k?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{l}</button>)}
+  const barreCote=!deuxSections?null:<div style={{display:"flex",gap:4,background:"#F1F5F9",padding:4,borderRadius:10}}>
+    {params.sectionsActives.map(({code:k,nom:l})=><button key={k} onClick={()=>setCote(k)} style={{padding:"6px 14px",borderRadius:8,border:"none",fontSize:13,fontWeight:600,cursor:"pointer",background:cote===k?C.surface:"transparent",color:cote===k?C.text:C.textSec,boxShadow:cote===k?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{l}</button>)}
   </div>;
   const barreRecherche=<div style={{position:"relative",marginBottom:14}}>
     <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:C.textMuted}}><Icon n="search" sz={16}/></span>
@@ -210,7 +214,7 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast}){
 
   return<div>
     <div style={{marginBottom:16,display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
-      <div><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Inventaire</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{products.filter(p=>p.cote===cote).length} produits</p></div>
+      <div><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Inventaire</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{products.filter(p=>dansSection(p)).length} produits</p></div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <button onClick={()=>setMode("comptage")} disabled={!products.length} style={{...PRIMARY,padding:"7px 12px",fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon n="clipboard" sz={14}/>{products.some(p=>counts[p.id]!==undefined)?"Reprendre l'inventaire":"Faire l'inventaire"}</button>
         <button onClick={async()=>{setShowHist(true);setSelInv(null);setLoadingHist(true);await Promise.all([loadHistory(),loadInventaires()]);setLoadingHist(false);}} style={{padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.textSec}}><Icon n="history" sz={14}/>Historique</button>
@@ -220,14 +224,14 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast}){
     </div>
     <Card style={{padding:"14px 18px",marginBottom:14,display:"flex",gap:18,flexWrap:"wrap",alignItems:"center"}}>
       <div style={{flex:"1 1 160px"}}><p style={{margin:0,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",color:C.textSec}}>Valeur du stock</p><p style={{margin:"2px 0 0",fontSize:22,fontWeight:800}}>{fmtPrix(vTot.total)}</p></div>
-      {[["Salé",vSale],["Sucré",vSucre]].map(([l,v])=><div key={l}><p style={{margin:0,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",color:C.textSec}}>{l}</p><p style={{margin:"2px 0 0",fontSize:15,fontWeight:700}}>{fmtPrix(v.total)}</p></div>)}
+      {(deuxSections?[[params.nomSection("SALE"),vSale],[params.nomSection("SUCRE"),vSucre]]:[]).map(([l,v])=><div key={l}><p style={{margin:0,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",color:C.textSec}}>{l}</p><p style={{margin:"2px 0 0",fontSize:15,fontWeight:700}}>{fmtPrix(v.total)}</p></div>)}
       <p style={{flexBasis:"100%",margin:0,fontSize:11,color:vTot.sansPrix?C.warning:C.textMuted}}>{vTot.sansPrix?`${vTot.sansPrix} produit${vTot.sansPrix>1?"s":""} en stock sans prix d'achat, hors total.`:"Stock actuel × prix d'achat."}</p>
     </Card>
     {barreRecherche}
     <Card style={{overflow:"hidden"}}>
       {cats.map(cat=>{
         const ps=filtered.filter(p=>p.categorie===cat);if(!ps.length)return null;
-        const rc=ps.filter(p=>gst(p)==="rupture").length,cc=ps.filter(p=>gst(p)==="commander").length,vc=valeurProduits(products.filter(p=>p.cote===cote&&p.categorie===cat)).total;
+        const rc=ps.filter(p=>gst(p)==="rupture").length,cc=ps.filter(p=>gst(p)==="commander").length,vc=valeurProduits(products.filter(p=>dansSection(p)&&p.categorie===cat)).total;
         return<div key={cat}>
           <div style={{padding:"8px 18px",background:"#F8FAFC",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".8px",color:C.textSec,flex:1}}>{cat}</span>

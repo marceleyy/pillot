@@ -5,7 +5,7 @@
 -- NE PAS LANCER telle quelle : les changements passent par migrations/.
 -- Migrations déjà appliquées en ligne : 20261005_00, _01, _02, _03.
 -- Pas encore appliquées : 20261005_04_rgpd (branche non fusionnée),
--- 20261114_00_inventaires, 20261114_01_order_items.
+-- 20261114_00_inventaires, 20261114_01_order_items, 20261114_02_parametres.
 -- =====================================================================
 
 -- ── Tables ────────────────────────────────────────────────────────────

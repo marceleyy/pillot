@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { C, Icon, gst, gqt, Card } from "../ui";
+import { couleurFournisseur, PARAMETRES_DEFAUT } from "../parametres";
 
 // ── COMMANDES ────────────────────────────────────────────────
-export default function Commandes({products,profile,toast}){
+export default function Commandes({products,profile,toast,params=PARAMETRES_DEFAUT}){
   const [canaux,setCanaux]=useState({}),[ copied,setCopied]=useState(null);
   const opts=["WhatsApp","Email","SMS","Téléphone","PDF"];
   const alert=products.filter(p=>["rupture","commander"].includes(gst(p))&&p.stock_min>0);
@@ -10,8 +11,8 @@ export default function Commandes({products,profile,toast}){
   const genMsg=(f,ps)=>{
     const r=ps.filter(p=>gst(p)==="rupture"),c=ps.filter(p=>gst(p)==="commander");
     let m=`Bonjour,\nMerci de me livrer cette commande pour ${profile?.restaurants?.name||"Le restaurant"} :\n\n`;
-    if(r.length){m+="RUPTURE - stocks épuisés :\n";r.forEach(p=>m+=`- ${p.nom} : ${gqt(p)} ${p.unite}\n`);m+="\n";}
-    if(c.length){m+="À commander :\n";c.forEach(p=>m+=`- ${p.nom} : ${gqt(p)} ${p.unite}\n`);m+="\n";}
+    if(r.length){m+="RUPTURE - stocks épuisés :\n";r.forEach(p=>m+=`- ${p.nom} : ${gqt(p,params.commande(p.cote))} ${p.unite}\n`);m+="\n";}
+    if(c.length){m+="À commander :\n";c.forEach(p=>m+=`- ${p.nom} : ${gqt(p,params.commande(p.cote))} ${p.unite}\n`);m+="\n";}
     return m+"Merci d'avance,\n"+(profile?.restaurants?.name||"Le restaurant");
   };
   const copy=(f,msg)=>{navigator.clipboard?.writeText(msg);setCopied(f);toast("Message copié !");setTimeout(()=>setCopied(null),2000);};
@@ -23,7 +24,7 @@ export default function Commandes({products,profile,toast}){
   return<div>
     <div style={{marginBottom:20}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Commandes</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{alert.length} produits · {fourns.length} fournisseurs</p></div>
     {fourns.map(f=>{
-      const fp=alert.filter(p=>p.fournisseur===f),col=C.fourn[f]||"#374151",canal=canaux[f]||"WhatsApp";
+      const fp=alert.filter(p=>p.fournisseur===f),col=couleurFournisseur(f),canal=canaux[f]||"WhatsApp";
       const rup=fp.filter(p=>gst(p)==="rupture"),cmd=fp.filter(p=>gst(p)==="commander"),msg=genMsg(f,fp);
       return<Card key={f} style={{marginBottom:16,overflow:"hidden"}}>
         <div style={{background:`linear-gradient(135deg,${col},${col}BB)`,padding:"15px 18px",color:"#fff"}}>
@@ -40,14 +41,14 @@ export default function Commandes({products,profile,toast}){
         {rup.length>0&&<div style={{padding:"11px 14px",background:C.dangerLight,borderBottom:`1px solid ${C.border}`}}>
           <p style={{margin:"0 0 7px",fontSize:10,fontWeight:700,color:C.danger,textTransform:"uppercase",letterSpacing:".5px"}}>🔴 Ruptures</p>
           {rup.map(p=><div key={p.id} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderTop:"1px solid rgba(220,38,38,.1)"}}>
-            <span style={{fontSize:13}}>{p.nom}</span><span style={{fontSize:13,fontWeight:800,color:C.danger}}>{gqt(p)} {p.unite}</span>
+            <span style={{fontSize:13}}>{p.nom}</span><span style={{fontSize:13,fontWeight:800,color:C.danger}}>{gqt(p,params.commande(p.cote))} {p.unite}</span>
           </div>)}
         </div>}
         {cmd.length>0&&<div style={{padding:"11px 14px",borderBottom:`1px solid ${C.border}`}}>
           <p style={{margin:"0 0 7px",fontSize:10,fontWeight:700,color:C.warning,textTransform:"uppercase",letterSpacing:".5px"}}>À commander</p>
           {cmd.map(p=><div key={p.id} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderTop:`1px solid ${C.border}`}}>
             <span style={{fontSize:13}}>{p.nom} <span style={{fontSize:11,color:C.textMuted}}>({p.stock}/{p.stock_min})</span></span>
-            <span style={{fontSize:13,fontWeight:700,color:C.warning}}>{gqt(p)} {p.unite}</span>
+            <span style={{fontSize:13,fontWeight:700,color:C.warning}}>{gqt(p,params.commande(p.cote))} {p.unite}</span>
           </div>)}
         </div>}
         <div style={{padding:"12px 14px"}}>

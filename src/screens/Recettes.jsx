@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { C, Icon, fmt, Card } from "../ui";
+import { PARAMETRES_DEFAUT } from "../parametres";
 
 // ── FICHES TECHNIQUES ─────────────────────────────────────────
-export default function Recettes({restaurantId,products,toast}){
+export default function Recettes({restaurantId,products,toast,params=PARAMETRES_DEFAUT}){
+  const obj=params.objectif,alerte=obj*1.4;
   const [recettes,setRecettes]=useState([]),[loading,setLoading]=useState(true),[sel,setSel]=useState(null),[adding,setAdding]=useState(false),[newNom,setNewNom]=useState(""),[newPrix,setNewPrix]=useState(""),[items,setItems]=useState([]),[saving,setSaving]=useState(false),[addItem,setAddItem]=useState({prodId:"",qte:"",unite:""});
 
   useEffect(()=>{const load=async()=>{const{data}=await supabase.from("recipes").select("*,recipe_items(*,products(nom,unite,prix_achat))").eq("restaurant_id",restaurantId).order("created_at",{ascending:false});setRecettes(data||[]);setLoading(false);};if(restaurantId)load();},[restaurantId]);
@@ -39,7 +41,7 @@ export default function Recettes({restaurantId,products,toast}){
         <button onClick={()=>deleteRecette(r.id)} style={{padding:"8px",borderRadius:8,border:`1px solid ${C.dangerLight}`,background:C.dangerLight,cursor:"pointer",display:"flex"}}><Icon n="trash" sz={16} c={C.danger}/></button>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:16}}>
-        {[["Coût matière",fmt(cout),C.warning],["Prix vente",fmt(r.prix_vente),C.text],["Ratio",ratio>0?(ratio*100).toFixed(1)+"%":"—",ratio<=0.25?C.success:C.danger]].map(([l,v,c])=>(
+        {[["Coût matière",fmt(cout),C.warning],["Prix vente",fmt(r.prix_vente),C.text],["Ratio",ratio>0?(ratio*100).toFixed(1)+"%":"—",ratio<=obj?C.success:C.danger]].map(([l,v,c])=>(
           <Card key={l} style={{padding:"14px"}}><p style={{margin:"0 0 4px",fontSize:10,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</p><p style={{margin:0,fontSize:18,fontWeight:800,color:c}}>{v}</p></Card>
         ))}
       </div>
@@ -105,7 +107,7 @@ export default function Recettes({restaurantId,products,toast}){
         <div style={{width:44,height:44,borderRadius:12,background:C.purpleLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon n="book" sz={20} c={C.purple}/></div>
         <div style={{flex:1}}><p style={{margin:"0 0 2px",fontSize:14,fontWeight:700}}>{r.nom}</p><p style={{margin:0,fontSize:12,color:C.textSec}}>{(r.recipe_items||[]).length} ingrédient{(r.recipe_items||[]).length>1?"s":""} · coût {fmt(cout)}</p></div>
         <div style={{textAlign:"right"}}>
-          <p style={{margin:0,fontSize:15,fontWeight:800,color:ratio<=0.25?C.success:ratio<=0.35?C.warning:C.danger}}>{ratio>0?(ratio*100).toFixed(1)+"%":"—"}</p>
+          <p style={{margin:0,fontSize:15,fontWeight:800,color:ratio<=obj?C.success:ratio<=alerte?C.warning:C.danger}}>{ratio>0?(ratio*100).toFixed(1)+"%":"—"}</p>
           {r.prix_vente>0&&<p style={{margin:0,fontSize:11,color:C.textMuted}}>PV {fmt(r.prix_vente)}</p>}
         </div>
       </Card>;})}

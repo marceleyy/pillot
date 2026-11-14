@@ -12,5 +12,6 @@
 | `20261005_04_rgpd` | pas encore dans `main` ni en ligne (branche non fusionnée), à reprendre avec les rôles |
 | `20261114_00_inventaires` | à appliquer (inventaires datés aux prix figés) |
 | `20261114_01_order_items` | à appliquer (règle d'accès des lignes de commande) |
+| `20261114_02_parametres` | à appliquer (réglages par commerce : sections du stock) |
 
 Faire une sauvegarde avant toute migration. Mettre ce tableau à jour après chaque application.

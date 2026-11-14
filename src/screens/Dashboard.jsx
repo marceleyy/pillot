@@ -1,13 +1,14 @@
 import { C, Icon, gst, gqt, fmt, fmtDay, Gauge, Card } from "../ui";
+import { PARAMETRES_DEFAUT } from "../parametres";
 
 // ── DASHBOARD ─────────────────────────────────────────────────
-export default function Dashboard({profile,products,onTab}){
+export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFAUT}){
   const rest=profile?.restaurants;
   const rup=products.filter(p=>gst(p)==="rupture");
   const cmd=products.filter(p=>gst(p)==="commander");
   const ok=products.filter(p=>gst(p)==="ok");
   const ns=products.filter(p=>gst(p)==="non_saisi");
-  const rs=rest?.ratio_sale||0,rsu=rest?.ratio_sucre||0,obj=rest?.objectif||0.25;
+  const rs=rest?.ratio_sale||0,rsu=rest?.ratio_sucre||0,obj=params.objectif;
   const ca_s=rest?.ca_sale||0,ca_su=rest?.ca_sucre||0;
 
   function StatCard({icon,label,value,sub,color,bg,onClick}){
@@ -36,8 +37,8 @@ export default function Dashboard({profile,products,onTab}){
       <StatCard icon="check" label="OK" value={ok.length} sub="stocks suffisants" color={C.success} bg={C.successLight}/>
       <StatCard icon="box" label="Non saisis" value={ns.length} sub="à mettre à jour" color={C.textSec} bg="#F8FAFC" onClick={()=>onTab("stocks")}/>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
-      {[["SALE","Côté Salé",rs,ca_s],["SUCRE","Côté Sucré",rsu,ca_su]].map(([k,l,r,ca])=>(
+    <div style={{display:"grid",gridTemplateColumns:params.sectionsActives.length>1?"1fr 1fr":"1fr",gap:12,marginBottom:20}}>
+      {[["SALE",rs,ca_s],["SUCRE",rsu,ca_su]].filter(([k])=>params.sectionsActives.some(x=>x.code===k)).map(([k,r,ca])=>[k,params.nomSection(k),r,ca]).map(([k,l,r,ca])=>(
         <Card key={k} style={{padding:"18px",textAlign:"center"}}>
           <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</p>
           <Gauge ratio={r} obj={obj}/>
@@ -56,7 +57,7 @@ export default function Dashboard({profile,products,onTab}){
       {rup.slice(0,5).map(p=><div key={p.id} style={{padding:"10px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
         <span style={{width:8,height:8,borderRadius:"50%",background:C.danger,display:"inline-block",flexShrink:0}}/>
         <div style={{flex:1}}><p style={{margin:0,fontSize:13,fontWeight:500}}>{p.nom}</p><p style={{margin:0,fontSize:11,color:C.textSec}}>{p.fournisseur}</p></div>
-        <span style={{fontSize:12,fontWeight:700,color:C.danger}}>Commander {gqt(p)} {p.unite}</span>
+        <span style={{fontSize:12,fontWeight:700,color:C.danger}}>Commander {gqt(p,params.commande(p.cote))} {p.unite}</span>
       </div>)}
     </Card>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>

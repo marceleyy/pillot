@@ -9,8 +9,7 @@ export const C = {
   purple:"#7C3AED",purpleLight:"#F5F3FF",
   bg:"#F1F5F9",surface:"#FFFFFF",
   border:"#E2E8F0",borderStrong:"#CBD5E1",
-  text:"#0F172A",textSec:"#64748B",textMuted:"#94A3B8",
-  fourn:{"TAD MARKET":"#065F46","METRO":"#1E3A8A","ALPAGEL":"#92400E","ODYSSÉE DES GLACES":"#5B21B6","LAVAZZA":"#7F1D1D"}
+  text:"#0F172A",textSec:"#64748B",textMuted:"#94A3B8"
 };
 
 // ── SVG Icons ─────────────────────────────────────────────────
@@ -46,7 +45,8 @@ export const gst =p=>{if(p.stock===null||p.stock===undefined)return"non_saisi";i
 export const qteNum =v=>{const t=String(v??"").trim();return /^\d+([.,]\d+)?$/.test(t)?Number(t.replace(",",".")):null;};
 // Valeur d'une liste de produits au stock actuel : total, et produits en stock (> 0) restés sans prix.
 export const valeurProduits =ps=>{let total=0,sansPrix=0;ps.forEach(p=>{const q=Number(p.stock);if(p.stock===null||p.stock===undefined||!(q>0))return;const px=Number(p.prix_achat)||0;if(px>0)total+=q*px;else sansPrix++;});return{total,sansPrix};};
-export const gqt =p=>p.cote==="SUCRE"?Math.max(1,Math.ceil(p.stock_min-p.stock)):Math.max(1,Math.ceil(p.stock_min*2-p.stock));
+// Quantité à commander : jusqu'à « mult » fois le minimum (réglage de la section, par défaut 1 en Sucré, 2 en Salé).
+export const gqt =(p,mult)=>Math.max(1,Math.ceil(p.stock_min*(mult??(p.cote==="SUCRE"?1:2))-p.stock));
 export const fmt =n=>new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",minimumFractionDigits:0}).format(n||0);
 export const fmtPrix =n=>new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",minimumFractionDigits:2,maximumFractionDigits:2}).format(n||0);
 export const fmtDate =d=>new Date(d).toLocaleDateString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});

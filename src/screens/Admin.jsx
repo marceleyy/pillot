@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { C, Icon, Card } from "../ui";
+import { lireParametres } from "../parametres";
 
 // ── ADMIN ─────────────────────────────────────────────────────
 export default function Admin({adminProfile,toast}){
@@ -29,7 +30,7 @@ export default function Admin({adminProfile,toast}){
     </div>}
     <div style={{marginBottom:20}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Multi-clients</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{clients.length} restaurant{clients.length>1?"s":""}</p></div>
     {loading?<p style={{color:C.textMuted,padding:40,textAlign:"center"}}>Chargement...</p>:clients.map(c=>{
-      const rs=c.ratio_sale||0,obj=c.objectif||0.25,col=rs<=obj?C.success:rs<=obj*1.4?C.warning:C.danger;
+      const pc=lireParametres(c),rs=c.ratio_sale||0,obj=pc.objectif,col=rs<=obj?C.success:rs<=obj*1.4?C.warning:C.danger;
       return<Card key={c.id} style={{marginBottom:12,overflow:"hidden"}}>
         <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12}}>
           <span style={{width:10,height:10,borderRadius:"50%",background:col,display:"inline-block",flexShrink:0}}/>
@@ -38,7 +39,7 @@ export default function Admin({adminProfile,toast}){
         </div>
         <div style={{padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",gap:16}}>
-            {[["Salé",rs,col],["Sucré",c.ratio_sucre||0,"#7C3AED"],["Objectif",obj,C.textMuted]].map(([l,v,c])=>(
+            {[[pc.nomSection("SALE"),rs,col],...(pc.sectionsActives.length>1?[[pc.nomSection("SUCRE"),c.ratio_sucre||0,"#7C3AED"]]:[]),["Objectif",obj,C.textMuted]].map(([l,v,c])=>(
               <div key={l}><p style={{margin:0,fontSize:10,color:C.textMuted}}>{l}</p><p style={{margin:0,fontSize:16,fontWeight:800,color:c}}>{(v*100).toFixed(1)}%</p></div>
             ))}
           </div>
