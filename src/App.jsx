@@ -50,7 +50,7 @@ const Icon = ({n,sz=18,c="currentColor"})=><span style={{display:"inline-flex",w
 
 // ── Helpers ──────────────────────────────────────────────────
 const gst=p=>{if(p.stock===null||p.stock===undefined)return"non_saisi";if(!p.stock_min)return"non_suivi";if(p.stock===0)return"rupture";if(p.stock<=p.stock_min)return"commander";return"ok";};
-const qteNum=v=>{if(v===null||v===undefined||String(v).trim()==="")return null;const n=Number(String(v).trim().replace(",","."));return Number.isFinite(n)?n:null;};
+const qteNum=v=>{const t=String(v??"").trim();return /^\d+([.,]\d+)?$/.test(t)?Number(t.replace(",",".")):null;};
 // Valeur d'une liste de produits au stock actuel : total, et produits en stock (> 0) restés sans prix.
 const valeurProduits=ps=>{let total=0,sansPrix=0;ps.forEach(p=>{const q=Number(p.stock);if(p.stock===null||p.stock===undefined||!(q>0))return;const px=Number(p.prix_achat)||0;if(px>0)total+=q*px;else sansPrix++;});return{total,sansPrix};};
 const gqt=p=>p.cote==="SUCRE"?Math.max(1,Math.ceil(p.stock_min-p.stock)):Math.max(1,Math.ceil(p.stock_min*2-p.stock));
@@ -209,8 +209,8 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
   const [counts,setCounts]=useState(()=>{try{const s=JSON.parse(localStorage.getItem(cleBrouillon)||"{}");return s&&typeof s==="object"&&!Array.isArray(s)?s:{};}catch{return{};}});
   useEffect(()=>{if(!restaurantId)return;try{if(Object.keys(counts).length)localStorage.setItem(cleBrouillon,JSON.stringify(counts));else localStorage.removeItem(cleBrouillon);}catch{/* stockage indisponible */}},[counts,cleBrouillon,restaurantId]);
   const majCount=(id,v)=>setCounts(prev=>{const n={...prev};if(String(v).trim()==="")delete n[id];else n[id]=v;return n;});
-  const comptes=products.filter(p=>{const q=qteNum(counts[p.id]);return q!==null&&q>=0;});
-  const nbInvalides=Object.keys(counts).filter(id=>{const q=qteNum(counts[id]);return q===null||q<0;}).length;
+  const comptes=products.filter(p=>qteNum(counts[p.id])!==null);
+  const nbInvalides=products.filter(p=>counts[p.id]!==undefined&&qteNum(counts[p.id])===null).length;
 
   const loadInventaires=async()=>{
     const{data,error}=await supabase.from("inventories").select("*").eq("restaurant_id",restaurantId).order("created_at",{ascending:false}).limit(30);
@@ -232,7 +232,7 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
   const loadHistory=async()=>{
     setLoadingHist(true);
     const{data}=await supabase.from("stock_entries").select("*,products(nom,unite,fournisseur)").eq("restaurant_id",restaurantId).order("created_at",{ascending:false}).limit(60);
-    setHist(data||[]);setLoadingHist(false);
+    setHist(data||[]);
   };
 
   const cats=[...new Set(products.filter(p=>p.cote===cote).map(p=>p.categorie))];
@@ -303,7 +303,7 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
       invErr?<Card style={{padding:30,textAlign:"center"}}><p style={{color:C.textSec,margin:0}}>Les inventaires ne sont pas encore disponibles sur ce compte.</p></Card>:
       invs.length===0?<Card style={{padding:40,textAlign:"center"}}><Icon n="history" sz={40} c={C.textMuted}/><p style={{color:C.textSec,marginTop:12}}>Aucun inventaire validé pour l'instant</p></Card>:
       <Card style={{overflow:"hidden"}}>
-        {invs.map((inv,i)=>{const prev=invs[i+1],d=prev?Number(inv.valeur_totale)-Number(prev.valeur_totale):null;return<div key={inv.id} onClick={()=>setSelInv(inv)} style={{padding:"12px 18px",borderBottom:i<invs.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:12,cursor:"pointer"}}
+        {invs.map((inv,i)=>{return<div key={inv.id} onClick={()=>setSelInv(inv)} style={{padding:"12px 18px",borderBottom:i<invs.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:12,cursor:"pointer"}}
           onMouseEnter={e=>e.currentTarget.style.background="#F8FAFC"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
           <div style={{flex:1}}>
             <p style={{margin:0,fontSize:13,fontWeight:600}}>{fmtDate(inv.created_at)}</p>
@@ -311,8 +311,7 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
           </div>
           <div style={{textAlign:"right"}}>
             <p style={{margin:0,fontSize:14,fontWeight:700}}>{fmtPrix(Number(inv.valeur_totale))}</p>
-            {d!==null&&<p style={{margin:0,fontSize:11,color:C.textMuted}}>{d>=0?"+":"−"}{fmtPrix(Math.abs(d))} vs précédent</p>}
-          </div>
+                      </div>
         </div>;})}
       </Card>
     ):hist.length===0?<Card style={{padding:40,textAlign:"center"}}><Icon n="history" sz={40} c={C.textMuted}/><p style={{color:C.textSec,marginTop:12}}>Aucune saisie pour l'instant</p></Card>:
@@ -410,7 +409,7 @@ function Inventaire({products,restaurantId,onStockUpdate,toast}){
     <div style={{marginBottom:16,display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
       <div><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Inventaire</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{products.filter(p=>p.cote===cote).length} produits</p></div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-        <button onClick={()=>setMode("comptage")} disabled={!products.length} style={{...PRIMARY,padding:"7px 12px",fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon n="clipboard" sz={14}/>{Object.keys(counts).length?"Reprendre l'inventaire":"Faire l'inventaire"}</button>
+        <button onClick={()=>setMode("comptage")} disabled={!products.length} style={{...PRIMARY,padding:"7px 12px",fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon n="clipboard" sz={14}/>{products.some(p=>counts[p.id]!==undefined)?"Reprendre l'inventaire":"Faire l'inventaire"}</button>
         <button onClick={async()=>{setShowHist(true);setSelInv(null);setLoadingHist(true);await Promise.all([loadHistory(),loadInventaires()]);setLoadingHist(false);}} style={{padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.textSec}}><Icon n="history" sz={14}/>Historique</button>
         <button onClick={exportExcel} disabled={!products.length} style={{padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.textSec}}><Icon n="download" sz={14}/>Excel</button>
         {barreCote}
@@ -998,7 +997,7 @@ export default function App(){
   const isAdmin=profile?.role==="admin";
 
   const renderScreen=()=>{
-    if(tab==="stocks")return<Inventaire products={products} restaurantId={profile?.restaurant_id} onStockUpdate={onStockUpdate} toast={showToast}/>;
+    if(tab==="stocks")return<Inventaire key={profile?.restaurant_id||"aucun"} products={products} restaurantId={profile?.restaurant_id} onStockUpdate={onStockUpdate} toast={showToast}/>;
     if(tab==="commandes")return<Commandes products={products} profile={profile} toast={showToast}/>;
     if(tab==="historique")return<Historique restaurantId={profile?.restaurant_id}/>;
     if (tab === "haccp") return <HACCPComplet restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast}/>;    if(tab==="recettes")return<Recettes restaurantId={profile?.restaurant_id} products={products} toast={showToast}/>;

@@ -71,7 +71,10 @@ begin
 
   if exists (
     select 1 from jsonb_array_elements(p_lignes) e
-    where (e->>'quantite') is null or (e->>'quantite')::numeric < 0
+    where (e->>'quantite') is null
+       or (e->>'quantite')::numeric = 'NaN'::numeric
+       or (e->>'quantite')::numeric < 0
+       or (e->>'quantite')::numeric > 1000000
   ) then
     raise exception 'Quantité invalide';
   end if;
@@ -88,6 +91,7 @@ begin
     select distinct on (se.product_id) se.product_id, se.stock_reel
     from public.stock_entries se
     where se.restaurant_id = v_rest
+      and se.product_id in (select pid from saisie)
     order by se.product_id, se.created_at desc
   )
   select jsonb_agg(jsonb_build_object(
