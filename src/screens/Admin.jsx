@@ -4,9 +4,10 @@ import { C, Icon, Card } from "../ui";
 import { lireParametres } from "../parametres";
 
 // ── ADMIN ─────────────────────────────────────────────────────
-export default function Admin({adminProfile,toast}){
+export default function Admin({adminProfile,toast,onCommerceCree}){
   const [clients,setClients]=useState([]),[loading,setLoading]=useState(true),[askId,setAskId]=useState(null),[raison,setRaison]=useState(""),[sent,setSent]=useState(new Set());
-  useEffect(()=>{const load=async()=>{const{data}=await supabase.from("restaurants").select("*");setClients(data||[]);setLoading(false);};load();},[]);
+  const load=async()=>{const{data}=await supabase.from("restaurants").select("*").order("name");setClients(data||[]);setLoading(false);};
+  useEffect(()=>{load();},[]);
   const send=async()=>{
     const{error}=await supabase.from("access_requests").insert({admin_id:adminProfile?.id,restaurant_id:askId,raison,message:"Intervention : "+raison,statut:"en_attente"});
     if(!error){setSent(p=>new Set([...p,askId]));setAskId(null);toast("Demande envoyée au propriétaire");}else toast("Erreur","error");
@@ -28,6 +29,7 @@ export default function Admin({adminProfile,toast}){
         </div>
       </div>
     </div>}
+    <NouveauCommerce toast={toast} onCree={()=>{load();onCommerceCree?.();}}/>
     <div style={{marginBottom:20}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Multi-clients</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{clients.length} restaurant{clients.length>1?"s":""}</p></div>
     {loading?<p style={{color:C.textMuted,padding:40,textAlign:"center"}}>Chargement...</p>:clients.map(c=>{
       const pc=lireParametres(c),rs=c.ratio_sale||0,obj=pc.objectif,col=rs<=obj?C.success:rs<=obj*1.4?C.warning:C.danger;
@@ -50,4 +52,34 @@ export default function Admin({adminProfile,toast}){
       </Card>;
     })}
   </div>;
+}
+
+// Ouvrir un commerce sans SQL. Le gérant est rattaché si son compte Pillot existe déjà.
+function NouveauCommerce({toast,onCree}){
+  const [ouvert,setOuvert]=useState(false),[nom,setNom]=useState(""),[ville,setVille]=useState(""),[email,setEmail]=useState(""),[busy,setBusy]=useState(false);
+  const champ={width:"100%",boxSizing:"border-box",padding:"9px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none"};
+  const creer=async()=>{
+    if(!nom.trim()||busy)return;
+    setBusy(true);
+    const{data,error}=await supabase.rpc("creer_commerce",{p_nom:nom.trim(),p_ville:ville.trim(),p_email_gerant:email.trim()});
+    setBusy(false);
+    if(error){toast(error.message||"Création impossible","error");return;}
+    toast(email.trim()&&!data?.gerant_rattache?"Commerce créé. Aucun compte avec cet e-mail : rattachez le gérant quand il aura créé son compte.":"Commerce créé");
+    setNom("");setVille("");setEmail("");setOuvert(false);onCree?.();
+  };
+  if(!ouvert)return<div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+    <button onClick={()=>setOuvert(true)} style={{padding:"9px 16px",background:C.brand,color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>Nouveau commerce</button>
+  </div>;
+  return<Card style={{padding:20,marginBottom:16}}>
+    <h3 style={{margin:"0 0 12px",fontSize:15,fontWeight:800}}>Nouveau commerce</h3>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10,marginBottom:12}}>
+      <input value={nom} onChange={e=>setNom(e.target.value)} placeholder="Nom du commerce" aria-label="Nom du commerce" style={champ}/>
+      <input value={ville} onChange={e=>setVille(e.target.value)} placeholder="Ville" aria-label="Ville" style={champ}/>
+      <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="E-mail du gérant (facultatif)" aria-label="E-mail du gérant" style={champ}/>
+    </div>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+      <button onClick={()=>setOuvert(false)} style={{padding:"9px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:13}}>Annuler</button>
+      <button onClick={creer} disabled={busy||!nom.trim()} style={{padding:"9px 16px",background:C.brand,color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer",opacity:busy||!nom.trim()?.6:1}}>{busy?"Création...":"Créer le commerce"}</button>
+    </div>
+  </Card>;
 }

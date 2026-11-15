@@ -13,5 +13,6 @@
 | `20261114_00_inventaires` | à appliquer (inventaires datés aux prix figés) |
 | `20261114_01_order_items` | à appliquer (règle d'accès des lignes de commande) |
 | `20261114_02_parametres` | à appliquer (réglages par commerce : sections du stock) |
+| `20261115_00_roles_comptes` | à appliquer (plusieurs commerces par compte, équipe, ouverture d'un commerce, congés/heures) |
 
 Faire une sauvegarde avant toute migration. Mettre ce tableau à jour après chaque application.

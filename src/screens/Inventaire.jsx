@@ -5,7 +5,8 @@ import * as XLSX from "xlsx";
 import { C, Icon, gst, qteNum, valeurProduits, fmtPrix, fmtDate, Card } from "../ui";
 
 // ── INVENTAIRE ────────────────────────────────────────────────
-export default function Inventaire({products,restaurantId,onStockUpdate,toast,params=PARAMETRES_DEFAUT}){
+export default function Inventaire({products,restaurantId,onStockUpdate,toast,params=PARAMETRES_DEFAUT,gerant=false}){
+  // L'équipe compte le stock, mais ne voit ni prix d'achat ni valeur (réservés au gérant).
   const deuxSections=params.deuxSections;
   // Une seule section : tout le stock s'affiche. Un produit sans section compte dans la 1re.
   const dansSection=p=>!deuxSections||(p.cote==="SUCRE"?"SUCRE":"SALE")===cote;
@@ -79,19 +80,19 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
         <button onClick={()=>setSelInv(null)} style={BTN}>← Retour</button>
         <div><h1 style={{margin:0,fontSize:20,fontWeight:800}}>Inventaire du {fmtDate(inv.created_at)}</h1><p style={{margin:0,fontSize:13,color:C.textSec}}>{inv.nb_produits} produit{inv.nb_produits>1?"s":""} compté{inv.nb_produits>1?"s":""}</p></div>
       </div>
-      <Card style={{padding:"14px 18px",marginBottom:14,display:"flex",gap:18,flexWrap:"wrap"}}>
+      {gerant&&<Card style={{padding:"14px 18px",marginBottom:14,display:"flex",gap:18,flexWrap:"wrap"}}>
         {[["Valeur",inv.valeur_totale],...(deuxSections?[[params.nomSection("SALE"),inv.valeur_sale],[params.nomSection("SUCRE"),inv.valeur_sucre]]:[])].map(([l,v],i)=><div key={l}><p style={{margin:0,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",color:C.textSec}}>{l}</p><p style={{margin:"2px 0 0",fontSize:i?15:20,fontWeight:800}}>{fmtPrix(Number(v))}</p></div>)}
         <p style={{flexBasis:"100%",margin:0,fontSize:11,color:C.textMuted}}>Calculée avec les prix d'achat du jour de l'inventaire.{inv.nb_sans_prix>0?` ${inv.nb_sans_prix} produit${inv.nb_sans_prix>1?"s":""} sans prix, hors total.`:""}</p>
-      </Card>
+      </Card>}
       <Card style={{overflow:"hidden"}}>
         {ls.map((l,i)=>{const q=Number(l.quantite),px=Number(l.prix)||0,av=l.avant===null||l.avant===undefined?null:Number(l.avant),e=ecartStyle(av===null?null:q-av);return<div key={l.product_id||i} style={{padding:"11px 18px",borderBottom:i<ls.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:12}}>
           <div style={{flex:1,minWidth:0}}>
             <p style={{margin:0,fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.nom}</p>
-            <p style={{margin:0,fontSize:11,color:C.textSec}}>{deuxSections?`${params.nomSection(l.cote)} · `:""}{l.categorie||"—"}{px>0?` · ${fmtPrix(px)}/${l.unite}`:""}</p>
+            <p style={{margin:0,fontSize:11,color:C.textSec}}>{deuxSections?`${params.nomSection(l.cote)} · `:""}{l.categorie||"—"}{gerant&&px>0?` · ${fmtPrix(px)}/${l.unite}`:""}</p>
           </div>
           <div style={{textAlign:"right",flexShrink:0}}>
             <p style={{margin:0,fontSize:13,fontWeight:700}}>{q} {l.unite} <span style={{fontSize:11,fontWeight:600,color:e.c}}>{e.t}</span></p>
-            <p style={{margin:0,fontSize:11,color:px>0?C.textSec:C.warning}}>{px>0?fmtPrix(q*px):"sans prix"}</p>
+            {gerant&&<p style={{margin:0,fontSize:11,color:px>0?C.textSec:C.warning}}>{px>0?fmtPrix(q*px):"sans prix"}</p>}
           </div>
         </div>;})}
       </Card>
@@ -117,7 +118,7 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
             <p style={{margin:0,fontSize:11,color:C.textSec}}>{inv.nb_produits} produit{inv.nb_produits>1?"s":""}{inv.nb_sans_prix>0?` · ${inv.nb_sans_prix} sans prix`:""}</p>
           </div>
           <div style={{textAlign:"right"}}>
-            <p style={{margin:0,fontSize:14,fontWeight:700}}>{fmtPrix(Number(inv.valeur_totale))}</p>
+            {gerant&&<p style={{margin:0,fontSize:14,fontWeight:700}}>{fmtPrix(Number(inv.valeur_totale))}</p>}
                       </div>
         </div>;})}
       </Card>
@@ -155,9 +156,9 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
         <div><h1 style={{margin:0,fontSize:20,fontWeight:800}}>Résumé de l'inventaire</h1><p style={{margin:0,fontSize:13,color:C.textSec}}>{ls.length} produit{ls.length>1?"s":""} compté{ls.length>1?"s":""} · {nbEcarts} écart{nbEcarts>1?"s":""}</p></div>
       </div>
       <Card style={{padding:"14px 18px",marginBottom:14}}>
-        <p style={{margin:0,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",color:C.textSec}}>Valeur comptée</p>
+        {gerant&&<><p style={{margin:0,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",color:C.textSec}}>Valeur comptée</p>
         <p style={{margin:"2px 0 6px",fontSize:22,fontWeight:800}}>{fmtPrix(tot)}</p>
-        {sp>0&&<p style={{margin:"0 0 4px",fontSize:12,color:C.warning}}>{sp} produit{sp>1?"s":""} sans prix d'achat, hors total.</p>}
+        {sp>0&&<p style={{margin:"0 0 4px",fontSize:12,color:C.warning}}>{sp} produit{sp>1?"s":""} sans prix d'achat, hors total.</p>}</>}
         <p style={{margin:0,fontSize:12,color:C.textSec}}>Les prix d'achat du jour sont gardés avec cet inventaire. Les produits non comptés ne changent pas.</p>
       </Card>
       <Card style={{overflow:"hidden",marginBottom:14}}>
@@ -168,7 +169,7 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
           </div>
           <div style={{textAlign:"right",flexShrink:0}}>
             <p style={{margin:0,fontSize:13,fontWeight:700,color:e.c}}>{e.t}</p>
-            <p style={{margin:0,fontSize:11,color:px>0?C.textSec:C.warning}}>{px>0?fmtPrix(q*px):"sans prix"}</p>
+            {gerant&&<p style={{margin:0,fontSize:11,color:px>0?C.textSec:C.warning}}>{px>0?fmtPrix(q*px):"sans prix"}</p>}
           </div>
         </div>;})}
       </Card>
@@ -218,15 +219,15 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <button onClick={()=>setMode("comptage")} disabled={!products.length} style={{...PRIMARY,padding:"7px 12px",fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon n="clipboard" sz={14}/>{products.some(p=>counts[p.id]!==undefined)?"Reprendre l'inventaire":"Faire l'inventaire"}</button>
         <button onClick={async()=>{setShowHist(true);setSelInv(null);setLoadingHist(true);await Promise.all([loadHistory(),loadInventaires()]);setLoadingHist(false);}} style={{padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.textSec}}><Icon n="history" sz={14}/>Historique</button>
-        <button onClick={exportExcel} disabled={!products.length} style={{padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.textSec}}><Icon n="download" sz={14}/>Excel</button>
+        {gerant&&<button onClick={exportExcel} disabled={!products.length} style={{padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.textSec}}><Icon n="download" sz={14}/>Excel</button>}
         {barreCote}
       </div>
     </div>
-    <Card style={{padding:"14px 18px",marginBottom:14,display:"flex",gap:18,flexWrap:"wrap",alignItems:"center"}}>
+    {gerant&&<Card style={{padding:"14px 18px",marginBottom:14,display:"flex",gap:18,flexWrap:"wrap",alignItems:"center"}}>
       <div style={{flex:"1 1 160px"}}><p style={{margin:0,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",color:C.textSec}}>Valeur du stock</p><p style={{margin:"2px 0 0",fontSize:22,fontWeight:800}}>{fmtPrix(vTot.total)}</p></div>
       {(deuxSections?[[params.nomSection("SALE"),vSale],[params.nomSection("SUCRE"),vSucre]]:[]).map(([l,v])=><div key={l}><p style={{margin:0,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",color:C.textSec}}>{l}</p><p style={{margin:"2px 0 0",fontSize:15,fontWeight:700}}>{fmtPrix(v.total)}</p></div>)}
       <p style={{flexBasis:"100%",margin:0,fontSize:11,color:vTot.sansPrix?C.warning:C.textMuted}}>{vTot.sansPrix?`${vTot.sansPrix} produit${vTot.sansPrix>1?"s":""} en stock sans prix d'achat, hors total.`:"Stock actuel × prix d'achat."}</p>
-    </Card>
+    </Card>}
     {barreRecherche}
     <Card style={{overflow:"hidden"}}>
       {cats.map(cat=>{
@@ -237,7 +238,7 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
             <span style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".8px",color:C.textSec,flex:1}}>{cat}</span>
             {rc>0&&<span style={{fontSize:10,fontWeight:700,color:C.danger,background:C.dangerLight,padding:"2px 7px",borderRadius:10}}>{rc} rupture{rc>1?"s":""}</span>}
             {cc>0&&<span style={{fontSize:10,fontWeight:700,color:C.warning,background:C.warningLight,padding:"2px 7px",borderRadius:10}}>{cc} cmd</span>}
-            {vc>0&&<span style={{fontSize:11,fontWeight:600,color:C.textSec}}>{fmtPrix(vc)}</span>}
+            {gerant&&vc>0&&<span style={{fontSize:11,fontWeight:600,color:C.textSec}}>{fmtPrix(vc)}</span>}
           </div>
           {ps.map(p=>{
             const st=gst(p);
@@ -260,7 +261,7 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
                 <p style={{margin:0,fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.nom}</p>
                 <p style={{margin:0,fontSize:11,color:C.textSec}}>{p.fournisseur}</p>
               </div>
-              {p.prix_achat>0&&<span style={{fontSize:12,fontWeight:600,color:C.textSec,flexShrink:0,whiteSpace:"nowrap"}}>{fmtPrix(p.prix_achat)}/{p.unite}</span>}
+              {gerant&&p.prix_achat>0&&<span style={{fontSize:12,fontWeight:600,color:C.textSec,flexShrink:0,whiteSpace:"nowrap"}}>{fmtPrix(p.prix_achat)}/{p.unite}</span>}
               <div style={{textAlign:"right",flexShrink:0}}>
                 <p style={{margin:0,fontSize:14,fontWeight:700,color:st==="rupture"?C.danger:st==="commander"?C.warning:st==="ok"?C.success:C.textMuted}}>
                   {p.stock!==null&&p.stock!==undefined?`${p.stock} ${p.unite}`:"—"}</p>

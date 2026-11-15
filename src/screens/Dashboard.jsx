@@ -2,7 +2,7 @@ import { C, Icon, gst, gqt, fmt, fmtDay, Gauge, Card } from "../ui";
 import { PARAMETRES_DEFAUT } from "../parametres";
 
 // ── DASHBOARD ─────────────────────────────────────────────────
-export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFAUT}){
+export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFAUT,gerant=false}){
   const rest=profile?.restaurants;
   const rup=products.filter(p=>gst(p)==="rupture");
   const cmd=products.filter(p=>gst(p)==="commander");
@@ -37,7 +37,7 @@ export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFA
       <StatCard icon="check" label="OK" value={ok.length} sub="stocks suffisants" color={C.success} bg={C.successLight}/>
       <StatCard icon="box" label="Non saisis" value={ns.length} sub="à mettre à jour" color={C.textSec} bg="#F8FAFC" onClick={()=>onTab("stocks")}/>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:params.deuxSections?"1fr 1fr":"1fr",gap:12,marginBottom:20}}>
+    {gerant&&<div style={{display:"grid",gridTemplateColumns:params.deuxSections?"1fr 1fr":"1fr",gap:12,marginBottom:20}}>
       {[["SALE",rs,ca_s],["SUCRE",rsu,ca_su]].filter(([k])=>params.sectionsActives.some(x=>x.code===k)).map(([k,r,ca])=>[k,params.nomSection(k),r,ca]).map(([k,l,r,ca])=>(
         <Card key={k} style={{padding:"18px",textAlign:"center"}}>
           <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>{l}</p>
@@ -48,7 +48,7 @@ export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFA
           {ca>0&&<p style={{margin:"6px 0 0",fontSize:11,color:C.textMuted}}>CA {fmt(ca)}</p>}
         </Card>
       ))}
-    </div>
+    </div>}
     {rup.length>0&&<Card style={{overflow:"hidden",marginBottom:20}}>
       <div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}><Icon n="alert" sz={15} c={C.danger}/><span style={{fontSize:14,fontWeight:700}}>Ruptures à traiter</span></div>
@@ -60,15 +60,15 @@ export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFA
         <span style={{fontSize:12,fontWeight:700,color:C.danger}}>Commander {gqt(p,params.commande(p.cote))} {p.unite}</span>
       </div>)}
     </Card>}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+    <div style={{display:"grid",gridTemplateColumns:gerant&&params.modules.recettes!==false?"1fr 1fr":"1fr",gap:12}}>
       <Card onClick={()=>onTab("haccp")} style={{padding:"16px 18px",display:"flex",alignItems:"center",gap:12}}>
         <div style={{width:40,height:40,borderRadius:10,background:"#FFF7ED",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon n="thermometer" sz={20} c="#EA580C"/></div>
         <div><p style={{margin:0,fontSize:13,fontWeight:700}}>HACCP</p><p style={{margin:0,fontSize:11,color:C.textSec}}>Températures & nettoyage</p></div>
       </Card>
-      <Card onClick={()=>onTab("recettes")} style={{padding:"16px 18px",display:"flex",alignItems:"center",gap:12}}>
+      {gerant&&params.modules.recettes!==false&&<Card onClick={()=>onTab("recettes")} style={{padding:"16px 18px",display:"flex",alignItems:"center",gap:12}}>
         <div style={{width:40,height:40,borderRadius:10,background:C.purpleLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon n="book" sz={20} c={C.purple}/></div>
         <div><p style={{margin:0,fontSize:13,fontWeight:700}}>Fiches techniques</p><p style={{margin:0,fontSize:11,color:C.textSec}}>Recettes & coûts</p></div>
-      </Card>
+      </Card>}
     </div>
   </div>;
 }
