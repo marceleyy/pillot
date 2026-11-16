@@ -2,9 +2,22 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { C, Icon, fmt, Chip, Card } from "../ui";
 import { PARAMETRES_DEFAUT } from "../parametres";
+import Consommation from "./Consommation";
 
 // ── HISTORIQUE ────────────────────────────────────────────────
-export default function Historique({restaurantId,params=PARAMETRES_DEFAUT}){
+export default function Historique({restaurantId,params=PARAMETRES_DEFAUT,toast}){
+  const [vue,setVue]=useState("conso");
+  return<div>
+    <div style={{marginBottom:16}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Historique</h1></div>
+    <div role="tablist" style={{display:"flex",gap:4,background:"#F1F5F9",padding:4,borderRadius:10,marginBottom:16,width:"fit-content"}}>
+      {[["conso","Consommation"],["ratios","Coût matière par semaine"]].map(([k,l])=><button key={k} role="tab" aria-selected={vue===k} onClick={()=>setVue(k)}
+        style={{padding:"7px 14px",borderRadius:8,border:"none",background:vue===k?"#fff":"transparent",boxShadow:vue===k?"0 1px 3px rgba(0,0,0,.08)":"none",fontSize:13,fontWeight:vue===k?700:500,color:vue===k?C.text:C.textSec,cursor:"pointer"}}>{l}</button>)}
+    </div>
+    {vue==="conso"?<Consommation restaurantId={restaurantId} params={params} toast={toast}/>:<CoutMatiere restaurantId={restaurantId} params={params}/>}
+  </div>;
+}
+
+function CoutMatiere({restaurantId,params=PARAMETRES_DEFAUT}){
   const obj=params.objectif,alerte=params.alerte;
   const [hist,setHist]=useState([]),[loading,setLoading]=useState(true);
   useEffect(()=>{const load=async()=>{const{data}=await supabase.from("ca_history").select("*").eq("restaurant_id",restaurantId).order("created_at",{ascending:false}).limit(20);setHist(data||[]);setLoading(false);};if(restaurantId)load();else setLoading(false);},[restaurantId]);
@@ -38,11 +51,11 @@ export default function Historique({restaurantId,params=PARAMETRES_DEFAUT}){
   if(!hist.length)return<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:300,gap:12,textAlign:"center",padding:20}}>
     <div style={{width:64,height:64,borderRadius:"50%",background:"#F1F5F9",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon n="chart" sz={28} c={C.textMuted}/></div>
     <h3 style={{margin:0,fontSize:18,fontWeight:700}}>Pas encore de données</h3>
-    <p style={{margin:0,color:C.textSec,fontSize:14,maxWidth:280}}>L'historique se remplira automatiquement chaque dimanche via Google Sheets.</p>
+    <p style={{margin:0,color:C.textSec,fontSize:14,maxWidth:280}}>Les ratios hebdomadaires importés apparaîtront ici. La consommation, elle, se calcule directement dans l'onglet Consommation.</p>
   </div>;
 
   return<div>
-    <div style={{marginBottom:20}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Historique</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{hist.length} période{hist.length>1?"s":""}</p></div>
+    <p style={{margin:"0 0 12px",fontSize:14,color:C.textSec}}>{hist.length} période{hist.length>1?"s":""}</p>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
       {[["CA total",fmt(totCA),C.brand,"trend"],["Coût total",fmt(totCout),C.warning,"box"],["Ratio moyen",avg>0?(avg*100).toFixed(1)+"%":"—",avg<=obj?C.success:C.danger,"chart"]].map(([l,v,c,ic])=>(
         <Card key={l} style={{padding:"14px 16px"}}>

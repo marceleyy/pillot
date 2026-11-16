@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { C, Icon, gst, gqt, Card } from "../ui";
 import { couleurFournisseur, PARAMETRES_DEFAUT } from "../parametres";
+import Livraison from "./Livraison";
 
 // ── COMMANDES ────────────────────────────────────────────────
-export default function Commandes({products,profile,toast,params=PARAMETRES_DEFAUT}){
-  const [canaux,setCanaux]=useState({}),[ copied,setCopied]=useState(null);
+export default function Commandes({products,profile,toast,params=PARAMETRES_DEFAUT,gerant=false,onLivraison}){
+  const [canaux,setCanaux]=useState({}),[ copied,setCopied]=useState(null),[livraison,setLivraison]=useState(null);
   const opts=["WhatsApp","Email","SMS","Téléphone","PDF"];
   const alert=products.filter(p=>["rupture","commander"].includes(gst(p))&&p.stock_min>0);
   const fourns=[...new Set(alert.map(p=>p.fournisseur))];
@@ -16,13 +17,19 @@ export default function Commandes({products,profile,toast,params=PARAMETRES_DEFA
     return m+"Merci d'avance,\n"+(profile?.restaurants?.name||"Le restaurant");
   };
   const copy=(f,msg)=>{navigator.clipboard?.writeText(msg);setCopied(f);toast("Message copié !");setTimeout(()=>setCopied(null),2000);};
+  const fenetre=livraison&&<Livraison products={products} fournisseur={livraison.fournisseur} quantites={livraison.quantites} gerant={gerant} toast={toast}
+    onClose={()=>setLivraison(null)} onDone={()=>{setLivraison(null);onLivraison?.();}}/>;
+  const boutonLivraison=<button onClick={()=>setLivraison({fournisseur:"",quantites:{}})} style={{padding:"9px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"#fff",cursor:"pointer",fontSize:13,fontWeight:600,color:C.text,display:"flex",alignItems:"center",gap:6}}><Icon n="box" sz={15}/>Enregistrer une livraison</button>;
   if(!fourns.length)return<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:300,gap:12}}>
+    {fenetre}
     <div style={{width:64,height:64,borderRadius:"50%",background:C.successLight,display:"flex",alignItems:"center",justifyContent:"center"}}><Icon n="check" sz={28} c={C.success}/></div>
     <h3 style={{margin:0,fontSize:18,fontWeight:700}}>Tout est en ordre</h3>
     <p style={{margin:0,color:C.textSec,fontSize:14}}>Aucun produit à commander</p>
+    {boutonLivraison}
   </div>;
   return<div>
-    <div style={{marginBottom:20}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Commandes</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{alert.length} produits · {fourns.length} fournisseurs</p></div>
+    {fenetre}
+    <div style={{marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}><div><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Commandes</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{alert.length} produits · {fourns.length} fournisseurs</p></div>{boutonLivraison}</div>
     {fourns.map(f=>{
       const fp=alert.filter(p=>p.fournisseur===f),col=couleurFournisseur(f),canal=canaux[f]||"WhatsApp";
       const rup=fp.filter(p=>gst(p)==="rupture"),cmd=fp.filter(p=>gst(p)==="commander"),msg=genMsg(f,fp);
@@ -57,6 +64,7 @@ export default function Commandes({products,profile,toast,params=PARAMETRES_DEFA
           <button onClick={()=>copy(f,msg)} style={{width:"100%",padding:11,background:copied===f?C.success:col,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"background .2s",boxShadow:`0 4px 12px ${col}40`}}>
             <Icon n={copied===f?"check":"copy"} sz={16}/>{copied===f?"Copié !":"Copier pour "+canal}
           </button>
+          <button onClick={()=>setLivraison({fournisseur:f||"",quantites:Object.fromEntries(fp.map(p=>[p.id,gqt(p,params.commande(p.cote))]))})} style={{width:"100%",marginTop:8,padding:10,background:"transparent",color:col,border:`1.5px solid ${col}`,borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"}}>Livraison reçue</button>
         </div>
       </Card>;
     })}

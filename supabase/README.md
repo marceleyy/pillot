@@ -14,5 +14,6 @@
 | `20261114_01_order_items` | appliqué le 15/11 (règle d'accès des lignes de commande) |
 | `20261114_02_parametres` | appliqué le 15/11 (réglages par commerce : sections du stock) |
 | `20261115_00_roles_comptes` | appliqué le 15/11 (plusieurs commerces par compte, équipe, ouverture d'un commerce, congés/heures) |
+| `20261116_00_consommation` | à appliquer (livraisons reçues et calcul de la consommation sur une période) |
 
 Faire une sauvegarde avant toute migration. Mettre ce tableau à jour après chaque application.

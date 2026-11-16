@@ -86,8 +86,8 @@ export default function App(){
   const renderScreen=()=>{
     if(tabCoupe)return<Dashboard profile={profile} products={products} onTab={setTab} params={params} gerant={gerant}/>;
     if(tab==="stocks")return<Inventaire key={profile?.restaurant_id||"aucun"} products={products} restaurantId={profile?.restaurant_id} onStockUpdate={onStockUpdate} toast={showToast} params={params} gerant={gerant}/>;
-    if(tab==="commandes")return<Commandes products={products} profile={profile} toast={showToast} params={params}/>;
-    if(tab==="historique")return<Historique restaurantId={profile?.restaurant_id} params={params}/>;
+    if(tab==="commandes")return<Commandes products={products} profile={profile} toast={showToast} params={params} gerant={gerant} onLivraison={()=>loadProducts(profile.restaurant_id)}/>;
+    if(tab==="historique")return<Historique restaurantId={profile?.restaurant_id} params={params} toast={showToast}/>;
     if (tab === "haccp") return <HACCPComplet restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast}/>;    if(tab==="recettes")return<Recettes restaurantId={profile?.restaurant_id} products={products} toast={showToast} params={params}/>;
     if(tab==="settings")return<Reglages profile={profile} toast={showToast} params={params} products={products} onSaved={reloadRestaurant} commerces={commerces} onChangeCommerce={changerCommerce}/>;
     if(tab==="users"&&isAdmin)return<Admin adminProfile={profile} toast={showToast} onCommerceCree={loadCommerces}/>;
