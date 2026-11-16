@@ -3,9 +3,11 @@ import { supabase } from "../lib/supabase";
 import { PARAMETRES_DEFAUT } from "../parametres";
 import * as XLSX from "xlsx";
 import { C, Icon, gst, qteNum, valeurProduits, fmtPrix, fmtDate, Card } from "../ui";
+import { FicheProduit, ImportProduits } from "./Produits";
 
 // ── INVENTAIRE ────────────────────────────────────────────────
-export default function Inventaire({products,restaurantId,onStockUpdate,toast,params=PARAMETRES_DEFAUT,gerant=false}){
+export default function Inventaire({products,restaurantId,onStockUpdate,toast,params=PARAMETRES_DEFAUT,gerant=false,onProduitsChange}){
+  const [fiche,setFiche]=useState(null),[importer,setImporter]=useState(false);
   // L'équipe compte le stock, mais ne voit ni prix d'achat ni valeur (réservés au gérant).
   const deuxSections=params.deuxSections;
   // Une seule section : tout le stock s'affiche. Un produit sans section compte dans la 1re.
@@ -213,12 +215,35 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
 
   const vTot=valeurProduits(products),vSale=valeurProduits(products.filter(p=>p.cote!=="SUCRE")),vSucre=valeurProduits(products.filter(p=>p.cote==="SUCRE"));
 
-  return<div>
+  const fenetres=<>
+    {fiche&&<FicheProduit produit={fiche.id?fiche:null} restaurantId={restaurantId} params={params} products={products} toast={toast} onClose={()=>setFiche(null)} onDone={()=>{setFiche(null);setEditId(null);onProduitsChange?.();}}/>}
+    {importer&&<ImportProduits restaurantId={restaurantId} params={params} products={products} toast={toast} onClose={()=>setImporter(false)} onDone={()=>{setImporter(false);onProduitsChange?.();}}/>}
+  </>;
+  const bouton2={padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.textSec};
+
+  // Commerce sans produits : point de départ.
+  if(!products.length)return<div>{fenetres}
+    <h1 style={{margin:"0 0 16px",fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Inventaire</h1>
+    <Card style={{padding:28,textAlign:"center"}}>
+      <h3 style={{margin:"0 0 6px",fontSize:17,fontWeight:800}}>Ajoutez vos produits</h3>
+      {gerant?<>
+        <p style={{margin:"0 0 18px",fontSize:14,color:C.textSec}}>Importez votre liste depuis Excel en une fois, ou ajoutez les produits un par un.</p>
+        <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+          <button onClick={()=>setImporter(true)} style={{...PRIMARY,padding:"10px 16px"}}>Importer depuis Excel</button>
+          <button onClick={()=>setFiche({})} style={{...bouton2,padding:"10px 16px",fontSize:13,color:C.text}}>Ajouter un produit</button>
+        </div></>
+      :<p style={{margin:0,fontSize:14,color:C.textSec}}>Le gérant n'a pas encore ajouté de produits.</p>}
+    </Card>
+  </div>;
+
+  return<div>{fenetres}
     <div style={{marginBottom:16,display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
       <div><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Inventaire</h1><p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{products.filter(p=>dansSection(p)).length} produits</p></div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <button onClick={()=>setMode("comptage")} disabled={!products.length} style={{...PRIMARY,padding:"7px 12px",fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon n="clipboard" sz={14}/>{products.some(p=>counts[p.id]!==undefined)?"Reprendre l'inventaire":"Faire l'inventaire"}</button>
         <button onClick={async()=>{setShowHist(true);setSelInv(null);setLoadingHist(true);await Promise.all([loadHistory(),loadInventaires()]);setLoadingHist(false);}} style={{padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.textSec}}><Icon n="history" sz={14}/>Historique</button>
+        {gerant&&<button onClick={()=>setFiche({})} style={bouton2}><Icon n="plus" sz={14}/>Produit</button>}
+        {gerant&&<button onClick={()=>setImporter(true)} style={bouton2}><Icon n="upload" sz={14}/>Importer</button>}
         {gerant&&<button onClick={exportExcel} disabled={!products.length} style={{padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.textSec}}><Icon n="download" sz={14}/>Excel</button>}
         {barreCote}
       </div>
@@ -252,6 +277,7 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
                   <Icon n="check" sz={14}/>{saving?"...":"OK"}</button>
                 <button onClick={()=>setEditId(null)} style={{padding:"9px 10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,cursor:"pointer"}}>✕</button>
               </div>
+              {gerant&&<button onClick={()=>setFiche(p)} style={{marginTop:8,background:"none",border:"none",padding:0,color:C.brand,fontSize:12,fontWeight:600,cursor:"pointer"}}>Modifier la fiche produit</button>}
             </div>;
             return<div key={p.id} onClick={()=>{setEditId(p.id);setEditVal(String(p.stock??""));}}
               style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12,cursor:"pointer",background:st==="rupture"?"#FFF9F9":st==="commander"?"#FFFDF5":"transparent"}}

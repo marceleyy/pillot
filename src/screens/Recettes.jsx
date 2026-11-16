@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { lirePrix } from "../lib/donnees";
 import { supabase } from "../lib/supabase";
 import { C, Icon, fmt, Card } from "../ui";
 import { PARAMETRES_DEFAUT } from "../parametres";
@@ -8,16 +9,21 @@ export default function Recettes({restaurantId,products,toast,params=PARAMETRES_
   const obj=params.objectif,alerte=params.alerte;
   const [recettes,setRecettes]=useState([]),[loading,setLoading]=useState(true),[sel,setSel]=useState(null),[adding,setAdding]=useState(false),[newNom,setNewNom]=useState(""),[newPrix,setNewPrix]=useState(""),[items,setItems]=useState([]),[saving,setSaving]=useState(false),[addItem,setAddItem]=useState({prodId:"",qte:"",unite:""});
 
-  useEffect(()=>{const load=async()=>{const{data}=await supabase.from("recipes").select("*,recipe_items(*,products(nom,unite,prix_achat))").eq("restaurant_id",restaurantId).order("created_at",{ascending:false});setRecettes(data||[]);setLoading(false);};if(restaurantId)load();},[restaurantId]);
+  useEffect(()=>{const load=async()=>{const{data}=await supabase.from("recipes").select("*,recipe_items(*,products(nom,unite))").eq("restaurant_id",restaurantId).order("created_at",{ascending:false});setRecettes(data||[]);setLoading(false);};if(restaurantId)load();},[restaurantId]);
 
-  const calcCout=(recipe)=>(recipe.recipe_items||[]).reduce((a,it)=>a+(it.quantite||0)*(it.products?.prix_achat||0),0);
+  // Prix d'achat réservés au gérant : lus à part, produits retirés de l'inventaire compris.
+  const [prixTous,setPrixTous]=useState({});
+  useEffect(()=>{if(restaurantId)lirePrix(restaurantId).then(setPrixTous);},[restaurantId,products]);
+  const prix=useMemo(()=>{const m={...prixTous};products.forEach(p=>{if(p.prix_achat!=null)m[p.id]=p.prix_achat;});return m;},[prixTous,products]);
+  const prixDe=id=>Number(prix[id])||0;
+  const calcCout=(recipe)=>(recipe.recipe_items||[]).reduce((a,it)=>a+(it.quantite||0)*prixDe(it.product_id),0);
 
   const saveRecette=async()=>{
     if(!newNom.trim())return;setSaving(true);
     const{data,error}=await supabase.from("recipes").insert({restaurant_id:restaurantId,nom:newNom.trim(),prix_vente:parseFloat(newPrix)||0}).select().single();
     if(!error&&data){
       if(items.length>0){for(const it of items){await supabase.from("recipe_items").insert({recipe_id:data.id,product_id:it.prodId||null,product_nom:it.nom,quantite:it.qte,unite:it.unite});}}
-      const{data:rec}=await supabase.from("recipes").select("*,recipe_items(*,products(nom,unite,prix_achat))").eq("restaurant_id",restaurantId).order("created_at",{ascending:false});
+      const{data:rec}=await supabase.from("recipes").select("*,recipe_items(*,products(nom,unite))").eq("restaurant_id",restaurantId).order("created_at",{ascending:false});
       setRecettes(rec||[]);toast("Fiche créée !");setAdding(false);setNewNom("");setNewPrix("");setItems([]);
     }else toast("Erreur","error");setSaving(false);
   };
@@ -49,7 +55,7 @@ export default function Recettes({restaurantId,products,toast,params=PARAMETRES_
         <div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,background:"#F8FAFC"}}><p style={{margin:0,fontSize:13,fontWeight:700}}>Ingrédients</p></div>
         {(r.recipe_items||[]).map((it,i)=><div key={it.id} style={{padding:"11px 18px",borderBottom:i<r.recipe_items.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:10}}>
           <div style={{flex:1}}><p style={{margin:0,fontSize:13,fontWeight:500}}>{it.product_nom||it.products?.nom}</p><p style={{margin:0,fontSize:11,color:C.textSec}}>{it.quantite} {it.unite||it.products?.unite}</p></div>
-          <span style={{fontSize:13,fontWeight:700,color:C.warning}}>{fmt((it.quantite||0)*(it.products?.prix_achat||0))}</span>
+          <span style={{fontSize:13,fontWeight:700,color:C.warning}}>{fmt((it.quantite||0)*prixDe(it.product_id))}</span>
         </div>)}
         {r.recipe_items?.length===0&&<p style={{padding:20,textAlign:"center",color:C.textMuted,fontSize:13}}>Aucun ingrédient</p>}
       </Card>
