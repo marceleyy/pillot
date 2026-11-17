@@ -2,11 +2,18 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { C, Icon, Card } from "../ui";
 import { lireParametres } from "../parametres";
+import { COLS_COMMERCE } from "../lib/donnees";
 
 // ── ADMIN ─────────────────────────────────────────────────────
 export default function Admin({adminProfile,toast,onCommerceCree}){
   const [clients,setClients]=useState([]),[loading,setLoading]=useState(true),[askId,setAskId]=useState(null),[raison,setRaison]=useState(""),[sent,setSent]=useState(new Set());
-  const load=async()=>{const{data}=await supabase.from("restaurants").select("*").order("name");setClients(data||[]);setLoading(false);};
+  const load=async()=>{
+    const[{data},{data:ch,error}]=await Promise.all([supabase.from("restaurants").select(COLS_COMMERCE).order("name"),supabase.rpc("chiffres_clients")]);
+    // Ratios réservés : lus à part (base pas à jour : lecture directe comme avant).
+    const ratios=error?.code==="PGRST202"?(await supabase.from("restaurants").select("id,ratio_sale,ratio_sucre")).data:ch;
+    const rm=Object.fromEntries((ratios||[]).map(r=>[r.id,r]));
+    setClients((data||[]).map(c=>({...c,...(rm[c.id]||{})})));setLoading(false);
+  };
   useEffect(()=>{load();},[]);
   const send=async()=>{
     const{error}=await supabase.from("access_requests").insert({admin_id:adminProfile?.id,restaurant_id:askId,raison,message:"Intervention : "+raison,statut:"en_attente"});
