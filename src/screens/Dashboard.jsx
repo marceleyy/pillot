@@ -1,5 +1,6 @@
 import { C, Icon, gst, gqt, fmt, fmtDay, Gauge, Card } from "../ui";
 import { PARAMETRES_DEFAUT } from "../parametres";
+import { CarteConformite, CarteTachesReparations } from "./TourControle";
 
 // ── DASHBOARD ─────────────────────────────────────────────────
 export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFAUT,gerant=false}){
@@ -49,6 +50,8 @@ export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFA
         </Card>
       ))}
     </div>}
+    {profile?.restaurant_id&&params.modules.reparations!==false&&<CarteTachesReparations restaurantId={profile?.restaurant_id} profileId={profile?.id} gerant={gerant} onTab={onTab}/>}
+    {gerant&&profile?.restaurant_id&&(params.modules.haccp!==false||params.modules.taches!==false)&&<CarteConformite restaurantId={profile?.restaurant_id} onTab={onTab} modules={params.modules}/>}
     {rup.length>0&&<Card style={{overflow:"hidden",marginBottom:20}}>
       <div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}><Icon n="alert" sz={15} c={C.danger}/><span style={{fontSize:14,fontWeight:700}}>Ruptures à traiter</span></div>

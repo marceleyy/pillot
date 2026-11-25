@@ -10,7 +10,7 @@ export function Sidebar({tab,onTab,profile,onLogout,params=PARAMETRES_DEFAUT,com
   const isAdmin=profile?.role==="admin";
   const tabs=isAdmin
     ?[["dashboard","Tableau de bord","home"],["users","Clients","users"],["settings","Réglages","settings"]]
-    :[["dashboard","Tableau de bord","home"],["stocks","Inventaire","box"],["commandes","Commandes","cart"],["historique","Historique","chart"],["haccp","HACCP","thermometer"],["recettes","Fiches techniques","book"],["settings","Réglages","settings"],["planning","Planning","calendar"],["taches","Tâches","clipboard"],["glaces",    "Pillot Glaces",  "ice-cream"],
+    :[["dashboard","Tableau de bord","home"],["stocks","Inventaire","box"],["commandes","Commandes","cart"],["historique","Historique","chart"],["haccp","HACCP","thermometer"],["recettes","Fiches techniques","book"],["settings","Réglages","settings"],["planning","Planning","calendar"],["taches","Tâches","clipboard"],["reparations","Réparations","edit"],["glaces",    "Pillot Glaces",  "ice-cream"],
     ["scan",      "Scan facture",   "camera"],
     ["appareils", "Équipements",    "device-desktop"],];
   const menu=isAdmin?tabs:visibles(tabs,params,estGerant(profile?.role));

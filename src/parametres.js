@@ -20,6 +20,7 @@ export const MODULES = [
   { id: "recettes",   nom: "Fiches techniques" },
   { id: "planning",   nom: "Planning" },
   { id: "taches",     nom: "Tâches" },
+  { id: "reparations", nom: "Tâches et réparations" },
   { id: "glaces",     nom: "Glaces", auto: true },
   { id: "scan",       nom: "Scan facture" },
   { id: "appareils",  nom: "Équipements" },

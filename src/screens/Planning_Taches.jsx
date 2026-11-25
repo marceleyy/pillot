@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { jourLocal } from "../lib/taches";
 
 const C = {
   brand:"#2563EB",brandLight:"#EFF6FF",navy:"#0F172A",
@@ -299,7 +300,8 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
   const [newTask, setNewTask] = useState({ nom:"", description:"", categorie:"general", frequence:"daily", priorite:"normale" });
   const [saving, setSaving] = useState(false);
 
-  const today = new Date().toISOString().split("T")[0];
+  // Date locale (la date UTC bascule à 1 h du matin en hiver) : même jour que le tableau de bord.
+  const today = jourLocal();
   const todayDow = new Date().getDay() || 7; // 1=lun, 7=dim
 
   useEffect(() => { loadAll(); }, [restaurantId]);
