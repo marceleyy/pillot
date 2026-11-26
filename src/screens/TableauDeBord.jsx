@@ -18,7 +18,7 @@ const fmtAvant = s => jour(s).toLocaleDateString("fr-FR", { day: "2-digit", mont
 export const DLC_JOURS = 3;
 const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? "s" : ""}`;
 
-const SANS_COMMERCE = { taches: [], dlc: [], tasks: null, comp: null, shifts: null, employes: null, equip: null, temp: null, achats: [] };
+const SANS_COMMERCE = { taches: [], dlc: [], tasks: null, comp: null, shifts: null, employes: null, temp: null, achats: [] };
 
 // ── Données ───────────────────────────────────────────────────
 // Une lecture par source ; une source en erreur reste vide (et le bloc le dit) sans bloquer les autres.
@@ -35,16 +35,15 @@ export function useTableauDeBord({ restaurantId, gerant, modules }) {
       modules.haccp !== false ? supabase.from("dlc_entries").select("id,product_nom,dlc_date,quantite,unite").eq("restaurant_id", restaurantId).eq("statut", "actif").lte("dlc_date", plusJours(auj, 60)).order("dlc_date") : vide,
       modules.taches !== false ? supabase.from("tasks").select("id,frequence,jours_semaine,created_at").eq("restaurant_id", restaurantId).eq("actif", true) : vide,
       modules.taches !== false ? supabase.from("task_completions").select("task_id").eq("restaurant_id", restaurantId).eq("date", auj) : vide,
-      modules.planning !== false ? supabase.from("shifts").select("employee_id,heure_debut,heure_fin,type_nom").eq("restaurant_id", restaurantId).eq("date", auj).eq("repos", false).order("heure_debut") : vide,
+      modules.planning !== false ? supabase.from("shifts").select("employee_id,heure_debut,heure_fin,type_nom").eq("restaurant_id", restaurantId).eq("date", auj).eq("repos", false).eq("published", true).order("heure_debut") : vide,
       modules.planning !== false ? supabase.from("employees").select("id,nom,prenom").eq("restaurant_id", restaurantId) : vide,
-      modules.haccp !== false ? supabase.from("equipements").select("nom,temp_min,temp_max").eq("restaurant_id", restaurantId).eq("actif", true) : vide,
       modules.haccp !== false ? supabase.from("temperature_logs").select("equipement,temperature,temperature_min,temperature_max").eq("restaurant_id", restaurantId).gte("created_at", debutJour.toISOString()) : vide,
       gerant ? supabase.from("scanned_invoices").select("fournisseur,total_ht,date_facture").eq("restaurant_id", restaurantId).gte("date_facture", debutAnnee).lte("date_facture", auj) : vide,
-    ]).then(([taches, dlc, tasks, comp, shifts, employes, equip, temp, achats]) => {
+    ]).then(([taches, dlc, tasks, comp, shifts, employes, temp, achats]) => {
       if (fini) return;
-      [taches, dlc, tasks, comp, shifts, employes, equip, temp, achats].forEach(r => r.error && console.warn("Tableau de bord : lecture incomplète", r.error.message));
+      [taches, dlc, tasks, comp, shifts, employes, temp, achats].forEach(r => r.error && console.warn("Tableau de bord : lecture incomplète", r.error.message));
       const lu = r => r.off ? null : r.error ? undefined : (r.data || []);
-      setD({ taches: lu(taches), dlc: lu(dlc), tasks: lu(tasks), comp: lu(comp), shifts: lu(shifts), employes: lu(employes), equip: lu(equip), temp: lu(temp), achats: lu(achats) });
+      setD({ taches: lu(taches), dlc: lu(dlc), tasks: lu(tasks), comp: lu(comp), shifts: lu(shifts), employes: lu(employes), temp: lu(temp), achats: lu(achats) });
     }).catch(e => { console.warn("Tableau de bord indisponible", e); if (!fini) setD({}); });
     return () => { fini = true; };
   }, [restaurantId, gerant, modules.reparations, modules.haccp, modules.taches, modules.planning, version]);
@@ -152,29 +151,23 @@ const Barre = ({ part, couleur }) => <div style={{height:6,borderRadius:3,backgr
 export function Aujourdhui({ d, checklist, onTab }) {
   if (!d) return <Bloc><Titre icon="calendar">Aujourd'hui</Titre><Vide>Chargement…</Vide></Bloc>;
   const lignes = [];
-  // Équipe en service (planning du jour).
+  // Planning publié du jour.
   if (d.shifts) {
     const noms = Object.fromEntries((d.employes || []).map(e => [e.id, [e.prenom, e.nom].filter(Boolean).join(" ").trim()]));
     const equipe = d.shifts.map(s => ({ nom: noms[s.employee_id] || "—", h: `${s.heure_debut}–${s.heure_fin}` }));
-    lignes.push(<Ligne key="equipe" icon="users" couleur={equipe.length ? C.brand : C.textMuted} titre="En service" detail={equipe.length ? pluriel(equipe.length, "personne") : "Planning vide"} onClick={() => onTab("planning")}>
+    lignes.push(<Ligne key="equipe" icon="users" couleur={equipe.length ? C.brand : C.textMuted} titre="Planning du jour" detail={equipe.length ? pluriel(equipe.length, "personne") : "Personne de prévu"} onClick={() => onTab("planning")}>
       {equipe.length > 0 && <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
         {equipe.slice(0, 6).map((e, i) => <span key={i} style={{fontSize:11,padding:"2px 8px",borderRadius:12,background:C.brandLight,color:C.brandDark,whiteSpace:"nowrap"}}>{e.nom} · {e.h}</span>)}
         {equipe.length > 6 && <span style={{fontSize:11,color:C.textMuted}}>+{equipe.length - 6}</span>}
       </div>}
     </Ligne>);
   }
-  // Relevés de températures : équipements avec seuils, relevés au moins une fois aujourd'hui.
-  if (d.equip && d.temp) {
-    const suivis = d.equip.filter(e => e.temp_min != null || e.temp_max != null);
-    const releves = new Set(d.temp.map(t => t.equipement));
-    const faits = suivis.filter(e => releves.has(e.nom)).length;
+  // Relevés de températures du jour (équipements de l'écran HACCP), écarts selon les seuils enregistrés avec chaque relevé.
+  if (d.temp) {
+    const faits = new Set(d.temp.map(t => t.equipement)).size;
     const hors = d.temp.filter(t => (t.temperature_max != null && Number(t.temperature) > Number(t.temperature_max)) || (t.temperature_min != null && Number(t.temperature) < Number(t.temperature_min))).length;
-    if (suivis.length) {
-      const coul = hors ? C.danger : faits === suivis.length ? C.success : C.warning;
-      lignes.push(<Ligne key="temp" icon="thermometer" couleur={coul} titre="Températures" detail={hors ? `${pluriel(hors, "écart")} à traiter` : `${faits} / ${suivis.length} relevés`} onClick={() => onTab("haccp")}>
-        <Barre part={faits / suivis.length} couleur={coul}/>
-      </Ligne>);
-    }
+    const coul = hors ? C.danger : faits ? C.success : C.warning;
+    lignes.push(<Ligne key="temp" icon="thermometer" couleur={coul} titre="Températures" detail={hors ? `${pluriel(hors, "écart")} à traiter` : faits ? `${pluriel(faits, "équipement")} relevé${faits > 1 ? "s" : ""}` : "Aucun relevé"} onClick={() => onTab("haccp")}/>);
   }
   if (checklist && checklist.prevu > 0) {
     const fini = checklist.fait === checklist.prevu;
