@@ -16,5 +16,6 @@
 | `20261115_00_roles_comptes` | appliqué le 15/11 (plusieurs commerces par compte, équipe, ouverture d'un commerce, congés/heures) |
 | `20261116_00_consommation` | à appliquer (livraisons reçues et calcul de la consommation sur une période) |
 | `20261117_00_lancement` | à appliquer (prix, CA, factures et inventaires réservés au gérant dans la base ; ouverture de son commerce à l'inscription). ⚠️ Une colonne ajoutée à `products` ou `restaurants` doit être ajoutée au `grant select (...)` |
+| `20261125_00_taches_reparations` | appliquée le 25/11 (module Tâches et réparations : table, règles d'accès, statut tracé par `changer_statut_tache`) |
 
 Faire une sauvegarde avant toute migration. Mettre ce tableau à jour après chaque application.
