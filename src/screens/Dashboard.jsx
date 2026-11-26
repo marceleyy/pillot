@@ -2,7 +2,7 @@ import { C, gst, fmt, fmtDay, Gauge, Card } from "../ui";
 import { PARAMETRES_DEFAUT } from "../parametres";
 import { CarteConformite } from "./TourControle";
 import { jourLocal, enRetard } from "../lib/taches";
-import { useTableauDeBord, DLC_JOURS, checklistDuJour, evenements, Compteurs, ActionsPrioritaires, ProchaineEcheance, AccesRapides, Calendrier, EtatStock, Achats } from "./TableauDeBord";
+import { useTableauDeBord, DLC_JOURS, checklistDuJour, evenements, Compteurs, ActionsPrioritaires, Aujourdhui, AccesRapides, Calendrier, EtatStock, Achats } from "./TableauDeBord";
 
 // Grille du tableau de bord : 3 colonnes sur grand écran, une seule (blocs réordonnés) en dessous de 1000 px.
 const STYLE_GRILLE=`.pd-compteurs{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
@@ -35,7 +35,6 @@ export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFA
     mod.commandes!==false&&["commandes","Enregistrer une livraison","box"],
     mod.haccp!==false&&["haccp","Relever une température","thermometer"],
     ["stocks","Faire l'inventaire","clipboard"],
-    mod.taches!==false&&["taches","Check-list du jour","check"],
     gerant&&mod.recettes!==false&&["recettes","Fiches techniques","book"],
     gerant&&mod.scan!==false&&["scan","Scanner une facture","upload"],
   ].filter(Boolean).slice(0,6);
@@ -54,7 +53,7 @@ export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFA
         <div className="pd-o5"><EtatStock products={products} onTab={onTab} commandes={mod.commandes!==false}/></div>
       </div>
       <div className="pd-col">
-        <div className="pd-o2"><ProchaineEcheance evs={evs} checklist={checklist} onTab={onTab} charge={!!d}/></div>
+        <div className="pd-o2"><Aujourdhui d={d} checklist={checklist} onTab={onTab}/></div>
         {gerant&&<div className="pd-o6"><Achats achats={d?d.achats:null} products={products} onTab={onTab} detail={mod.historique!==false}/></div>}
       </div>
       <div className="pd-col">

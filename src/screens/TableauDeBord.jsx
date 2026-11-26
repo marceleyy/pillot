@@ -18,7 +18,7 @@ const fmtAvant = s => jour(s).toLocaleDateString("fr-FR", { day: "2-digit", mont
 export const DLC_JOURS = 3;
 const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? "s" : ""}`;
 
-const SANS_COMMERCE = { taches: [], dlc: [], tasks: null, comp: null, achats: [] };
+const SANS_COMMERCE = { taches: [], dlc: [], tasks: null, comp: null, shifts: null, employes: null, equip: null, temp: null, achats: [] };
 
 // ── Données ───────────────────────────────────────────────────
 // Une lecture par source ; une source en erreur reste vide (et le bloc le dit) sans bloquer les autres.
@@ -28,21 +28,26 @@ export function useTableauDeBord({ restaurantId, gerant, modules }) {
     if (!restaurantId) return;
     let fini = false;
     const auj = jourLocal(), debutAnnee = `${auj.slice(0, 4)}-01-01`;
+    const debutJour = new Date(); debutJour.setHours(0, 0, 0, 0);
     const vide = Promise.resolve({ data: [], error: null, off: true });
     Promise.all([
       modules.reparations !== false ? supabase.from("taches_reparations").select("id,titre,categorie,priorite,echeance,statut,assignee_id,assignee_nom").eq("restaurant_id", restaurantId).neq("statut", "realisee") : vide,
       modules.haccp !== false ? supabase.from("dlc_entries").select("id,product_nom,dlc_date,quantite,unite").eq("restaurant_id", restaurantId).eq("statut", "actif").lte("dlc_date", plusJours(auj, 60)).order("dlc_date") : vide,
       modules.taches !== false ? supabase.from("tasks").select("id,frequence,jours_semaine,created_at").eq("restaurant_id", restaurantId).eq("actif", true) : vide,
       modules.taches !== false ? supabase.from("task_completions").select("task_id").eq("restaurant_id", restaurantId).eq("date", auj) : vide,
+      modules.planning !== false ? supabase.from("shifts").select("employee_id,heure_debut,heure_fin,type_nom").eq("restaurant_id", restaurantId).eq("date", auj).eq("repos", false).order("heure_debut") : vide,
+      modules.planning !== false ? supabase.from("employees").select("id,nom,prenom").eq("restaurant_id", restaurantId) : vide,
+      modules.haccp !== false ? supabase.from("equipements").select("nom,temp_min,temp_max").eq("restaurant_id", restaurantId).eq("actif", true) : vide,
+      modules.haccp !== false ? supabase.from("temperature_logs").select("equipement,temperature,temperature_min,temperature_max").eq("restaurant_id", restaurantId).gte("created_at", debutJour.toISOString()) : vide,
       gerant ? supabase.from("scanned_invoices").select("fournisseur,total_ht,date_facture").eq("restaurant_id", restaurantId).gte("date_facture", debutAnnee).lte("date_facture", auj) : vide,
-    ]).then(([taches, dlc, tasks, comp, achats]) => {
+    ]).then(([taches, dlc, tasks, comp, shifts, employes, equip, temp, achats]) => {
       if (fini) return;
-      [taches, dlc, tasks, comp, achats].forEach(r => r.error && console.warn("Tableau de bord : lecture incomplète", r.error.message));
+      [taches, dlc, tasks, comp, shifts, employes, equip, temp, achats].forEach(r => r.error && console.warn("Tableau de bord : lecture incomplète", r.error.message));
       const lu = r => r.off ? null : r.error ? undefined : (r.data || []);
-      setD({ taches: lu(taches), dlc: lu(dlc), tasks: lu(tasks), comp: lu(comp), achats: lu(achats) });
+      setD({ taches: lu(taches), dlc: lu(dlc), tasks: lu(tasks), comp: lu(comp), shifts: lu(shifts), employes: lu(employes), equip: lu(equip), temp: lu(temp), achats: lu(achats) });
     }).catch(e => { console.warn("Tableau de bord indisponible", e); if (!fini) setD({}); });
     return () => { fini = true; };
-  }, [restaurantId, gerant, modules.reparations, modules.haccp, modules.taches, version]);
+  }, [restaurantId, gerant, modules.reparations, modules.haccp, modules.taches, modules.planning, version]);
   // Sans commerce ouvert (compte admin) : rien à lire.
   return [restaurantId ? d : SANS_COMMERCE, () => setVersion(v => v + 1)];
 }
@@ -131,35 +136,56 @@ export function ActionsPrioritaires({ taches, gerant, profileId, onTab, toast, o
   </Bloc>;
 }
 
-// ── Prochaine échéance + check-list du jour ───────────────────
-export function ProchaineEcheance({ evs, checklist, onTab, charge = true }) {
-  if (!charge) return <Bloc><Titre icon="calendar">Prochaine échéance</Titre><Vide>Chargement…</Vide></Bloc>;
-  const auj = jourLocal(), prochain = evs.find(e => e.date >= auj);
-  const n = prochain ? Math.round((jour(prochain.date) - jour(auj)) / 864e5) : 0;
-  const t = prochain && TONS[prochain.ton];
+// ── Aujourd'hui : équipe en service, relevés de températures, check-list ──
+function Ligne({ icon, couleur, titre, detail, onClick, children }) {
+  return <button onClick={onClick} style={{display:"flex",flexDirection:"column",gap:6,padding:"10px 12px",borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,cursor:"pointer",textAlign:"left"}}>
+    <div style={{display:"flex",alignItems:"center",gap:8,width:"100%"}}>
+      <Icon n={icon} sz={15} c={couleur}/>
+      <span style={{flex:1,fontSize:13,fontWeight:600,color:C.text}}>{titre}</span>
+      <span style={{fontSize:12,fontWeight:600,color:couleur,whiteSpace:"nowrap"}}>{detail} ›</span>
+    </div>
+    {children}
+  </button>;
+}
+const Barre = ({ part, couleur }) => <div style={{height:6,borderRadius:3,background:"#E2E8F0",overflow:"hidden",width:"100%"}}><div style={{height:"100%",width:`${Math.round(part * 100)}%`,background:couleur,borderRadius:3}}/></div>;
+
+export function Aujourdhui({ d, checklist, onTab }) {
+  if (!d) return <Bloc><Titre icon="calendar">Aujourd'hui</Titre><Vide>Chargement…</Vide></Bloc>;
+  const lignes = [];
+  // Équipe en service (planning du jour).
+  if (d.shifts) {
+    const noms = Object.fromEntries((d.employes || []).map(e => [e.id, [e.prenom, e.nom].filter(Boolean).join(" ").trim()]));
+    const equipe = d.shifts.map(s => ({ nom: noms[s.employee_id] || "—", h: `${s.heure_debut}–${s.heure_fin}` }));
+    lignes.push(<Ligne key="equipe" icon="users" couleur={equipe.length ? C.brand : C.textMuted} titre="En service" detail={equipe.length ? pluriel(equipe.length, "personne") : "Planning vide"} onClick={() => onTab("planning")}>
+      {equipe.length > 0 && <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+        {equipe.slice(0, 6).map((e, i) => <span key={i} style={{fontSize:11,padding:"2px 8px",borderRadius:12,background:C.brandLight,color:C.brandDark,whiteSpace:"nowrap"}}>{e.nom} · {e.h}</span>)}
+        {equipe.length > 6 && <span style={{fontSize:11,color:C.textMuted}}>+{equipe.length - 6}</span>}
+      </div>}
+    </Ligne>);
+  }
+  // Relevés de températures : équipements avec seuils, relevés au moins une fois aujourd'hui.
+  if (d.equip && d.temp) {
+    const suivis = d.equip.filter(e => e.temp_min != null || e.temp_max != null);
+    const releves = new Set(d.temp.map(t => t.equipement));
+    const faits = suivis.filter(e => releves.has(e.nom)).length;
+    const hors = d.temp.filter(t => (t.temperature_max != null && Number(t.temperature) > Number(t.temperature_max)) || (t.temperature_min != null && Number(t.temperature) < Number(t.temperature_min))).length;
+    if (suivis.length) {
+      const coul = hors ? C.danger : faits === suivis.length ? C.success : C.warning;
+      lignes.push(<Ligne key="temp" icon="thermometer" couleur={coul} titre="Températures" detail={hors ? `${pluriel(hors, "écart")} à traiter` : `${faits} / ${suivis.length} relevés`} onClick={() => onTab("haccp")}>
+        <Barre part={faits / suivis.length} couleur={coul}/>
+      </Ligne>);
+    }
+  }
+  if (checklist && checklist.prevu > 0) {
+    const fini = checklist.fait === checklist.prevu;
+    lignes.push(<Ligne key="check" icon="check" couleur={fini ? C.success : C.brand} titre="Check-list du jour" detail={`${checklist.fait} / ${checklist.prevu}`} onClick={() => onTab("taches")}>
+      <Barre part={checklist.fait / checklist.prevu} couleur={fini ? C.success : C.brand}/>
+    </Ligne>);
+  }
   return <Bloc>
-    <Titre icon="calendar">Prochaine échéance</Titre>
-    {!prochain && <Vide>Rien de prévu pour les prochaines semaines.</Vide>}
-    {prochain && <button onClick={() => onTab(prochain.tab)} style={{display:"flex",gap:12,alignItems:"center",border:"none",background:"none",padding:0,textAlign:"left",cursor:"pointer"}}>
-      <div style={{width:64,height:64,borderRadius:12,background:t.bg,color:t.c,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-        <span style={{fontSize:24,fontWeight:800,lineHeight:1}}>{jour(prochain.date).getDate()}</span>
-        <span style={{fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{jour(prochain.date).toLocaleDateString("fr-FR", { month: "short" })}</span>
-      </div>
-      <div style={{minWidth:0}}>
-        <p style={{margin:0,fontSize:14,fontWeight:700,color:C.text,lineHeight:1.3}}>{prochain.titre}</p>
-        <p style={{margin:"3px 0 0",fontSize:12,color:C.textSec}}>{fmtLong(prochain.date)}</p>
-        <p style={{margin:"2px 0 0",fontSize:12,fontWeight:600,color:t.c}}>{n === 0 ? "Aujourd'hui" : n === 1 ? "Demain" : `Dans ${n} jours`} · {prochain.type}</p>
-      </div>
-    </button>}
-    {checklist && checklist.prevu > 0 && <button onClick={() => onTab("taches")} style={{marginTop:14,padding:"10px 12px",borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,cursor:"pointer",textAlign:"left"}}>
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:7}}>
-        <span style={{fontWeight:600,color:C.text}}>Check-list du jour</span>
-        <span style={{color:C.textSec}}>{checklist.fait} / {checklist.prevu} ›</span>
-      </div>
-      <div style={{height:6,borderRadius:3,background:"#E2E8F0",overflow:"hidden"}}>
-        <div style={{height:"100%",width:`${Math.round(checklist.fait / checklist.prevu * 100)}%`,background:checklist.fait === checklist.prevu ? C.success : C.brand,borderRadius:3}}/>
-      </div>
-    </button>}
+    <Titre icon="calendar">Aujourd'hui</Titre>
+    {!lignes.length && <Vide>Rien à suivre aujourd'hui : planning, relevés et check-list sont vides.</Vide>}
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>{lignes}</div>
   </Bloc>;
 }
 
