@@ -96,7 +96,7 @@ export default function App(){
   const logout=()=>supabase.auth.signOut();
 
   const renderScreen=()=>{
-    if(tabCoupe)return<Dashboard key={profile?.restaurant_id||"aucun"} profile={profile} products={products} onTab={setTab} params={params} gerant={gerant}/>;
+    if(tabCoupe)return<Dashboard key={profile?.restaurant_id||"aucun"} profile={profile} products={products} onTab={setTab} params={params} gerant={gerant} toast={showToast}/>;
     if(tab==="stocks")return<Inventaire key={profile?.restaurant_id||"aucun"} products={products} restaurantId={profile?.restaurant_id} onStockUpdate={onStockUpdate} toast={showToast} params={params} gerant={gerant} onProduitsChange={()=>loadProducts(profile.restaurant_id)}/>;
     if(tab==="commandes")return<Commandes products={products} profile={profile} toast={showToast} params={params} gerant={gerant} onLivraison={()=>loadProducts(profile.restaurant_id)}/>;
     if(tab==="historique")return<Historique restaurantId={profile?.restaurant_id} params={params} toast={showToast}/>;
@@ -109,7 +109,7 @@ export default function App(){
     if (tab === "glaces")    return <PillotGlaces restaurantId={profile?.restaurant_id} profileId={profile?.id} toast={showToast}/>;
     if (tab === "appareils") return <EquipementSetup restaurantId={profile?.restaurant_id} toast={showToast}/>;
     if (tab === "scan")      return <InvoiceScanner restaurantId={profile?.restaurant_id} profileId={profile?.id} products={products} toast={showToast}/>;
-    return<Dashboard key={profile?.restaurant_id||"aucun"} profile={profile} products={products} onTab={setTab} params={params} gerant={gerant}/>;
+    return<Dashboard key={profile?.restaurant_id||"aucun"} profile={profile} products={products} onTab={setTab} params={params} gerant={gerant} toast={showToast}/>;
   };
 
   const STYLE=`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');*{font-family:'Inter',sans-serif;box-sizing:border-box;margin:0;}body{background:${C.bg};}::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:#f1f5f9;}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}input,button,textarea,select{font-family:inherit;}button:focus-visible{outline:2px solid ${C.brand};outline-offset:2px;}`;
@@ -125,7 +125,7 @@ export default function App(){
     {toast&&<Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
     <div style={{display:"flex",minHeight:"100vh"}}>
       {!isMobile&&<Sidebar tab={tab} onTab={setTab} profile={profile} onLogout={logout} params={params} commerces={commerces} onChangeCommerce={changerCommerce}/>}
-      <main style={{flex:1,padding:isMobile?"16px 14px 80px":"28px 32px",overflowY:"auto",maxWidth:isMobile?"100%":860,minWidth:0}}>
+      <main style={{flex:1,padding:isMobile?"16px 14px 80px":"28px 32px",overflowY:"auto",maxWidth:isMobile?"100%":(tab==="dashboard"||tabCoupe?1200:860),minWidth:0}}>
         {renderScreen()}
       </main>
     </div>

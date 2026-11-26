@@ -1,42 +1,65 @@
-import { C, Icon, gst, gqt, fmt, fmtDay, Gauge, Card } from "../ui";
+import { C, gst, fmt, fmtDay, Gauge, Card } from "../ui";
 import { PARAMETRES_DEFAUT } from "../parametres";
-import { CarteConformite, CarteTachesReparations } from "./TourControle";
+import { CarteConformite } from "./TourControle";
+import { jourLocal, enRetard } from "../lib/taches";
+import { useTableauDeBord, DLC_JOURS, checklistDuJour, evenements, Compteurs, ActionsPrioritaires, Aujourdhui, AccesRapides, Calendrier, EtatStock, Achats } from "./TableauDeBord";
+
+// Grille du tableau de bord : 3 colonnes sur grand écran, une seule (blocs réordonnés) en dessous de 1000 px.
+const STYLE_GRILLE=`.pd-compteurs{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
+.pd-grille{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start;margin-bottom:20px}
+.pd-col{display:flex;flex-direction:column;gap:16px;min-width:0}
+@media(max-width:1000px){.pd-grille{display:flex;flex-direction:column;align-items:stretch}.pd-col{display:contents}.pd-o1{order:1}.pd-o2{order:2}.pd-o3{order:3}.pd-o4{order:4}.pd-o5{order:5}.pd-o6{order:6}}
+@media(max-width:520px){.pd-compteurs{grid-template-columns:repeat(2,1fr)}}`;
 
 // ── DASHBOARD ─────────────────────────────────────────────────
-export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFAUT,gerant=false}){
-  const rest=profile?.restaurants;
-  const rup=products.filter(p=>gst(p)==="rupture");
-  const cmd=products.filter(p=>gst(p)==="commander");
-  const ok=products.filter(p=>gst(p)==="ok");
-  const ns=products.filter(p=>gst(p)==="non_saisi");
+export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFAUT,gerant=false,toast}){
+  const rest=profile?.restaurants,mod=params.modules;
   const rs=rest?.ratio_sale||0,rsu=rest?.ratio_sucre||0,obj=params.objectif;
   const ca_s=rest?.ca_sale||0,ca_su=rest?.ca_sucre||0;
-
-  function StatCard({icon,label,value,sub,color,bg,onClick}){
-    return<Card onClick={onClick} style={{padding:"18px 20px"}}>
-      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}}>
-        <div>
-          <p style={{margin:0,fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>{label}</p>
-          <p style={{margin:"8px 0 0",fontSize:32,fontWeight:800,color:color||C.text,lineHeight:1}}>{value}</p>
-          {sub&&<p style={{margin:"4px 0 0",fontSize:12,color:C.textMuted}}>{sub}</p>}
-        </div>
-        <div style={{width:44,height:44,borderRadius:12,background:bg||C.brandLight,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <Icon n={icon} sz={20} c={color||C.brand}/>
-        </div>
-      </div>
-    </Card>;
-  }
+  const [d,recharger]=useTableauDeBord({restaurantId:profile?.restaurant_id,gerant,modules:mod});
+  const evs=evenements(d);
+  const checklist=checklistDuJour(d?.tasks,d?.comp);
+  const auj=jourLocal(),dans3=new Date(auj+"T12:00");dans3.setDate(dans3.getDate()+DLC_JOURS);
+  const rup=products.filter(p=>gst(p)==="rupture").length,cmd=products.filter(p=>gst(p)==="commander").length;
+  const ouvertes=gerant?d?.taches:d?.taches?.filter(t=>t.assignee_id===profile?.id),urg=ouvertes?.filter(t=>enRetard(t)||t.priorite==="urgente").length;
+  const dlc=d?.dlc?.filter(x=>x.dlc_date<=jourLocal(dans3)).length;
+  const compteurs=[
+    mod.reparations!==false&&{id:"ouv",label:gerant?"Tâches ouvertes":"Mes tâches ouvertes",valeur:ouvertes?.length,couleur:C.brand,tab:"reparations"},
+    mod.reparations!==false&&{id:"urg",label:"Urgentes / en retard",valeur:urg,couleur:C.danger,tab:"reparations"},
+    {id:"rup",label:"Ruptures",valeur:rup,couleur:C.danger,tab:mod.commandes!==false?"commandes":"stocks"},
+    {id:"cmd",label:"À commander",sous:"sous le minimum",valeur:cmd,couleur:C.warning,tab:mod.commandes!==false?"commandes":"stocks"},
+    mod.haccp!==false&&{id:"dlc",label:"DLC à surveiller",sous:`périmées ou sous ${DLC_JOURS} jours`,valeur:dlc,couleur:C.warning,tab:"haccp"},
+  ].filter(Boolean).map(k=>({...k,onClick:()=>onTab(k.tab)}));
+  const liens=[
+    gerant&&mod.reparations!==false&&["reparations","Nouvelle tâche","plus"],
+    mod.commandes!==false&&["commandes","Enregistrer une livraison","box"],
+    mod.haccp!==false&&["haccp","Relever une température","thermometer"],
+    ["stocks","Faire l'inventaire","clipboard"],
+    gerant&&mod.recettes!==false&&["recettes","Fiches techniques","book"],
+    gerant&&mod.scan!==false&&["scan","Scanner une facture","upload"],
+  ].filter(Boolean).slice(0,6);
+  const prenom=String(profile?.name||"").trim().split(/\s+/)[0];
 
   return<div>
-    <div style={{marginBottom:24}}>
-      <h1 style={{margin:0,fontSize:22,fontWeight:800,color:C.text,letterSpacing:"-.5px"}}>Tableau de bord</h1>
-      <p style={{margin:"4px 0 0",fontSize:14,color:C.textSec}}>{rest?.name} · {fmtDay(new Date())}</p>
+    <style>{STYLE_GRILLE}</style>
+    <div style={{marginBottom:18}}>
+      <h1 style={{margin:0,fontSize:24,fontWeight:800,color:C.text,letterSpacing:"-.5px"}}>Bonjour{prenom?` ${prenom}`:""} !</h1>
+      <p style={{margin:"4px 0 0",fontSize:13,color:C.textSec}}>{rest?.name} · {fmtDay(new Date())}</p>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12,marginBottom:20}}>
-      <StatCard icon="alert" label="Ruptures" value={rup.length} sub="stocks épuisés" color={rup.length>0?C.danger:C.textMuted} bg={rup.length>0?C.dangerLight:"#F8FAFC"} onClick={()=>onTab("commandes")}/>
-      <StatCard icon="cart" label="À commander" value={cmd.length} sub="sous le minimum" color={cmd.length>0?C.warning:C.textMuted} bg={cmd.length>0?C.warningLight:"#F8FAFC"} onClick={()=>onTab("commandes")}/>
-      <StatCard icon="check" label="OK" value={ok.length} sub="stocks suffisants" color={C.success} bg={C.successLight}/>
-      <StatCard icon="box" label="Non saisis" value={ns.length} sub="à mettre à jour" color={C.textSec} bg="#F8FAFC" onClick={()=>onTab("stocks")}/>
+    <Compteurs items={compteurs}/>
+    <div className="pd-grille">
+      <div className="pd-col">
+        {mod.reparations!==false&&<div className="pd-o1"><ActionsPrioritaires taches={d?d.taches:null} gerant={gerant} profileId={profile?.id} onTab={onTab} toast={toast} onChange={recharger}/></div>}
+        <div className="pd-o5"><EtatStock products={products} onTab={onTab} commandes={mod.commandes!==false}/></div>
+      </div>
+      <div className="pd-col">
+        <div className="pd-o2"><Aujourdhui d={d} checklist={checklist} onTab={onTab}/></div>
+        {gerant&&<div className="pd-o6"><Achats achats={d?d.achats:null} products={products} onTab={onTab} detail={mod.historique!==false}/></div>}
+      </div>
+      <div className="pd-col">
+        <div className="pd-o3"><AccesRapides liens={liens} onTab={onTab}/></div>
+        {(mod.reparations!==false||mod.haccp!==false)&&<div className="pd-o4"><Calendrier evs={evs} onTab={onTab} charge={!!d}/></div>}
+      </div>
     </div>
     {gerant&&<div style={{display:"grid",gridTemplateColumns:params.deuxSections?"1fr 1fr":"1fr",gap:12,marginBottom:20}}>
       {[["SALE",rs,ca_s],["SUCRE",rsu,ca_su]].filter(([k])=>params.sectionsActives.some(x=>x.code===k)).map(([k,r,ca])=>[k,params.nomSection(k),r,ca]).map(([k,l,r,ca])=>(
@@ -50,28 +73,6 @@ export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFA
         </Card>
       ))}
     </div>}
-    {profile?.restaurant_id&&params.modules.reparations!==false&&<CarteTachesReparations restaurantId={profile?.restaurant_id} profileId={profile?.id} gerant={gerant} onTab={onTab}/>}
-    {gerant&&profile?.restaurant_id&&(params.modules.haccp!==false||params.modules.taches!==false)&&<CarteConformite restaurantId={profile?.restaurant_id} onTab={onTab} modules={params.modules}/>}
-    {rup.length>0&&<Card style={{overflow:"hidden",marginBottom:20}}>
-      <div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div style={{display:"flex",alignItems:"center",gap:8}}><Icon n="alert" sz={15} c={C.danger}/><span style={{fontSize:14,fontWeight:700}}>Ruptures à traiter</span></div>
-        <button onClick={()=>onTab("commandes")} style={{fontSize:12,color:C.brand,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Générer commandes →</button>
-      </div>
-      {rup.slice(0,5).map(p=><div key={p.id} style={{padding:"10px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
-        <span style={{width:8,height:8,borderRadius:"50%",background:C.danger,display:"inline-block",flexShrink:0}}/>
-        <div style={{flex:1}}><p style={{margin:0,fontSize:13,fontWeight:500}}>{p.nom}</p><p style={{margin:0,fontSize:11,color:C.textSec}}>{p.fournisseur}</p></div>
-        <span style={{fontSize:12,fontWeight:700,color:C.danger}}>Commander {gqt(p,params.commande(p.cote))} {p.unite}</span>
-      </div>)}
-    </Card>}
-    <div style={{display:"grid",gridTemplateColumns:gerant&&params.modules.recettes!==false?"1fr 1fr":"1fr",gap:12}}>
-      <Card onClick={()=>onTab("haccp")} style={{padding:"16px 18px",display:"flex",alignItems:"center",gap:12}}>
-        <div style={{width:40,height:40,borderRadius:10,background:"#FFF7ED",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon n="thermometer" sz={20} c="#EA580C"/></div>
-        <div><p style={{margin:0,fontSize:13,fontWeight:700}}>HACCP</p><p style={{margin:0,fontSize:11,color:C.textSec}}>Températures & nettoyage</p></div>
-      </Card>
-      {gerant&&params.modules.recettes!==false&&<Card onClick={()=>onTab("recettes")} style={{padding:"16px 18px",display:"flex",alignItems:"center",gap:12}}>
-        <div style={{width:40,height:40,borderRadius:10,background:C.purpleLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon n="book" sz={20} c={C.purple}/></div>
-        <div><p style={{margin:0,fontSize:13,fontWeight:700}}>Fiches techniques</p><p style={{margin:0,fontSize:11,color:C.textSec}}>Recettes & coûts</p></div>
-      </Card>}
-    </div>
+    {gerant&&profile?.restaurant_id&&(mod.haccp!==false||mod.taches!==false)&&<CarteConformite restaurantId={profile?.restaurant_id} onTab={onTab} modules={mod}/>}
   </div>;
 }
