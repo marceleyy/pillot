@@ -14,6 +14,8 @@ const plusJours = (s, n) => { const d = jour(s); d.setDate(d.getDate() + n); ret
 const fmtCourt = s => jour(s).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 const fmtLong = s => jour(s).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
 const fmtAvant = s => jour(s).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+// DLC « à surveiller » : périmées ou dans les DLC_JOURS prochains jours (compteur et calendrier).
+export const DLC_JOURS = 3;
 const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? "s" : ""}`;
 
 const SANS_COMMERCE = { taches: [], dlc: [], tasks: null, comp: null, achats: [] };
@@ -38,7 +40,7 @@ export function useTableauDeBord({ restaurantId, gerant, modules }) {
       [taches, dlc, tasks, comp, achats].forEach(r => r.error && console.warn("Tableau de bord : lecture incomplète", r.error.message));
       const lu = r => r.off ? null : r.error ? undefined : (r.data || []);
       setD({ taches: lu(taches), dlc: lu(dlc), tasks: lu(tasks), comp: lu(comp), achats: lu(achats) });
-    });
+    }).catch(e => { console.warn("Tableau de bord indisponible", e); if (!fini) setD({}); });
     return () => { fini = true; };
   }, [restaurantId, gerant, modules.reparations, modules.haccp, modules.taches, version]);
   // Sans commerce ouvert (compte admin) : rien à lire.
@@ -58,7 +60,7 @@ export function checklistDuJour(tasks, comp) {
 export function evenements(d) {
   const auj = jourLocal(), ev = [];
   (d?.taches || []).filter(t => t.echeance).forEach(t => ev.push({ id: "t" + t.id, date: t.echeance, titre: t.titre, type: "Échéance", tab: "reparations", ton: enRetard(t) ? "rouge" : t.priorite === "urgente" ? "orange" : "bleu" }));
-  (d?.dlc || []).forEach(x => ev.push({ id: "d" + x.id, date: x.dlc_date, titre: `DLC : ${x.product_nom}`, type: "DLC", tab: "haccp", ton: x.dlc_date < auj ? "rouge" : x.dlc_date <= plusJours(auj, 2) ? "orange" : "vert" }));
+  (d?.dlc || []).forEach(x => ev.push({ id: "d" + x.id, date: x.dlc_date, titre: `DLC : ${x.product_nom}`, type: "DLC", tab: "haccp", ton: x.dlc_date < auj ? "rouge" : x.dlc_date <= plusJours(auj, DLC_JOURS) ? "orange" : "vert" }));
   return ev.sort((a, b) => a.date.localeCompare(b.date));
 }
 const TONS = { rouge: { c: C.danger, bg: C.dangerLight }, orange: { c: "#B45309", bg: "#FEF3C7" }, bleu: { c: C.brandDark, bg: C.brandLight }, vert: { c: "#047857", bg: "#ECFDF5" } };
@@ -88,16 +90,17 @@ export function Compteurs({ items }) {
 
 // ── Actions prioritaires ──────────────────────────────────────
 export function ActionsPrioritaires({ taches, gerant, profileId, onTab, toast, onChange }) {
-  const [busy, setBusy] = useState(null);
+  const [busy, setBusy] = useState(null), [faites, setFaites] = useState([]);
   if (taches === null) return <Bloc><Titre icon="target">Actions prioritaires</Titre><Vide>Chargement…</Vide></Bloc>;
   if (taches === undefined) return <Bloc><Titre icon="target">Actions prioritaires</Titre><Vide>Tâches indisponibles pour le moment.</Vide></Bloc>;
-  const liste = (gerant ? taches : taches.filter(t => t.assignee_id === profileId)).slice().sort(trier);
+  const liste = (gerant ? taches : taches.filter(t => t.assignee_id === profileId)).filter(t => !faites.includes(t.id)).sort(trier);
   const cocher = async t => {
-    if (busy) return;
+    if (busy || !window.confirm(`Marquer « ${t.titre} » comme réalisée ?`)) return;
     setBusy(t.id);
     const { error } = await supabase.rpc("changer_statut_tache", { p_tache: t.id, p_statut: "realisee" });
     setBusy(null);
     if (error) { toast?.("Statut non modifié, réessayez", "error"); return; }
+    setFaites(f => [...f, t.id]);
     toast?.("Tâche réalisée");
     onChange();
   };
@@ -129,7 +132,8 @@ export function ActionsPrioritaires({ taches, gerant, profileId, onTab, toast, o
 }
 
 // ── Prochaine échéance + check-list du jour ───────────────────
-export function ProchaineEcheance({ evs, checklist, onTab }) {
+export function ProchaineEcheance({ evs, checklist, onTab, charge = true }) {
+  if (!charge) return <Bloc><Titre icon="calendar">Prochaine échéance</Titre><Vide>Chargement…</Vide></Bloc>;
   const auj = jourLocal(), prochain = evs.find(e => e.date >= auj);
   const n = prochain ? Math.round((jour(prochain.date) - jour(auj)) / 864e5) : 0;
   const t = prochain && TONS[prochain.ton];
@@ -174,7 +178,7 @@ export function AccesRapides({ liens, onTab }) {
 
 // ── Calendrier : semaine + liste des échéances à venir ────────
 const JOURS = ["L", "M", "M", "J", "V", "S", "D"];
-export function Calendrier({ evs, onTab }) {
+export function Calendrier({ evs, onTab, charge = true }) {
   const auj = jourLocal();
   const lundiDe = s => plusJours(s, -((jour(s).getDay() + 6) % 7));
   const [lundi, setLundi] = useState(() => lundiDe(auj)), [choisi, setChoisi] = useState(auj);
@@ -202,7 +206,7 @@ export function Calendrier({ evs, onTab }) {
         </button>;
       })}
     </div>
-    {!liste.length && <Vide>Aucune échéance à partir du {fmtCourt(choisi)}.</Vide>}
+    {!charge ? <Vide>Chargement…</Vide> : !liste.length && <Vide>Aucune échéance à partir du {fmtCourt(choisi)}.</Vide>}
     <div style={{display:"flex",flexDirection:"column",gap:5}}>
       {liste.map(e => <button key={e.id} onClick={() => onTab(e.tab)} style={{display:"flex",gap:10,alignItems:"center",padding:"7px 10px",borderRadius:7,border:"none",background:TONS[e.ton].bg,cursor:"pointer",textAlign:"left"}}>
         <span style={{fontSize:11,fontWeight:600,color:TONS[e.ton].c,width:44,flexShrink:0}}>{fmtCourt(e.date)}</span>
@@ -213,7 +217,7 @@ export function Calendrier({ evs, onTab }) {
 }
 
 // ── État du stock par catégorie ───────────────────────────────
-export function EtatStock({ products, onTab }) {
+export function EtatStock({ products, onTab, commandes = true }) {
   const cats = useMemo(() => {
     const m = {};
     products.forEach(p => {
@@ -228,7 +232,7 @@ export function EtatStock({ products, onTab }) {
     {!cats.length && <Vide>Aucun produit pour l'instant.</Vide>}
     {cats.slice(0, 8).map((c, i) => {
       const [txt, col, icon] = c.rupture ? [`Rupture · ${c.rupture}`, C.danger, "alert"] : c.commander ? [`À commander · ${c.commander}`, C.warning, "cart"] : !c.saisi ? ["Non saisi", C.textMuted, "box"] : ["OK", C.success, "check"];
-      return <button key={c.nom} onClick={() => onTab(c.rupture || c.commander ? "commandes" : "stocks")} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",border:"none",borderTop:i ? `1px solid ${C.border}` : "none",background:"none",cursor:"pointer",textAlign:"left"}}>
+      return <button key={c.nom} onClick={() => onTab((c.rupture || c.commander) && commandes ? "commandes" : "stocks")} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",border:"none",borderTop:i ? `1px solid ${C.border}` : "none",background:"none",cursor:"pointer",textAlign:"left"}}>
         <Icon n={icon} sz={14} c={col}/>
         <span style={{flex:1,minWidth:0,fontSize:13,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.nom} <span style={{color:C.textMuted}}>({c.n})</span></span>
         <span style={{fontSize:12,fontWeight:600,color:col,whiteSpace:"nowrap"}}>{txt}</span>
@@ -286,7 +290,7 @@ export function Achats({ achats, products, onTab, detail = true }) {
           </div>; })}
         </div>
       </div> : <Vide>Aucune livraison enregistrée cette année.</Vide>}
-      {detail && <div style={{display:"flex",justifyContent:"flex-end"}}><Lien onClick={() => onTab("historique")}>Voir le détail ›</Lien></div>}
+      {detail && <div style={{display:"flex",justifyContent:"flex-end"}}><Lien onClick={() => onTab("historique")}>Consommation et coûts ›</Lien></div>}
     </>}
     {res === null && <Vide>Chargement…</Vide>}
   </Bloc>;

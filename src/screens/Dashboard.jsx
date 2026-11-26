@@ -2,7 +2,7 @@ import { C, gst, fmt, fmtDay, Gauge, Card } from "../ui";
 import { PARAMETRES_DEFAUT } from "../parametres";
 import { CarteConformite } from "./TourControle";
 import { jourLocal, enRetard } from "../lib/taches";
-import { useTableauDeBord, checklistDuJour, evenements, Compteurs, ActionsPrioritaires, ProchaineEcheance, AccesRapides, Calendrier, EtatStock, Achats } from "./TableauDeBord";
+import { useTableauDeBord, DLC_JOURS, checklistDuJour, evenements, Compteurs, ActionsPrioritaires, ProchaineEcheance, AccesRapides, Calendrier, EtatStock, Achats } from "./TableauDeBord";
 
 // Grille du tableau de bord : 3 colonnes sur grand écran, une seule (blocs réordonnés) en dessous de 1000 px.
 const STYLE_GRILLE=`.pd-compteurs{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
@@ -19,16 +19,16 @@ export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFA
   const [d,recharger]=useTableauDeBord({restaurantId:profile?.restaurant_id,gerant,modules:mod});
   const evs=evenements(d);
   const checklist=checklistDuJour(d?.tasks,d?.comp);
-  const auj=jourLocal(),dans3=new Date(auj+"T12:00");dans3.setDate(dans3.getDate()+3);
+  const auj=jourLocal(),dans3=new Date(auj+"T12:00");dans3.setDate(dans3.getDate()+DLC_JOURS);
   const rup=products.filter(p=>gst(p)==="rupture").length,cmd=products.filter(p=>gst(p)==="commander").length;
-  const ouvertes=d?.taches,urg=ouvertes?.filter(t=>enRetard(t)||t.priorite==="urgente").length;
+  const ouvertes=gerant?d?.taches:d?.taches?.filter(t=>t.assignee_id===profile?.id),urg=ouvertes?.filter(t=>enRetard(t)||t.priorite==="urgente").length;
   const dlc=d?.dlc?.filter(x=>x.dlc_date<=jourLocal(dans3)).length;
   const compteurs=[
-    mod.reparations!==false&&{id:"ouv",label:"Tâches ouvertes",valeur:ouvertes?.length,couleur:C.brand,tab:"reparations"},
+    mod.reparations!==false&&{id:"ouv",label:gerant?"Tâches ouvertes":"Mes tâches ouvertes",valeur:ouvertes?.length,couleur:C.brand,tab:"reparations"},
     mod.reparations!==false&&{id:"urg",label:"Urgentes / en retard",valeur:urg,couleur:C.danger,tab:"reparations"},
     {id:"rup",label:"Ruptures",valeur:rup,couleur:C.danger,tab:mod.commandes!==false?"commandes":"stocks"},
     {id:"cmd",label:"À commander",sous:"sous le minimum",valeur:cmd,couleur:C.warning,tab:mod.commandes!==false?"commandes":"stocks"},
-    mod.haccp!==false&&{id:"dlc",label:"DLC à surveiller",sous:"périmées ou sous 3 jours",valeur:dlc,couleur:C.warning,tab:"haccp"},
+    mod.haccp!==false&&{id:"dlc",label:"DLC à surveiller",sous:`périmées ou sous ${DLC_JOURS} jours`,valeur:dlc,couleur:C.warning,tab:"haccp"},
   ].filter(Boolean).map(k=>({...k,onClick:()=>onTab(k.tab)}));
   const liens=[
     gerant&&mod.reparations!==false&&["reparations","Nouvelle tâche","plus"],
@@ -36,8 +36,9 @@ export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFA
     mod.haccp!==false&&["haccp","Relever une température","thermometer"],
     ["stocks","Faire l'inventaire","clipboard"],
     mod.taches!==false&&["taches","Check-list du jour","check"],
+    gerant&&mod.recettes!==false&&["recettes","Fiches techniques","book"],
     gerant&&mod.scan!==false&&["scan","Scanner une facture","upload"],
-  ].filter(Boolean).slice(0,5);
+  ].filter(Boolean).slice(0,6);
   const prenom=String(profile?.name||"").trim().split(/\s+/)[0];
 
   return<div>
@@ -50,15 +51,15 @@ export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFA
     <div className="pd-grille">
       <div className="pd-col">
         {mod.reparations!==false&&<div className="pd-o1"><ActionsPrioritaires taches={d?d.taches:null} gerant={gerant} profileId={profile?.id} onTab={onTab} toast={toast} onChange={recharger}/></div>}
-        <div className="pd-o5"><EtatStock products={products} onTab={onTab}/></div>
+        <div className="pd-o5"><EtatStock products={products} onTab={onTab} commandes={mod.commandes!==false}/></div>
       </div>
       <div className="pd-col">
-        <div className="pd-o2"><ProchaineEcheance evs={evs} checklist={checklist} onTab={onTab}/></div>
+        <div className="pd-o2"><ProchaineEcheance evs={evs} checklist={checklist} onTab={onTab} charge={!!d}/></div>
         {gerant&&<div className="pd-o6"><Achats achats={d?d.achats:null} products={products} onTab={onTab} detail={mod.historique!==false}/></div>}
       </div>
       <div className="pd-col">
         <div className="pd-o3"><AccesRapides liens={liens} onTab={onTab}/></div>
-        {(mod.reparations!==false||mod.haccp!==false)&&<div className="pd-o4"><Calendrier evs={evs} onTab={onTab}/></div>}
+        {(mod.reparations!==false||mod.haccp!==false)&&<div className="pd-o4"><Calendrier evs={evs} onTab={onTab} charge={!!d}/></div>}
       </div>
     </div>
     {gerant&&<div style={{display:"grid",gridTemplateColumns:params.deuxSections?"1fr 1fr":"1fr",gap:12,marginBottom:20}}>
