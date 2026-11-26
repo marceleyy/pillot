@@ -35,7 +35,9 @@ export default function App(){
   },[]);
 
   const loadProfile=async(uid)=>{
-    const{data:p}=await supabase.from("profiles").select(`*,restaurants(${COLS_COMMERCE})`).eq("id",uid).single();
+    // Lien nommé : profiles et restaurants sont aussi reliés par restaurant_members et taches_reparations,
+    // un « restaurants(...) » seul est ambigu pour Supabase (réponse 300, profil vide).
+    const{data:p}=await supabase.from("profiles").select(`*,restaurants!profiles_restaurant_id_fkey(${COLS_COMMERCE})`).eq("id",uid).single();
     // Le gérant lit aussi le CA et les ratios, réservés dans la base.
     const g=estGerant(p?.role),rid=p?.restaurant_id;
     // Les données du commerce précédent ne restent pas affichées sur un autre commerce.
