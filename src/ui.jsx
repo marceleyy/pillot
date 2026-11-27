@@ -2,14 +2,14 @@
 import { useEffect } from "react";
 // ── Palette ──────────────────────────────────────────────────
 export const C = {
-  navy:"#0F172A",brand:"#2563EB",brandLight:"#EFF6FF",brandDark:"#1D4ED8",
-  success:"#16A34A",successLight:"#F0FDF4",
-  warning:"#D97706",warningLight:"#FFFBEB",
-  danger:"#DC2626",dangerLight:"#FEF2F2",
-  purple:"#7C3AED",purpleLight:"#F5F3FF",
-  bg:"#F1F5F9",surface:"#FFFFFF",
-  border:"#E2E8F0",borderStrong:"#CBD5E1",
-  text:"#0F172A",textSec:"#64748B",textMuted:"#94A3B8"
+  navy:"#140F11B3",brand:"#4C7DF0",brandLight:"#8FB3FF24",brandDark:"#3D6BE0",
+  success:"#2FA36B",successLight:"#5FD39A24",
+  warning:"#E0A030",warningLight:"#F2B54524",
+  danger:"#E5485D",dangerLight:"#FF7B8B24",
+  purple:"#9F7AEA",purpleLight:"#A78BFA24",
+  bg:"#FFFFFF14",surface:"#FFFFFF0F",
+  border:"#FFFFFF1F",borderStrong:"#FFFFFF40",
+  text:"#F4EDE7",textSec:"#F4EDE7B3",textMuted:"#F4EDE780"
 };
 
 // ── SVG Icons ─────────────────────────────────────────────────
@@ -61,7 +61,7 @@ export const fmtDay =d=>new Date(d).toLocaleDateString("fr-FR",{weekday:"long",d
 
 // ── Status Badge ──────────────────────────────────────────────
 export function Chip({status,small}){
-  const m={rupture:{l:"Rupture",bg:C.dangerLight,c:C.danger},commander:{l:"Commander",bg:C.warningLight,c:C.warning},ok:{l:"OK",bg:C.successLight,c:C.success},non_suivi:{l:"Non suivi",bg:"#F8FAFC",c:C.textMuted},non_saisi:{l:"Non saisi",bg:"#F8FAFC",c:C.textMuted}};
+  const m={rupture:{l:"Rupture",bg:C.dangerLight,c:C.danger},commander:{l:"Commander",bg:C.warningLight,c:C.warning},ok:{l:"OK",bg:C.successLight,c:C.success},non_suivi:{l:"Non suivi",bg:"#FFFFFF0A",c:C.textMuted},non_saisi:{l:"Non saisi",bg:"#FFFFFF0A",c:C.textMuted}};
   const s=m[status]||m.non_saisi;
   return<span style={{display:"inline-flex",alignItems:"center",gap:4,padding:small?"2px 7px":"3px 10px",borderRadius:20,background:s.bg,fontSize:small?10:11,fontWeight:600,color:s.c,whiteSpace:"nowrap"}}><span style={{width:6,height:6,borderRadius:"50%",background:s.c,display:"inline-block"}}/>{s.l}</span>;
 }
@@ -73,7 +73,7 @@ export function Gauge({ratio,obj=0.25}){
   const col=ratio<=obj?C.success:ratio<=obj*1.4?C.warning:C.danger;
   const fp=fill>0.005?`M${cx-R} ${cy} A${R} ${R} 0 ${lg} 1 ${ex.toFixed(1)} ${ey.toFixed(1)}`:"";
   return<svg width="180" height="108" viewBox="0 0 180 108">
-    <path d={`M${cx-R} ${cy} A${R} ${R} 0 0 1 ${cx+R} ${cy}`} fill="none" stroke="#E2E8F0" strokeWidth="14" strokeLinecap="round"/>
+    <path d={`M${cx-R} ${cy} A${R} ${R} 0 0 1 ${cx+R} ${cy}`} fill="none" stroke="#FFFFFF1F" strokeWidth="14" strokeLinecap="round"/>
     {fp&&<path d={fp} fill="none" stroke={col} strokeWidth="14" strokeLinecap="round"/>}
     {fill>0.005&&<circle cx={ex.toFixed(1)} cy={ey.toFixed(1)} r={7} fill={col} stroke="white" strokeWidth="2"/>}
     <text x={cx} y={cy-8} textAnchor="middle" fontSize="26" fontWeight="700" fill={col}>{ratio>0?(ratio*100).toFixed(1)+"%":"—"}</text>
@@ -87,7 +87,7 @@ export function Gauge({ratio,obj=0.25}){
 export function Toast({msg,type="success",onClose}){
   useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t);},[onClose]);
   const bg=type==="success"?C.success:type==="error"?C.danger:C.warning;
-  return<div style={{position:"fixed",top:20,right:20,zIndex:9999,background:bg,color:"#fff",padding:"12px 16px",borderRadius:10,display:"flex",alignItems:"center",gap:10,boxShadow:"0 4px 20px rgba(0,0,0,.2)",fontSize:14,fontWeight:500,maxWidth:320}}>
+  return<div style={{position:"fixed",top:20,right:20,zIndex:9999,background:bg,color:type==="success"||type==="error"?"#fff":"#1c1416",padding:"12px 16px",borderRadius:10,display:"flex",alignItems:"center",gap:10,boxShadow:"0 4px 20px rgba(0,0,0,.2)",fontSize:14,fontWeight:500,maxWidth:320}}>
     <Icon n={type==="success"?"check":"alert"} sz={16}/>{msg}
     <button onClick={onClose} style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",marginLeft:"auto"}}><Icon n="x" sz={14}/></button>
   </div>;

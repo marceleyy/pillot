@@ -40,7 +40,7 @@ export default function Reglages({profile,toast,params=PARAMETRES_DEFAUT,product
     <Card style={{padding:20}}>
       <h3 style={{margin:"0 0 12px",fontSize:15,fontWeight:800}}>Informations du compte</h3>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
-        {[["Restaurant",rest?.name],["Plan",rest?.plan],["Email",profile?.email],["Rôle",libelleRole(profile?.role)],["Domaine","pillot-restaurant.fr"]].map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"9px 12px",background:"#F8FAFC",borderRadius:8}}>
+        {[["Restaurant",rest?.name],["Plan",rest?.plan],["Email",profile?.email],["Rôle",libelleRole(profile?.role)],["Domaine","pillot-restaurant.fr"]].map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"9px 12px",background:"#FFFFFF0A",borderRadius:8}}>
           <span style={{fontSize:13,color:C.textSec,fontWeight:500}}>{l}</span><span style={{fontSize:13,fontWeight:700}}>{v||"—"}</span>
         </div>)}
       </div>
@@ -104,7 +104,7 @@ function ReglagesCommerce({rest,params,products,toast,onSaved}){
 
     <p style={{...lab,marginBottom:8}}>Modules affichés dans le menu</p>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:8,marginBottom:18}}>
-      {MODULES.map(m=><label key={m.id} style={{display:"flex",alignItems:"center",gap:8,fontSize:13,padding:"8px 10px",background:"#F8FAFC",borderRadius:8,cursor:"pointer"}}>
+      {MODULES.map(m=><label key={m.id} style={{display:"flex",alignItems:"center",gap:8,fontSize:13,padding:"8px 10px",background:"#FFFFFF0A",borderRadius:8,cursor:"pointer"}}>
         <input type="checkbox" checked={modules[m.id]!==false} onChange={e=>setModules(prev=>({...prev,[m.id]:e.target.checked}))}/>{m.nom}
       </label>)}
     </div>
@@ -115,7 +115,7 @@ function ReglagesCommerce({rest,params,products,toast,onSaved}){
 }
 
 const LAB={fontSize:11,fontWeight:700,color:C.textSec,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:".5px"};
-const CHAMP={width:"100%",boxSizing:"border-box",padding:"9px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none",background:"#fff"};
+const CHAMP={width:"100%",boxSizing:"border-box",padding:"9px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none",background:"#FFFFFF0F"};
 
 // Gérant de plusieurs commerces : passer de l'un à l'autre (aussi possible depuis le menu sur ordinateur).
 function MesCommerces({commerces,actuel,onChange}){
@@ -123,7 +123,7 @@ function MesCommerces({commerces,actuel,onChange}){
     <h3 style={{margin:"0 0 12px",fontSize:15,fontWeight:800}}>Mes commerces</h3>
     <div style={{display:"flex",flexDirection:"column",gap:8}}>
       {commerces.map(c=><button key={c.id} onClick={()=>onChange?.(c.id)} disabled={c.id===actuel}
-        style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",borderRadius:8,border:`1.5px solid ${c.id===actuel?C.brand:C.border}`,background:c.id===actuel?C.brandLight:"#fff",cursor:c.id===actuel?"default":"pointer",textAlign:"left"}}>
+        style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",borderRadius:8,border:`1.5px solid ${c.id===actuel?C.brand:C.border}`,background:c.id===actuel?C.brandLight:"#FFFFFF0F",cursor:c.id===actuel?"default":"pointer",textAlign:"left"}}>
         <span><span style={{fontSize:14,fontWeight:700,color:C.text}}>{c.name}</span>{c.ville&&<span style={{fontSize:12,color:C.textSec}}> · {c.ville}</span>}</span>
         <span style={{fontSize:12,color:c.id===actuel?C.brand:C.textSec,fontWeight:600}}>{c.id===actuel?"Ouvert":libelleRole(c.role)}</span>
       </button>)}
@@ -160,10 +160,10 @@ function Equipe({profile,toast}){
     <p style={{margin:"0 0 14px",fontSize:13,color:C.textSec}}>L'équipe compte le stock, remplit l'HACCP et les tâches. Elle ne voit ni les prix d'achat, ni le CA, ni ces réglages.</p>
     {indispo?<p style={{margin:0,fontSize:13,color:C.textMuted}}>La gestion de l'équipe demande une mise à jour de la base.</p>:<>
       <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
-        {membres.map(m=><div key={m.profile_id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",background:"#F8FAFC",borderRadius:8}}>
+        {membres.map(m=><div key={m.profile_id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",background:"#FFFFFF0A",borderRadius:8}}>
           <div style={{flex:1,minWidth:0}}><p style={{margin:0,fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.name||m.email}</p>{m.name&&<p style={{margin:0,fontSize:11,color:C.textSec}}>{m.email}</p>}</div>
           <span style={{fontSize:12,fontWeight:600,color:C.textSec}}>{libelleRole(m.role)}</span>
-          {peutRetirer(m)&&<button onClick={()=>retirer(m)} style={{padding:"5px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:"#fff",fontSize:12,cursor:"pointer",color:C.danger}}>Retirer</button>}
+          {peutRetirer(m)&&<button onClick={()=>retirer(m)} style={{padding:"5px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:"#FFFFFF0F",fontSize:12,cursor:"pointer",color:C.danger}}>Retirer</button>}
         </div>)}
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,alignItems:"end"}}>

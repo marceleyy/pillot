@@ -266,7 +266,7 @@ export function EtatStock({ products, onTab, commandes = true }) {
 }
 
 // ── Achats : total du mois et répartition par fournisseur ─────
-const TEINTES = ["#1E3A8A", "#2563EB", "#60A5FA", "#93C5FD", "#BFDBFE", "#94A3B8"];
+const TEINTES = ["#9DBBFF", "#4C7DF0", "#60A5FA", "#8FB3FF99", "#8FB3FF66", "#F4EDE780"];
 function Donut({ parts }) {
   const total = parts.reduce((a, p) => a + p.v, 0), R = 38, L = 2 * Math.PI * R;
   let cumul = 0;

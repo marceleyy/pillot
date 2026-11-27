@@ -7,23 +7,23 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
 const D = {
-  brand:"#2563EB", brandLight:"#EFF6FF",
-  surface:"#FFFFFF", bg:"#F9FAFB",
-  border:"#E5E7EB", borderFocus:"#93C5FD",
-  text:"#111827", textSec:"#6B7280", textMuted:"#9CA3AF",
-  success:"#059669", successLight:"#ECFDF5",
-  warning:"#D97706", warningLight:"#FFFBEB",
-  danger:"#DC2626", dangerLight:"#FEF2F2",
+  brand:"#4C7DF0", brandLight:"#8FB3FF24",
+  surface:"#FFFFFF0F", bg:"#FFFFFF0A",
+  border:"#FFFFFF1F", borderFocus:"#8FB3FF99",
+  text:"#F4EDE7", textSec:"#F4EDE7B3", textMuted:"#F4EDE780",
+  success:"#34B07A", successLight:"#5FD39A24",
+  warning:"#E0A030", warningLight:"#F2B54524",
+  danger:"#E5485D", dangerLight:"#FF7B8B24",
 };
 
 const TYPES = [
-  { key:"frigo",       label:"Frigo",        icon:"❄️",  temp_min:0,   temp_max:4,  color:"#3B82F6" },
+  { key:"frigo",       label:"Frigo",        icon:"❄️",  temp_min:0,   temp_max:4,  color:"#5B8DF5" },
   { key:"congelateur", label:"Congélateur",  icon:"🧊",  temp_min:-22, temp_max:-18,color:"#6366F1" },
   { key:"vitrine",     label:"Vitrine froide",icon:"🛒", temp_min:0,   temp_max:6,  color:"#0EA5E9" },
   { key:"bain_marie",  label:"Bain-marie",   icon:"♨️",  temp_min:63,  temp_max:99, color:"#F97316" },
   { key:"zone_chaude", label:"Zone chaude",  icon:"🔥",  temp_min:63,  temp_max:99, color:"#EF4444" },
-  { key:"friteuse",    label:"Friteuse",     icon:"🛢️",  temp_min:160, temp_max:190,color:"#92400E" },
-  { key:"autre",       label:"Autre",        icon:"🌡️",  temp_min:0,   temp_max:25, color:"#6B7280" },
+  { key:"friteuse",    label:"Friteuse",     icon:"🛢️",  temp_min:160, temp_max:190,color:"#F2B545" },
+  { key:"autre",       label:"Autre",        icon:"🌡️",  temp_min:0,   temp_max:25, color:"#9C918A" },
 ];
 
 // ── CARTOGRAPHIE ÉQUIPEMENTS ──────────────────────────────────
@@ -67,7 +67,7 @@ export function EquipementSetup({ restaurantId, toast }) {
   return (
     <div>
       {modal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(17,24,39,.5)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+        <div className="pv-modale" style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:D.surface, borderRadius:18, padding:24, maxWidth:420, width:"100%", boxShadow:"0 24px 60px rgba(0,0,0,.2)" }}>
             <h3 style={{ margin:"0 0 18px", fontSize:17, fontWeight:700, letterSpacing:"-.02em" }}>Ajouter un équipement</h3>
 
@@ -103,7 +103,7 @@ export function EquipementSetup({ restaurantId, toast }) {
             </div>
 
             <div style={{ display:"flex", gap:8 }}>
-              <button onClick={save} disabled={saving||!form.nom} style={{ flex:1, padding:"12px", background:form.nom?D.brand:"#E5E7EB", color:form.nom?"#fff":D.textMuted, border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:form.nom?"pointer":"default" }}>{saving?"...":"Ajouter l'équipement"}</button>
+              <button onClick={save} disabled={saving||!form.nom} style={{ flex:1, padding:"12px", background:form.nom?D.brand:"#FFFFFF1F", color:form.nom?"#fff":D.textMuted, border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:form.nom?"pointer":"default" }}>{saving?"...":"Ajouter l'équipement"}</button>
               <button onClick={()=>setModal(false)} style={{ padding:"12px 16px", background:"transparent", border:`1px solid ${D.border}`, borderRadius:10, cursor:"pointer", fontSize:14 }}>Annuler</button>
             </div>
           </div>
@@ -308,7 +308,7 @@ Si une information n'est pas visible, mets null. Sois précis sur les noms de pr
 
       {/* Alertes hausse de prix */}
       {items.some(i => i.variation_pct > 5) && (
-        <div style={{ background:D.dangerLight, border:`1px solid #FECACA`, borderRadius:10, padding:"10px 14px", marginBottom:14 }}>
+        <div style={{ background:D.dangerLight, border:`1px solid #FF7B8B66`, borderRadius:10, padding:"10px 14px", marginBottom:14 }}>
           <p style={{ margin:0, fontSize:13, fontWeight:600, color:D.danger }}>
             ⚠️ Hausse de prix détectée sur {items.filter(i=>i.variation_pct>5).length} produit(s)
           </p>
@@ -317,7 +317,7 @@ Si une information n'est pas visible, mets null. Sois précis sur les noms de pr
 
       {/* Tableau des items */}
       <div style={{ background:D.surface, border:`1px solid ${D.border}`, borderRadius:12, overflow:"hidden", marginBottom:14 }}>
-        <div style={{ padding:"10px 14px", background:"#FAFAFA", borderBottom:`1px solid ${D.border}`, display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr auto", gap:8 }}>
+        <div style={{ padding:"10px 14px", background:"#FFFFFF0A", borderBottom:`1px solid ${D.border}`, display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr auto", gap:8 }}>
           {["Produit","Qté","Prix unit.","Variation","Sync"].map(h=>(
             <p key={h} style={{ margin:0, fontSize:10, fontWeight:700, color:D.textMuted, textTransform:"uppercase", letterSpacing:".06em" }}>{h}</p>
           ))}
@@ -363,9 +363,9 @@ Si une information n'est pas visible, mets null. Sois précis sur les noms de pr
         <input ref={fileRef} type="file" accept="image/*,.pdf" capture="environment" style={{display:"none"}} onChange={e=>e.target.files[0]&&handleFile(e.target.files[0])}/>
       </div>
 
-      <div style={{ background:"#FFFBEB", border:`1px solid #FDE68A`, borderRadius:10, padding:"12px 14px" }}>
-        <p style={{ margin:"0 0 6px", fontSize:13, fontWeight:600, color:"#92400E" }}>💡 Comment ça marche</p>
-        <p style={{ margin:0, fontSize:12, color:"#78350F", lineHeight:1.6 }}>
+      <div style={{ background:"#F2B54524", border:`1px solid #F2B54566`, borderRadius:10, padding:"12px 14px" }}>
+        <p style={{ margin:"0 0 6px", fontSize:13, fontWeight:600, color:"#F2B545" }}>💡 Comment ça marche</p>
+        <p style={{ margin:0, fontSize:12, color:"#F2B545", lineHeight:1.6 }}>
           1. Tu prends la facture en photo ou l'importes<br/>
           2. Claude lit automatiquement les produits, quantités et prix<br/>
           3. Tu valides et l'inventaire + les prix sont mis à jour<br/>

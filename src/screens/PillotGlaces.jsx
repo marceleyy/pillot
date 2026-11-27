@@ -9,21 +9,21 @@ import * as XLSX from "xlsx";
 
 // ── Design System ─────────────────────────────────────────────
 const D = {
-  bg: "#F9FAFB",
-  surface: "#FFFFFF",
-  purple: "#7C3AED",
-  purpleLight: "#F5F3FF",
-  purpleMid: "#DDD6FE",
-  border: "#E5E7EB",
-  text: "#111827",
-  textSec: "#6B7280",
-  textMuted: "#9CA3AF",
-  success: "#059669",
-  successLight: "#ECFDF5",
-  warning: "#D97706",
-  warningLight: "#FFFBEB",
-  danger: "#DC2626",
-  dangerLight: "#FEF2F2",
+  bg: "#FFFFFF0A",
+  surface: "#FFFFFF0F",
+  purple: "#9F7AEA",
+  purpleLight: "#A78BFA24",
+  purpleMid: "#A78BFA66",
+  border: "#FFFFFF1F",
+  text: "#F4EDE7",
+  textSec: "#F4EDE7B3",
+  textMuted: "#F4EDE780",
+  success: "#34B07A",
+  successLight: "#5FD39A24",
+  warning: "#E0A030",
+  warningLight: "#F2B54524",
+  danger: "#E5485D",
+  dangerLight: "#FF7B8B24",
 };
 
 // Poids théoriques par format vendu (grammes de glace)
@@ -93,7 +93,7 @@ export default function PillotGlaces({ restaurantId, profileId, toast }) {
       <div style={{ marginBottom:20, display:"flex", alignItems:"flex-start", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
-            <div style={{ width:32, height:32, background:"linear-gradient(135deg,#7C3AED,#5B21B6)", borderRadius:9, display:"flex", alignItems:"center", justifyContent:"center", fontSize:17 }}>🍦</div>
+            <div style={{ width:32, height:32, background:"linear-gradient(135deg,#9F7AEA,#C4B5FD)", borderRadius:9, display:"flex", alignItems:"center", justifyContent:"center", fontSize:17 }}>🍦</div>
             <h1 style={{ margin:0, fontSize:22, fontWeight:700, letterSpacing:"-.03em", color:D.text }}>Pillot Glaces</h1>
           </div>
           <p style={{ margin:0, fontSize:14, color:D.textSec }}>{flavors.filter(f=>f.actif).length} parfums actifs · {fmtBac(totalBacsEnStock)} en stock</p>
@@ -102,7 +102,7 @@ export default function PillotGlaces({ restaurantId, profileId, toast }) {
 
       {/* Alertes urgentes */}
       {(flavorsRupture.length > 0 || flavorsAlerte.length > 0) && (
-        <div style={{ background:D.dangerLight, border:`1px solid #FECACA`, borderRadius:12, padding:"12px 16px", marginBottom:16, display:"flex", alignItems:"center", gap:12 }}>
+        <div style={{ background:D.dangerLight, border:`1px solid #FF7B8B66`, borderRadius:12, padding:"12px 16px", marginBottom:16, display:"flex", alignItems:"center", gap:12 }}>
           <span style={{ fontSize:20 }}>⚠️</span>
           <div>
             {flavorsRupture.length > 0 && <p style={{ margin:0, fontSize:13, fontWeight:600, color:D.danger }}>{flavorsRupture.length} parfum{flavorsRupture.length>1?"s":""} en rupture : {flavorsRupture.map(f=>f.nom).join(", ")}</p>}
@@ -112,7 +112,7 @@ export default function PillotGlaces({ restaurantId, profileId, toast }) {
       )}
 
       {/* Onglets */}
-      <div style={{ display:"flex", gap:3, background:"#F3F4F6", padding:3, borderRadius:10, marginBottom:18 }}>
+      <div style={{ display:"flex", gap:3, background:"#FFFFFF14", padding:3, borderRadius:10, marginBottom:18 }}>
         {TABS.map(([k,l]) => (
           <button key={k} onClick={() => setOnglet(k)}
             style={{ flex:1, padding:"7px 6px", borderRadius:8, border:"none", fontSize:12, fontWeight:onglet===k?600:400, cursor:"pointer", background:onglet===k?D.surface:"transparent", color:onglet===k?D.text:D.textSec, boxShadow:onglet===k?"0 1px 3px rgba(0,0,0,.08)":"none", transition:"all .15s", whiteSpace:"nowrap" }}>
@@ -195,7 +195,7 @@ function BilanTab({ daily, flavors, toast, restaurantId, onRefresh }) {
           </div>
         </div>
         <button onClick={saveBilan} disabled={saving || !stockFin}
-          style={{ width:"100%", padding:"12px", background:stockFin?"#7C3AED":"#E5E7EB", color:stockFin?"#fff":D.textMuted, border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:stockFin?"pointer":"not-allowed", transition:"background .15s" }}>
+          style={{ width:"100%", padding:"12px", background:stockFin?"#9F7AEA":"#FFFFFF1F", color:stockFin?"#fff":D.textMuted, border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:stockFin?"pointer":"not-allowed", transition:"background .15s" }}>
           {saving ? "Enregistrement..." : "Enregistrer le bilan"}
         </button>
       </div>
@@ -203,7 +203,7 @@ function BilanTab({ daily, flavors, toast, restaurantId, onRefresh }) {
       {/* Historique bilans */}
       {daily.length > 0 && (
         <div style={{ background:D.surface, border:`1px solid ${D.border}`, borderRadius:14, overflow:"hidden" }}>
-          <div style={{ padding:"12px 16px", borderBottom:`1px solid ${D.border}`, background:"#FAFAFA" }}>
+          <div style={{ padding:"12px 16px", borderBottom:`1px solid ${D.border}`, background:"#FFFFFF0A" }}>
             <p style={{ margin:0, fontSize:11, fontWeight:600, color:D.textMuted, textTransform:"uppercase", letterSpacing:".06em" }}>Historique des bilans</p>
           </div>
           {daily.slice(0,7).map((d, i) => {
@@ -287,7 +287,7 @@ function ParfumsTab({ flavors, restaurantId, profileId, toast, onRefresh }) {
           return (
             <div key={f.id} onClick={() => { setEditId(f.id); setEditBacs(String(f.stock_bacs||0)); }}
               style={{ padding:"12px 16px", borderBottom:i<items.length-1?`1px solid ${D.border}`:"none", display:"flex", alignItems:"center", gap:12, cursor:"pointer", transition:"background .1s" }}
-              onMouseEnter={e=>e.currentTarget.style.background="#FAFAFA"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              onMouseEnter={e=>e.currentTarget.style.background="#FFFFFF0A"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
               <div style={{ width:10, height:10, borderRadius:"50%", background:f.couleur_hex, flexShrink:0 }}/>
               <p style={{ margin:0, fontSize:13, fontWeight:500, flex:1 }}>{f.nom}</p>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -304,7 +304,7 @@ function ParfumsTab({ flavors, restaurantId, profileId, toast, onRefresh }) {
   return (
     <div>
       {addModal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(17,24,39,.5)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+        <div className="pv-modale" style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:D.surface, borderRadius:16, padding:24, maxWidth:360, width:"100%", boxShadow:"0 20px 60px rgba(0,0,0,.25)" }}>
             <h3 style={{ margin:"0 0 16px", fontSize:16, fontWeight:700 }}>Ajouter un parfum</h3>
             <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:16 }}>
@@ -326,7 +326,7 @@ function ParfumsTab({ flavors, restaurantId, profileId, toast, onRefresh }) {
               </div>
             </div>
             <div style={{ display:"flex", gap:8 }}>
-              <button onClick={saveFlavor} disabled={saving||!newFlavor.nom} style={{ flex:1, padding:"11px", background:newFlavor.nom?D.purple:"#E5E7EB", color:newFlavor.nom?"#fff":D.textMuted, border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:newFlavor.nom?"pointer":"default" }}>{saving?"...":"Ajouter"}</button>
+              <button onClick={saveFlavor} disabled={saving||!newFlavor.nom} style={{ flex:1, padding:"11px", background:newFlavor.nom?D.purple:"#FFFFFF1F", color:newFlavor.nom?"#fff":D.textMuted, border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:newFlavor.nom?"pointer":"default" }}>{saving?"...":"Ajouter"}</button>
               <button onClick={()=>setAddModal(false)} style={{ padding:"11px 14px", background:"transparent", border:`1px solid ${D.border}`, borderRadius:10, cursor:"pointer" }}>Annuler</button>
             </div>
           </div>
@@ -445,7 +445,7 @@ function ImportTab({ posImports, restaurantId, profileId, toast, onRefresh }) {
 
       {posImports.length > 0 && (
         <div style={{ background:D.surface, border:`1px solid ${D.border}`, borderRadius:12, overflow:"hidden" }}>
-          <div style={{ padding:"10px 14px", background:"#FAFAFA", borderBottom:`1px solid ${D.border}` }}>
+          <div style={{ padding:"10px 14px", background:"#FFFFFF0A", borderBottom:`1px solid ${D.border}` }}>
             <p style={{ margin:0, fontSize:11, fontWeight:600, color:D.textMuted, textTransform:"uppercase", letterSpacing:".06em" }}>Imports récents</p>
           </div>
           {posImports.slice(0,5).map((p,i)=>(
@@ -473,7 +473,7 @@ function CommandeTab({ flavors, toast }) {
   return (
     <div>
       <div style={{ background:D.surface, border:`1px solid ${D.border}`, borderRadius:14, overflow:"hidden", marginBottom:14 }}>
-        <div style={{ background:"#5B21B6", padding:"14px 16px", color:"#fff" }}>
+        <div style={{ background:"#6D4FC2", padding:"14px 16px", color:"#fff" }}>
           <p style={{ margin:0, fontSize:14, fontWeight:700 }}>Odyssée des Glaces</p>
           <p style={{ margin:"2px 0 0", fontSize:12, opacity:.8 }}>Lucas — 06 42 46 98 57</p>
         </div>
@@ -497,8 +497,8 @@ function CommandeTab({ flavors, toast }) {
             ))}
           </div>
           <div style={{ padding:14, borderTop:`1px solid ${D.border}` }}>
-            <div style={{ background:"#FAFAFA", border:`1px solid ${D.border}`, borderRadius:9, padding:12, fontFamily:"monospace", fontSize:12, whiteSpace:"pre-wrap", marginBottom:10 }}>{msg}</div>
-            <button onClick={copy} style={{ width:"100%", padding:11, background:copied?D.success:"#5B21B6", color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", transition:"background .2s" }}>
+            <div style={{ background:"#FFFFFF0A", border:`1px solid ${D.border}`, borderRadius:9, padding:12, fontFamily:"monospace", fontSize:12, whiteSpace:"pre-wrap", marginBottom:10 }}>{msg}</div>
+            <button onClick={copy} style={{ width:"100%", padding:11, background:copied?D.success:"#6D4FC2", color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", transition:"background .2s" }}>
               {copied ? "✓ Copié !" : "Copier pour WhatsApp"}
             </button>
           </div>

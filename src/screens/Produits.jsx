@@ -6,12 +6,12 @@ import { PARAMETRES_DEFAUT } from "../parametres";
 
 // Fiches produits (gérant) : ajout, modification, archivage, et import Excel.
 const LAB={fontSize:11,fontWeight:700,color:C.textSec,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:".5px"};
-const CHAMP={width:"100%",boxSizing:"border-box",padding:"9px 11px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none",background:"#fff"};
+const CHAMP={width:"100%",boxSizing:"border-box",padding:"9px 11px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none",background:"#FFFFFF0F"};
 const BTN={padding:"10px 16px",background:C.brand,color:"#fff",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer"};
 const BTN2={padding:"10px 14px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,cursor:"pointer",color:C.text};
 
 function Fenetre({titre,onClose,busy,children,large}){
-  return<div role="dialog" aria-modal="true" aria-label={titre} style={{position:"fixed",inset:0,background:"rgba(15,23,42,.45)",zIndex:60,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"24px 12px 96px",overflowY:"auto"}} onClick={e=>{if(e.target===e.currentTarget&&!busy)onClose?.();}}>
+  return<div className="pv-modale" role="dialog" aria-modal="true" aria-label={titre} style={{position:"fixed",inset:0,background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",zIndex:60,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"24px 12px 96px",overflowY:"auto"}} onClick={e=>{if(e.target===e.currentTarget&&!busy)onClose?.();}}>
     <Card style={{width:"100%",maxWidth:large?720:480,padding:20}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:800}}>{titre}</h2>
