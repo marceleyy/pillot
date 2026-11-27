@@ -20,7 +20,7 @@ export default function Admin({adminProfile,toast,onCommerceCree}){
     if(!error){setSent(p=>new Set([...p,askId]));setAskId(null);toast("Demande envoyée au propriétaire");}else toast("Erreur","error");
   };
   return<div>
-    {askId&&<div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+    {askId&&<div style={{position:"fixed",inset:0,background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
       <div style={{background:C.surface,borderRadius:16,padding:28,maxWidth:420,width:"100%",boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
         <h3 style={{margin:"0 0 4px",fontSize:16,fontWeight:800}}>Demande d'accès supervisée</h3>
         <p style={{margin:"0 0 18px",fontSize:13,color:C.textSec}}>{clients.find(c=>c.id===askId)?.name}</p>
@@ -31,7 +31,7 @@ export default function Admin({adminProfile,toast,onCommerceCree}){
           ))}
         </div>
         <div style={{display:"flex",gap:8}}>
-          <button onClick={send} disabled={!raison} style={{flex:1,padding:"12px",background:raison?C.brand:"#E2E8F0",color:raison?"#fff":C.textMuted,border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:raison?"pointer":"not-allowed"}}>Envoyer</button>
+          <button onClick={send} disabled={!raison} style={{flex:1,padding:"12px",background:raison?C.brand:"#FFFFFF1F",color:raison?"#fff":C.textMuted,border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:raison?"pointer":"not-allowed"}}>Envoyer</button>
           <button onClick={()=>setAskId(null)} style={{padding:"12px 16px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:10,cursor:"pointer"}}>Annuler</button>
         </div>
       </div>
@@ -48,7 +48,7 @@ export default function Admin({adminProfile,toast,onCommerceCree}){
         </div>
         <div style={{padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",gap:16}}>
-            {[[pc.nomSection("SALE"),rs,col],...(pc.deuxSections?[[pc.nomSection("SUCRE"),c.ratio_sucre||0,"#7C3AED"]]:[]),["Objectif",obj,C.textMuted]].map(([l,v,c])=>(
+            {[[pc.nomSection("SALE"),rs,col],...(pc.deuxSections?[[pc.nomSection("SUCRE"),c.ratio_sucre||0,"#9F7AEA"]]:[]),["Objectif",obj,C.textMuted]].map(([l,v,c])=>(
               <div key={l}><p style={{margin:0,fontSize:10,color:C.textMuted}}>{l}</p><p style={{margin:0,fontSize:16,fontWeight:800,color:c}}>{(v*100).toFixed(1)}%</p></div>
             ))}
           </div>

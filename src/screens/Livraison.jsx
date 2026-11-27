@@ -36,8 +36,8 @@ export default function Livraison({products,fournisseur:fInit="",quantites={},ge
     onDone?.();
   };
 
-  const champ={padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none",background:"#fff",boxSizing:"border-box"};
-  return<div role="dialog" aria-modal="true" aria-label="Livraison reçue" style={{position:"fixed",inset:0,background:"rgba(15,23,42,.45)",zIndex:60,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"24px 12px 96px",overflowY:"auto"}} onClick={e=>{if(e.target===e.currentTarget&&!busy)onClose?.();}}>
+  const champ={padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none",background:"#FFFFFF0F",boxSizing:"border-box"};
+  return<div role="dialog" aria-modal="true" aria-label="Livraison reçue" style={{position:"fixed",inset:0,background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",zIndex:60,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"24px 12px 96px",overflowY:"auto"}} onClick={e=>{if(e.target===e.currentTarget&&!busy)onClose?.();}}>
     <Card style={{width:"100%",maxWidth:620,padding:20}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:800}}>Livraison reçue</h2>

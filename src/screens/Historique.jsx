@@ -9,9 +9,9 @@ export default function Historique({restaurantId,params=PARAMETRES_DEFAUT,toast}
   const [vue,setVue]=useState("conso");
   return<div>
     <div style={{marginBottom:16}}><h1 style={{margin:0,fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>Historique</h1></div>
-    <div role="tablist" style={{display:"flex",gap:4,background:"#F1F5F9",padding:4,borderRadius:10,marginBottom:16,width:"fit-content"}}>
+    <div role="tablist" style={{display:"flex",gap:4,background:"#FFFFFF14",padding:4,borderRadius:10,marginBottom:16,width:"fit-content"}}>
       {[["conso","Consommation"],["ratios","Coût matière par semaine"]].map(([k,l])=><button key={k} role="tab" aria-selected={vue===k} onClick={()=>setVue(k)}
-        style={{padding:"7px 14px",borderRadius:8,border:"none",background:vue===k?"#fff":"transparent",boxShadow:vue===k?"0 1px 3px rgba(0,0,0,.08)":"none",fontSize:13,fontWeight:vue===k?700:500,color:vue===k?C.text:C.textSec,cursor:"pointer"}}>{l}</button>)}
+        style={{padding:"7px 14px",borderRadius:8,border:"none",background:vue===k?"#FFFFFF24":"transparent",boxShadow:vue===k?"0 1px 3px rgba(0,0,0,.08)":"none",fontSize:13,fontWeight:vue===k?700:500,color:vue===k?C.text:C.textSec,cursor:"pointer"}}>{l}</button>)}
     </div>
     {vue==="conso"?<Consommation restaurantId={restaurantId} params={params} toast={toast}/>:<CoutMatiere restaurantId={restaurantId} params={params}/>}
   </div>;
@@ -34,7 +34,7 @@ function CoutMatiere({restaurantId,params=PARAMETRES_DEFAUT}){
     const yS=v=>PT+IH-(v/maxV)*IH;
     return<svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:"visible"}}>
       {[0,25,50].map(v=>{const y=yS(v);return<g key={v}>
-        <line x1={PL} y1={y} x2={W-PR} y2={y} stroke={v===25?C.warning:"#E2E8F0"} strokeWidth={v===25?"1":"0.5"} strokeDasharray={v===25?"4,3":""}/>
+        <line x1={PL} y1={y} x2={W-PR} y2={y} stroke={v===25?C.warning:"#FFFFFF1F"} strokeWidth={v===25?"1":"0.5"} strokeDasharray={v===25?"4,3":""}/>
         <text x={PL-4} y={y+3} textAnchor="end" fontSize="8" fill={C.textMuted}>{v}%</text>
       </g>;})}
       {data.map((h,i)=>{
@@ -49,7 +49,7 @@ function CoutMatiere({restaurantId,params=PARAMETRES_DEFAUT}){
 
   if(loading)return<p style={{color:C.textMuted,padding:40,textAlign:"center"}}>Chargement...</p>;
   if(!hist.length)return<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:300,gap:12,textAlign:"center",padding:20}}>
-    <div style={{width:64,height:64,borderRadius:"50%",background:"#F1F5F9",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon n="chart" sz={28} c={C.textMuted}/></div>
+    <div style={{width:64,height:64,borderRadius:"50%",background:"#FFFFFF14",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon n="chart" sz={28} c={C.textMuted}/></div>
     <h3 style={{margin:0,fontSize:18,fontWeight:700}}>Pas encore de données</h3>
     <p style={{margin:0,color:C.textSec,fontSize:14,maxWidth:280}}>Les ratios hebdomadaires importés apparaîtront ici. La consommation, elle, se calcule directement dans l'onglet Consommation.</p>
   </div>;

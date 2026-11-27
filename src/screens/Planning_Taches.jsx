@@ -9,13 +9,13 @@ import { supabase } from "../lib/supabase";
 import { jourLocal } from "../lib/taches";
 
 const C = {
-  brand:"#2563EB",brandLight:"#EFF6FF",navy:"#0F172A",
-  success:"#16A34A",successLight:"#F0FDF4",
-  warning:"#D97706",warningLight:"#FFFBEB",
-  danger:"#DC2626",dangerLight:"#FEF2F2",
-  purple:"#7C3AED",purpleLight:"#F5F3FF",
-  border:"#E2E8F0",surface:"#FFFFFF",bg:"#F1F5F9",
-  text:"#0F172A",textSec:"#64748B",textMuted:"#94A3B8"
+  brand:"#4C7DF0",brandLight:"#8FB3FF24",navy:"#1A1214",
+  success:"#2FA36B",successLight:"#5FD39A24",
+  warning:"#E0A030",warningLight:"#F2B54524",
+  danger:"#E5485D",dangerLight:"#FF7B8B24",
+  purple:"#9F7AEA",purpleLight:"#A78BFA24",
+  border:"#FFFFFF1F",surface:"#FFFFFF0F",bg:"#FFFFFF14",
+  text:"#F4EDE7",textSec:"#F4EDE7B3",textMuted:"#F4EDE780"
 };
 
 const JOURS = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
@@ -94,7 +94,7 @@ export function Planning({ restaurantId, profileId, toast }) {
     setSaving(true);
     const ds = modal.date.toISOString().split("T")[0];
     if (type === "repos") {
-      await supabase.from("shifts").insert({ restaurant_id: restaurantId, employee_id: modal.empId, date: ds, heure_debut:"00:00", heure_fin:"00:00", type_nom:"Repos", couleur:"#E2E8F0", repos: true });
+      await supabase.from("shifts").insert({ restaurant_id: restaurantId, employee_id: modal.empId, date: ds, heure_debut:"00:00", heure_fin:"00:00", type_nom:"Repos", couleur:"#FFFFFF1F", repos: true });
     } else {
       await supabase.from("shifts").insert({ restaurant_id: restaurantId, employee_id: modal.empId, date: ds, heure_debut: type.heure_debut, heure_fin: type.heure_fin, type_nom: type.nom, couleur: type.couleur, repos: false });
     }
@@ -138,7 +138,7 @@ export function Planning({ restaurantId, profileId, toast }) {
     <div>
       {/* Modal ajout shift */}
       {modal && (
-        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+        <div style={{position:"fixed",inset:0,background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
           <div style={{background:C.surface,borderRadius:16,padding:24,width:"100%",maxWidth:360,boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
             <p style={{margin:"0 0 4px",fontSize:16,fontWeight:800}}>{modal.empName}</p>
             <p style={{margin:"0 0 16px",fontSize:13,color:C.textSec}}>{modal.date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</p>
@@ -155,8 +155,8 @@ export function Planning({ restaurantId, profileId, toast }) {
                 </button>
               ))}
               <button onClick={() => addShift("repos")}
-                style={{padding:"10px 14px",borderRadius:10,border:`1px solid ${C.border}`,background:"#F8FAFC",cursor:"pointer",display:"flex",alignItems:"center",gap:10,color:C.textSec}}>
-                <span style={{width:12,height:12,borderRadius:"50%",background:"#CBD5E1",flexShrink:0,display:"inline-block"}}/>
+                style={{padding:"10px 14px",borderRadius:10,border:`1px solid ${C.border}`,background:"#FFFFFF0A",cursor:"pointer",display:"flex",alignItems:"center",gap:10,color:C.textSec}}>
+                <span style={{width:12,height:12,borderRadius:"50%",background:"#FFFFFF40",flexShrink:0,display:"inline-block"}}/>
                 <span style={{fontSize:13}}>Repos hebdomadaire</span>
               </button>
             </div>
@@ -225,13 +225,13 @@ export function Planning({ restaurantId, profileId, toast }) {
         <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:"auto"}}>
           {/* En-tête jours */}
           <div style={{display:"grid",gridTemplateColumns:"160px repeat(7,1fr)",borderBottom:`1px solid ${C.border}`,minWidth:800}}>
-            <div style={{padding:"10px 14px",background:"#F8FAFC",borderRight:`1px solid ${C.border}`}}>
+            <div style={{padding:"10px 14px",background:"#FFFFFF0A",borderRight:`1px solid ${C.border}`}}>
               <p style={{margin:0,fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Employés</p>
             </div>
             {days.map((d, i) => {
               const today = new Date().toISOString().split("T")[0] === d.toISOString().split("T")[0];
               return (
-                <div key={i} style={{padding:"10px 8px",textAlign:"center",background: today?"#EFF6FF":"#F8FAFC",borderRight:i<6?`1px solid ${C.border}`:"none",borderBottom:`2px solid ${today?C.brand:C.border}`}}>
+                <div key={i} style={{padding:"10px 8px",textAlign:"center",background: today?"#8FB3FF24":"#FFFFFF0A",borderRight:i<6?`1px solid ${C.border}`:"none",borderBottom:`2px solid ${today?C.brand:C.border}`}}>
                   <p style={{margin:0,fontSize:11,fontWeight:500,color:today?C.brand:C.textSec}}>{JOURS[i]}</p>
                   <p style={{margin:"2px 0 0",fontSize:15,fontWeight:800,color:today?C.brand:C.text}}>{d.getDate()}</p>
                 </div>
@@ -258,7 +258,7 @@ export function Planning({ restaurantId, profileId, toast }) {
                   return (
                     <div key={di} onClick={() => setModal({ empId: emp.id, empName: `${emp.prenom} ${emp.nom}`, date: d })}
                       style={{padding:6,borderRight:di<6?`1px solid ${C.border}`:"none",minHeight:60,cursor:"pointer",background:"transparent",position:"relative"}}
-                      onMouseEnter={e=>e.currentTarget.style.background="#F8FAFC"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      onMouseEnter={e=>e.currentTarget.style.background="#FFFFFF0A"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                       {dayShifts.length === 0 && (
                         <div style={{height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}}>
                           <span style={{fontSize:18,color:C.border,opacity:0}}>+</span>
@@ -266,7 +266,7 @@ export function Planning({ restaurantId, profileId, toast }) {
                       )}
                       {dayShifts.map(s => (
                         <div key={s.id} onClick={e=>{e.stopPropagation();removeShift(s.id);}}
-                          style={{marginBottom:3,padding:"3px 6px",borderRadius:6,background:s.repos?"#F1F5F9":s.couleur+"22",border:`1px solid ${s.repos?"#E2E8F0":s.couleur}50`,cursor:"pointer",position:"relative"}}
+                          style={{marginBottom:3,padding:"3px 6px",borderRadius:6,background:s.repos?"#FFFFFF14":s.couleur+"22",border:`1px solid ${s.repos?"#FFFFFF1F":s.couleur}50`,cursor:"pointer",position:"relative"}}
                           title="Cliquer pour supprimer">
                           {s.repos ? (
                             <p style={{margin:0,fontSize:10,color:C.textMuted}}>Repos</p>
@@ -364,7 +364,7 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
   return (
     <div>
       {addModal && (
-        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+        <div style={{position:"fixed",inset:0,background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
           <div style={{background:C.surface,borderRadius:16,padding:24,width:"100%",maxWidth:400,boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
             <h3 style={{margin:"0 0 16px",fontSize:16,fontWeight:800}}>Nouvelle tâche</h3>
             <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
@@ -389,7 +389,7 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
               </div>
             </div>
             <div style={{display:"flex",gap:8}}>
-              <button onClick={saveTask} disabled={saving||!newTask.nom} style={{flex:1,padding:"11px",background:newTask.nom?C.brand:"#E2E8F0",color:newTask.nom?"#fff":C.textMuted,border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:newTask.nom?"pointer":"not-allowed"}}>{saving?"...":"Créer la tâche"}</button>
+              <button onClick={saveTask} disabled={saving||!newTask.nom} style={{flex:1,padding:"11px",background:newTask.nom?C.brand:"#FFFFFF1F",color:newTask.nom?"#fff":C.textMuted,border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:newTask.nom?"pointer":"not-allowed"}}>{saving?"...":"Créer la tâche"}</button>
               <button onClick={()=>setAddModal(false)} style={{padding:"11px 14px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:10,cursor:"pointer"}}>Annuler</button>
             </div>
           </div>
@@ -410,13 +410,13 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
           <p style={{margin:0,fontSize:14,fontWeight:700}}>Progression du jour</p>
           <p style={{margin:0,fontSize:16,fontWeight:800,color:done.length===todayTasks.length&&todayTasks.length>0?C.success:C.brand}}>{done.length}/{todayTasks.length}</p>
         </div>
-        <div style={{height:8,background:"#F1F5F9",borderRadius:4,overflow:"hidden"}}>
+        <div style={{height:8,background:"#FFFFFF14",borderRadius:4,overflow:"hidden"}}>
           <div style={{height:"100%",width:`${todayTasks.length>0?(done.length/todayTasks.length*100):0}%`,background:done.length===todayTasks.length&&todayTasks.length>0?C.success:C.brand,borderRadius:4,transition:"width .3s"}}/>
         </div>
       </div>
 
       {/* Tabs */}
-      <div style={{display:"flex",gap:4,background:"#F1F5F9",padding:4,borderRadius:10,marginBottom:14}}>
+      <div style={{display:"flex",gap:4,background:"#FFFFFF14",padding:4,borderRadius:10,marginBottom:14}}>
         {[["jour",`À faire (${todo.length})`],["done",`Complétées (${done.length})`],isOwner&&["all","Toutes les tâches"]].filter(Boolean).map(([k,l])=>(
           <button key={k} onClick={()=>setOnglet(k)} style={{flex:1,padding:"7px 10px",borderRadius:8,border:"none",fontSize:13,fontWeight:600,cursor:"pointer",background:onglet===k?C.surface:"transparent",color:onglet===k?C.text:C.textSec,boxShadow:onglet===k?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{l}</button>
         ))}

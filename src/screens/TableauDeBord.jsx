@@ -224,7 +224,7 @@ export function Calendrier({ evs, onTab, charge = true }) {
           style={{padding:"5px 0 6px",borderRadius:9,border:estAuj && !sel ? `1.5px solid ${T.brand}` : "1.5px solid transparent",background:sel ? T.navy : "transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
           <span style={{fontSize:10,fontWeight:600,color:sel ? T.brandSoft : T.textMuted}}>{JOURS[i]}</span>
           <span style={{fontSize:14,fontWeight:700,color:sel ? "#fff" : T.text}}>{jour(d).getDate()}</span>
-          <span style={{width:5,height:5,borderRadius:"50%",background:ev.length ? (sel ? "#fff" : TONS[ev.some(e => e.ton === "rouge") ? "rouge" : ev[0].ton].c) : "transparent"}}/>
+          <span style={{width:5,height:5,borderRadius:"50%",background:ev.length ? (sel ? "#FFFFFF0F" : TONS[ev.some(e => e.ton === "rouge") ? "rouge" : ev[0].ton].c) : "transparent"}}/>
         </button>;
       })}
     </div>
@@ -266,7 +266,7 @@ export function EtatStock({ products, onTab, commandes = true }) {
 }
 
 // ── Achats : total du mois et répartition par fournisseur ─────
-const TEINTES = ["#1E3A8A", "#2563EB", "#60A5FA", "#93C5FD", "#BFDBFE", "#94A3B8"];
+const TEINTES = ["#9DBBFF", "#4C7DF0", "#60A5FA", "#8FB3FF99", "#8FB3FF66", "#F4EDE780"];
 function Donut({ parts }) {
   const total = parts.reduce((a, p) => a + p.v, 0), R = 38, L = 2 * Math.PI * R;
   let cumul = 0;
