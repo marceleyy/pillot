@@ -87,7 +87,7 @@ export function Gauge({ratio,obj=0.25}){
 export function Toast({msg,type="success",onClose}){
   useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t);},[onClose]);
   const bg=type==="success"?C.success:type==="error"?C.danger:C.warning;
-  return<div style={{position:"fixed",top:20,right:20,zIndex:9999,background:bg,color:"#fff",padding:"12px 16px",borderRadius:10,display:"flex",alignItems:"center",gap:10,boxShadow:"0 4px 20px rgba(0,0,0,.2)",fontSize:14,fontWeight:500,maxWidth:320}}>
+  return<div style={{position:"fixed",top:20,right:20,zIndex:9999,background:bg,color:type==="success"||type==="error"?"#fff":"#1c1416",padding:"12px 16px",borderRadius:10,display:"flex",alignItems:"center",gap:10,boxShadow:"0 4px 20px rgba(0,0,0,.2)",fontSize:14,fontWeight:500,maxWidth:320}}>
     <Icon n={type==="success"?"check":"alert"} sz={16}/>{msg}
     <button onClick={onClose} style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",marginLeft:"auto"}}><Icon n="x" sz={14}/></button>
   </div>;

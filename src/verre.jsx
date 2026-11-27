@@ -111,7 +111,7 @@ export function Jauge({ part, texte }) {
 // Fond « verre fumé » de toute l'application (style de la vidéo).
 export const STYLE_APP=`:root{color-scheme:dark}
 html{background:#1c1416}
-body{background:#1c1416;color:#F4EDE7;min-height:100vh}
+body{background:transparent;color:#F4EDE7;min-height:100vh}
 body::before{content:"";position:fixed;inset:-80px;z-index:-1;filter:blur(50px);pointer-events:none;
  background:radial-gradient(28% 40% at 12% 18%,#a5835f,transparent 70%),radial-gradient(30% 50% at 88% 30%,#6b4a34,transparent 70%),
  radial-gradient(40% 35% at 70% 92%,#3c4a2c,transparent 70%),radial-gradient(22% 60% at 4% 80%,#6b4a34,transparent 70%),linear-gradient(160deg,#6b4a34,#2e211b)}
@@ -124,4 +124,6 @@ input::placeholder,textarea::placeholder{color:rgba(244,237,231,.45)}
 option,optgroup{background:#241a1c;color:#F4EDE7}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:3px}
 .pv-verre[data-piste="fume"]::before{display:none}
+.pv-verre[data-piste="fume"]{background:transparent}
+.pv-modale>*{background:rgba(40,30,32,.94)!important;border:1px solid rgba(255,255,255,.14);box-shadow:0 30px 60px -20px rgba(0,0,0,.7)}
 .pv-verre[data-piste="fume"] .pv-fenetre{background:transparent;border:0;box-shadow:none;padding:0;backdrop-filter:none;-webkit-backdrop-filter:none}`;

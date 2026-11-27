@@ -94,7 +94,7 @@ export function Planning({ restaurantId, profileId, toast }) {
     setSaving(true);
     const ds = modal.date.toISOString().split("T")[0];
     if (type === "repos") {
-      await supabase.from("shifts").insert({ restaurant_id: restaurantId, employee_id: modal.empId, date: ds, heure_debut:"00:00", heure_fin:"00:00", type_nom:"Repos", couleur:"#FFFFFF1F", repos: true });
+      await supabase.from("shifts").insert({ restaurant_id: restaurantId, employee_id: modal.empId, date: ds, heure_debut:"00:00", heure_fin:"00:00", type_nom:"Repos", couleur:"#E2E8F0", repos: true });
     } else {
       await supabase.from("shifts").insert({ restaurant_id: restaurantId, employee_id: modal.empId, date: ds, heure_debut: type.heure_debut, heure_fin: type.heure_fin, type_nom: type.nom, couleur: type.couleur, repos: false });
     }
@@ -138,7 +138,7 @@ export function Planning({ restaurantId, profileId, toast }) {
     <div>
       {/* Modal ajout shift */}
       {modal && (
-        <div style={{position:"fixed",inset:0,background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+        <div className="pv-modale" style={{position:"fixed",inset:0,background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
           <div style={{background:C.surface,borderRadius:16,padding:24,width:"100%",maxWidth:360,boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
             <p style={{margin:"0 0 4px",fontSize:16,fontWeight:800}}>{modal.empName}</p>
             <p style={{margin:"0 0 16px",fontSize:13,color:C.textSec}}>{modal.date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</p>
@@ -266,13 +266,13 @@ export function Planning({ restaurantId, profileId, toast }) {
                       )}
                       {dayShifts.map(s => (
                         <div key={s.id} onClick={e=>{e.stopPropagation();removeShift(s.id);}}
-                          style={{marginBottom:3,padding:"3px 6px",borderRadius:6,background:s.repos?"#FFFFFF14":s.couleur+"22",border:`1px solid ${s.repos?"#FFFFFF1F":s.couleur}50`,cursor:"pointer",position:"relative"}}
+                          style={{marginBottom:3,padding:"3px 6px",borderRadius:6,background:s.repos?"#FFFFFF14":s.couleur+"22",border:s.repos?"1px solid #FFFFFF1F":`1px solid ${s.couleur}50`,cursor:"pointer",position:"relative"}}
                           title="Cliquer pour supprimer">
                           {s.repos ? (
                             <p style={{margin:0,fontSize:10,color:C.textMuted}}>Repos</p>
                           ) : (
                             <>
-                              <p style={{margin:0,fontSize:10,fontWeight:700,color:s.couleur}}>{s.type_nom}</p>
+                              <p style={{margin:0,fontSize:10,fontWeight:700,color:`color-mix(in srgb, ${s.couleur} 55%, #fff)`}}>{s.type_nom}</p>
                               <p style={{margin:0,fontSize:9,color:C.textSec}}>{s.heure_debut}–{s.heure_fin}</p>
                             </>
                           )}
@@ -356,7 +356,7 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
     toast("Tâche supprimée");
   };
 
-  const PRIO_COLOR = { haute: C.danger, normale: C.brand, basse: C.textMuted };
+  const PRIO_COLOR = { haute: C.danger, normale: C.brand, basse: "#9C918A" };
   const CAT_ICON = { ouverture:"☀️", fermeture:"🌙", nettoyage:"🧹", haccp:"🌡️", stock:"📦", general:"📋" };
 
   if (loading) return <div style={{padding:40,textAlign:"center",color:C.textMuted}}>Chargement...</div>;
@@ -364,7 +364,7 @@ export function Taches({ restaurantId, profileId, toast, isOwner }) {
   return (
     <div>
       {addModal && (
-        <div style={{position:"fixed",inset:0,background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+        <div className="pv-modale" style={{position:"fixed",inset:0,background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
           <div style={{background:C.surface,borderRadius:16,padding:24,width:"100%",maxWidth:400,boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
             <h3 style={{margin:"0 0 16px",fontSize:16,fontWeight:800}}>Nouvelle tâche</h3>
             <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>

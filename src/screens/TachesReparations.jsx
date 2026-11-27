@@ -9,7 +9,7 @@ import { jourLocal, enRetard } from "../lib/taches";
 const CATEGORIES = { salle: "Salle", cuisine: "Cuisine", reparation: "Réparation", entretien: "Entretien", deco: "Déco", achat: "Achat" };
 const PRIORITES = { urgente: "Urgente", normale: "Normale", quand_possible: "Quand possible" };
 const STATUTS = { creee: "Créée", en_cours: "En cours", realisee: "Réalisée" };
-const PRIO_COUL = { urgente: C.danger, normale: C.brand, quand_possible: C.textMuted };
+const PRIO_COUL = { urgente: C.danger, normale: C.brand, quand_possible: "#9C918A" };
 const PRIO_RANG = { urgente: 0, normale: 1, quand_possible: 2 };
 const RELANCES = [["Non", 0], ["Dans 1 semaine", 7], ["Dans 1 mois", 30], ["Dans 3 mois", 90]];
 
@@ -32,7 +32,7 @@ const champ = { width: "100%", boxSizing: "border-box", padding: "9px 12px", bor
 const btn = (fond, texte = "#fff") => ({ padding: "8px 14px", background: fond, color: texte, border: fond === "transparent" ? `1px solid ${C.border}` : "none", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" });
 
 function Fenetre({ children, onFermer }) {
-  return <div onClick={onFermer} style={{position:"fixed",inset:0,background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+  return <div className="pv-modale" onClick={onFermer} style={{position:"fixed",inset:0,background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
     <div onClick={e => e.stopPropagation()} role="dialog" style={{background:C.surface,borderRadius:16,padding:22,width:"100%",maxWidth:440,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>{children}</div>
   </div>;
 }

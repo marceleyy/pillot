@@ -234,7 +234,7 @@ function ParfumsTab({ flavors, restaurantId, profileId, toast, onRefresh }) {
   const [editBacs, setEditBacs] = useState("");
   const [saving, setSaving] = useState(false);
   const [addModal, setAddModal] = useState(false);
-  const [newFlavor, setNewFlavor] = useState({ nom:"", categorie:"glace", couleur_hex:"#9F7AEA", stock_bacs:0, stock_min_bacs:2 });
+  const [newFlavor, setNewFlavor] = useState({ nom:"", categorie:"glace", couleur_hex:"#7C3AED", stock_bacs:0, stock_min_bacs:2 });
 
   const saveBacs = async (id) => {
     setSaving(true);
@@ -247,7 +247,7 @@ function ParfumsTab({ flavors, restaurantId, profileId, toast, onRefresh }) {
     setSaving(true);
     await supabase.from("glaces_flavors").insert({ restaurant_id:restaurantId, ...newFlavor });
     toast("Parfum ajouté"); setAddModal(false);
-    setNewFlavor({ nom:"", categorie:"glace", couleur_hex:"#9F7AEA", stock_bacs:0, stock_min_bacs:2 });
+    setNewFlavor({ nom:"", categorie:"glace", couleur_hex:"#7C3AED", stock_bacs:0, stock_min_bacs:2 });
     await onRefresh(); setSaving(false);
   };
 
@@ -304,7 +304,7 @@ function ParfumsTab({ flavors, restaurantId, profileId, toast, onRefresh }) {
   return (
     <div>
       {addModal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+        <div className="pv-modale" style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:D.surface, borderRadius:16, padding:24, maxWidth:360, width:"100%", boxShadow:"0 20px 60px rgba(0,0,0,.25)" }}>
             <h3 style={{ margin:"0 0 16px", fontSize:16, fontWeight:700 }}>Ajouter un parfum</h3>
             <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:16 }}>
@@ -473,7 +473,7 @@ function CommandeTab({ flavors, toast }) {
   return (
     <div>
       <div style={{ background:D.surface, border:`1px solid ${D.border}`, borderRadius:14, overflow:"hidden", marginBottom:14 }}>
-        <div style={{ background:"#C4B5FD", padding:"14px 16px", color:"#fff" }}>
+        <div style={{ background:"#6D4FC2", padding:"14px 16px", color:"#fff" }}>
           <p style={{ margin:0, fontSize:14, fontWeight:700 }}>Odyssée des Glaces</p>
           <p style={{ margin:"2px 0 0", fontSize:12, opacity:.8 }}>Lucas — 06 42 46 98 57</p>
         </div>
@@ -498,7 +498,7 @@ function CommandeTab({ flavors, toast }) {
           </div>
           <div style={{ padding:14, borderTop:`1px solid ${D.border}` }}>
             <div style={{ background:"#FFFFFF0A", border:`1px solid ${D.border}`, borderRadius:9, padding:12, fontFamily:"monospace", fontSize:12, whiteSpace:"pre-wrap", marginBottom:10 }}>{msg}</div>
-            <button onClick={copy} style={{ width:"100%", padding:11, background:copied?D.success:"#C4B5FD", color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", transition:"background .2s" }}>
+            <button onClick={copy} style={{ width:"100%", padding:11, background:copied?D.success:"#6D4FC2", color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", transition:"background .2s" }}>
               {copied ? "✓ Copié !" : "Copier pour WhatsApp"}
             </button>
           </div>

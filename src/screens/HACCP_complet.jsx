@@ -140,7 +140,7 @@ function TemperaturesTab({ logs, restaurantId, profileId, toast, onRefresh }) {
   return (
     <div>
       {adding && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+        <div className="pv-modale" style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:C.surface, borderRadius:16, padding:24, maxWidth:340, width:"100%", boxShadow:"0 20px 50px rgba(0,0,0,.3)" }}>
             <p style={{ margin:"0 0 4px", fontSize:16, fontWeight:800 }}>{adding}</p>
             <p style={{ margin:"0 0 16px", fontSize:13, color:C.textSec }}>Norme : {EQUIPEMENTS.find(e=>e.nom===adding)?.min}°C à {EQUIPEMENTS.find(e=>e.nom===adding)?.max}°C</p>
@@ -279,7 +279,7 @@ function DLCTab({ entries, restaurantId, profileId, toast, onRefresh, onExport }
   return (
     <div>
       {modal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+        <div className="pv-modale" style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:C.surface, borderRadius:16, padding:24, maxWidth:400, width:"100%", boxShadow:"0 20px 50px rgba(0,0,0,.3)" }}>
             <h3 style={{ margin:"0 0 16px", fontSize:16, fontWeight:800 }}>Nouvelle DLC</h3>
             <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:14 }}>
@@ -366,7 +366,7 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
   return (
     <div>
       {modal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+        <div className="pv-modale" style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:C.surface, borderRadius:16, padding:24, maxWidth:420, width:"100%", boxShadow:"0 20px 50px rgba(0,0,0,.3)" }}>
             <h3 style={{ margin:"0 0 16px", fontSize:16, fontWeight:800 }}>Contrôle de réception</h3>
             <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:16 }}>
@@ -459,7 +459,7 @@ function HuileTab({ oils, restaurantId, profileId, toast, onRefresh }) {
   return (
     <div>
       {modal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+        <div className="pv-modale" style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:C.surface, borderRadius:16, padding:24, maxWidth:380, width:"100%", boxShadow:"0 20px 50px rgba(0,0,0,.3)" }}>
             <h3 style={{ margin:"0 0 16px", fontSize:16, fontWeight:800 }}>Changement d'huile</h3>
             <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:14 }}>

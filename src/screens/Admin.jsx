@@ -20,7 +20,7 @@ export default function Admin({adminProfile,toast,onCommerceCree}){
     if(!error){setSent(p=>new Set([...p,askId]));setAskId(null);toast("Demande envoyée au propriétaire");}else toast("Erreur","error");
   };
   return<div>
-    {askId&&<div style={{position:"fixed",inset:0,background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+    {askId&&<div className="pv-modale" style={{position:"fixed",inset:0,background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
       <div style={{background:C.surface,borderRadius:16,padding:28,maxWidth:420,width:"100%",boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
         <h3 style={{margin:"0 0 4px",fontSize:16,fontWeight:800}}>Demande d'accès supervisée</h3>
         <p style={{margin:"0 0 18px",fontSize:13,color:C.textSec}}>{clients.find(c=>c.id===askId)?.name}</p>

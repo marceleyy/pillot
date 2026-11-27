@@ -23,7 +23,7 @@ const TYPES = [
   { key:"bain_marie",  label:"Bain-marie",   icon:"♨️",  temp_min:63,  temp_max:99, color:"#F97316" },
   { key:"zone_chaude", label:"Zone chaude",  icon:"🔥",  temp_min:63,  temp_max:99, color:"#EF4444" },
   { key:"friteuse",    label:"Friteuse",     icon:"🛢️",  temp_min:160, temp_max:190,color:"#F2B545" },
-  { key:"autre",       label:"Autre",        icon:"🌡️",  temp_min:0,   temp_max:25, color:"#F4EDE7B3" },
+  { key:"autre",       label:"Autre",        icon:"🌡️",  temp_min:0,   temp_max:25, color:"#9C918A" },
 ];
 
 // ── CARTOGRAPHIE ÉQUIPEMENTS ──────────────────────────────────
@@ -67,7 +67,7 @@ export function EquipementSetup({ restaurantId, toast }) {
   return (
     <div>
       {modal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+        <div className="pv-modale" style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:D.surface, borderRadius:18, padding:24, maxWidth:420, width:"100%", boxShadow:"0 24px 60px rgba(0,0,0,.2)" }}>
             <h3 style={{ margin:"0 0 18px", fontSize:17, fontWeight:700, letterSpacing:"-.02em" }}>Ajouter un équipement</h3>
 

@@ -26,7 +26,7 @@ export function Sidebar({tab,onTab,profile,onLogout,params=PARAMETRES_DEFAUT,com
         <p style={{margin:0,fontSize:12,fontWeight:700,color:"#F4EDE780",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{profile?.restaurants?.name||profile?.email}</p>
         <p style={{margin:0,fontSize:11,color:"#F4EDE7B3"}}>{libelleRole(profile?.role)}</p>
         {commerces.length>1&&<select value={profile?.restaurant_id||""} onChange={e=>onChangeCommerce?.(e.target.value)} aria-label="Changer de commerce"
-          style={{marginTop:8,width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #FFFFFF33",background:"#FFFFFF14",color:"#FFFFFF1F",fontSize:12}}>
+          style={{marginTop:8,width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #FFFFFF33",background:"#FFFFFF14",color:"#F4EDE7",fontSize:12}}>
           {!profile?.restaurant_id&&<option value="">Choisir un commerce</option>}
           {commerces.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
         </select>}
