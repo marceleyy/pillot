@@ -17,7 +17,7 @@ export const T = {
 export const STYLE_VERRE = `
 .pv-verre{--pv-glass:rgba(255,255,255,.55);--pv-glass-b:rgba(255,255,255,.8);--pv-tile:rgba(255,255,255,.62);--pv-tile-h:rgba(255,255,255,.88);
  --pv-surface:rgba(255,255,255,.7);--pv-chip:rgba(15,23,42,.06);--pv-border:rgba(15,23,42,.08);--pv-track:rgba(15,23,42,.09);
- --pv-b1:#c9dafc;--pv-b2:#eef3fb;--pv-b3:#ffffff;--pv-b4:#d8e6f7;--pv-hero-a:#0b1530;--pv-hero-b:#2563eb;--pv-hero-line:#9cc0ff;
+ --pv-b1:#EBD9BF;--pv-b2:#F5EFE6;--pv-b3:#ffffff;--pv-b4:#F6E3B8;--pv-text-sec:#475569;--pv-text-muted:#64748B;--pv-hero-a:#0b1530;--pv-hero-b:#2563eb;--pv-hero-line:#9cc0ff;
  position:relative;isolation:isolate;border-radius:28px;padding:18px;overflow:hidden;background:var(--pv-b2);color:var(--pv-text,#0F172A)}
 .pv-verre[data-piste="fume"]{--pv-glass:rgba(58,44,38,.42);--pv-glass-b:rgba(255,255,255,.14);--pv-tile:rgba(255,255,255,.07);--pv-tile-h:rgba(255,255,255,.12);
  --pv-surface:rgba(255,255,255,.06);--pv-border-strong:rgba(255,255,255,.25);--pv-chip:rgba(255,255,255,.1);--pv-border:rgba(255,255,255,.1);--pv-track:rgba(255,255,255,.14);
@@ -40,7 +40,7 @@ export const STYLE_VERRE = `
 .pv-haut{display:grid;grid-template-columns:240px minmax(0,1fr);gap:14px;margin-bottom:14px}
 .pv-col{display:flex;flex-direction:column;gap:10px;min-width:0}
 .pv-titre{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--pv-text,#0F172A)}
-.pv-titre small{font-weight:500;color:var(--pv-text-sec,#64748B);font-size:11px}
+.pv-titre small{font-weight:600;color:var(--pv-text-sec,#64748B);font-size:11px}
 .pv-mini{border:0;border-radius:16px;padding:10px 12px;color:#fff;position:relative;overflow:hidden;min-height:86px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;text-align:left;cursor:pointer;font:inherit;animation:pv-up .55s cubic-bezier(.2,.8,.2,1) both;transition:transform .25s}
 .pv-mini:hover{transform:translateX(3px)}
 .pv-mini .pv-etiq{display:flex;justify-content:space-between;gap:6px;font-size:10.5px;font-weight:700}
@@ -65,7 +65,7 @@ export const STYLE_VERRE = `
 .pv-zone:hover{transform:translateY(-4px)}
 .pv-zone .pv-z-t{font-size:11px;font-weight:700;opacity:.92}
 .pv-zone b{font-size:18px}
-.pv-zone .pv-z-s{font-size:11px}
+.pv-zone .pv-z-s{font-size:11.5px;font-weight:600}
 .pv-zone .pv-viz{margin-top:auto;height:60px;display:flex;align-items:end;justify-content:center}
 .pv-trace{stroke-dasharray:1400;animation:pv-trace 1.6s .2s cubic-bezier(.3,.7,.2,1) both}
 @keyframes pv-trace{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
@@ -107,3 +107,24 @@ export function Jauge({ part, texte }) {
     <text x="32" y="34" textAnchor="middle" fill="#fff" fontSize="10.5" fontWeight="800">{texte}</text>
   </svg>;
 }
+
+// Fond de toute l'appli : beige chaud flouté, même verre que le tableau de bord, texte plus appuyé.
+export const STYLE_APP = `
+html{background:#F5EFE6}
+body{background:transparent!important;font-weight:500;color:#0F172A}
+body::before{content:"";position:fixed;inset:-80px;z-index:-1;pointer-events:none;filter:blur(60px);
+ background:radial-gradient(28% 40% at 12% 16%,#FFFFFF,transparent 70%),radial-gradient(30% 45% at 88% 24%,#EBD9BF,transparent 70%),
+ radial-gradient(40% 35% at 70% 92%,#E9DCC8,transparent 70%),radial-gradient(24% 55% at 4% 80%,#F6E3B8,transparent 70%),linear-gradient(160deg,#FAF5EE,#F0E6D8)}
+.pv-app-main{background:rgba(255,253,249,.5);border:1px solid rgba(255,255,255,.85);border-radius:24px;
+ backdrop-filter:blur(22px) saturate(1.2);-webkit-backdrop-filter:blur(22px) saturate(1.2);box-shadow:0 30px 60px -36px rgba(60,40,20,.3)}
+.pv-app-main.pv-mobile{background:transparent;border:0;border-radius:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+.pv-verre[data-piste="clair"]{background:transparent}
+.pv-verre[data-piste="clair"]::before{display:none}
+.pv-verre[data-piste="clair"] .pv-fenetre{background:rgba(255,253,249,.4)}
+/* Cartes teintées de la palette chaude : compteurs sable, actions en jaune miel */
+.pv-verre[data-piste="clair"] .pv-tuile{background:rgba(214,186,150,.3)}
+.pv-verre[data-piste="clair"] .pv-tuile:hover{background:rgba(214,186,150,.42)}
+.pd-o1 .pv-bloc{background:rgba(251,239,200,.9);border-color:#EED48A}
+.pd-o5 .pv-bloc{background:rgba(236,247,230,.9)}
+.pd-o4 .pv-bloc{background:rgba(240,228,212,.8)}
+`;

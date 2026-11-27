@@ -7,9 +7,9 @@ export const C = {
   warning:"#D97706",warningLight:"#FFFBEB",
   danger:"#DC2626",dangerLight:"#FEF2F2",
   purple:"#7C3AED",purpleLight:"#F5F3FF",
-  bg:"#F1F5F9",surface:"#FFFFFF",
-  border:"#E2E8F0",borderStrong:"#CBD5E1",
-  text:"#0F172A",textSec:"#64748B",textMuted:"#94A3B8"
+  bg:"#F3EDE4",surface:"#FFFFFF",
+  border:"#E6DDD0",borderStrong:"#CFC3B3",
+  text:"#0F172A",textSec:"#475569",textMuted:"#64748B"
 };
 
 // ── SVG Icons ─────────────────────────────────────────────────
