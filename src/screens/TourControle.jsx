@@ -136,7 +136,7 @@ export function CarteConformite({ restaurantId, onTab, modules = {} }) {
       </div>
       {res.listeAuj.length > 0 && <div style={{borderTop:`1px solid ${T.border}`}}>
         {res.listeAuj.map(t => <div key={t.id} style={{padding:"8px 18px",display:"flex",alignItems:"center",gap:10,fontSize:13}}>
-          <span style={{width:8,height:8,borderRadius:"50%",background:t.fait?T.success:C.borderStrong,flexShrink:0}}/>
+          <span style={{width:8,height:8,borderRadius:"50%",background:t.fait?T.success:T.borderStrong,flexShrink:0}}/>
           <span style={{flex:1,color:t.fait?T.textSec:T.text}}>{t.nom}</span>
           <span style={{fontSize:11,fontWeight:600,color:t.fait?T.success:T.textMuted}}>{t.fait ? (t.heure ? `Fait à ${t.heure}` : "Fait") : "À faire"}</span>
         </div>)}

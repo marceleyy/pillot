@@ -44,26 +44,27 @@ export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFA
 
   // Achats par mois depuis janvier (factures et livraisons enregistrées, HT).
   const achatsMois=useMemo(()=>{
-    if(!d?.achats)return d?.achats;
+    if(!d)return null;
+    if(!d.achats)return d.achats;
     const auj=jourLocal(),n=Number(auj.slice(5,7)),serie=Array(n).fill(0);
     d.achats.forEach(a=>{const m=Number(String(a.date_facture||"").slice(5,7));if(m>=1&&m<=n)serie[m-1]+=Number(a.total_ht)||0;});
     return{serie,mois:serie[n-1],annee:serie.reduce((x,y)=>x+y,0),nb:d.achats.length};
-  },[d?.achats]);
+  },[d]);
   const nomMois=new Date().toLocaleDateString("fr-FR",{month:"long"});
 
   // À surveiller : DLC proches ou dépassées, tâches en retard ou urgentes.
-  const surveiller=evs.filter(e=>e.ton==="rouge"||e.ton==="orange").slice(0,3);
+  const surveiller=(gerant?evs:evenements({...d,taches:ouvertes})).filter(e=>e.ton==="rouge"||e.ton==="orange").slice(0,3);
   const fmtJ=s=>new Date(s+"T12:00").toLocaleDateString("fr-FR",{day:"numeric",month:"short"});
 
   // Cartes colorées : état du stock, relevés, check-list, ratios matière.
   const zones=[
-    {id:"stock",t:"État du stock",v:rup?`${rup} rupture${rup>1?"s":""}`:cmd?`${cmd} à commander`:"Tout est en stock",s:rup&&cmd?`et ${cmd} à commander`:`${products.length} produit${products.length>1?"s":""}`,tab:mod.commandes!==false&&(rup||cmd)?"commandes":"stocks",
+    {id:"stock",teinte:rup||cmd?"pv-g4":"pv-gok",t:"État du stock",v:rup?`${rup} rupture${rup>1?"s":""}`:cmd?`${cmd} à commander`:"Tout est en stock",s:rup&&cmd?`et ${cmd} à commander`:`${products.length} produit${products.length>1?"s":""}`,tab:mod.commandes!==false&&(rup||cmd)?"commandes":"stocks",
       viz:<Anneau part={products.length?(products.length-rup-cmd)/products.length:0} texte={products.length?`${Math.round((products.length-rup-cmd)/products.length*100)}%`:"–"}/>},
     mod.haccp!==false&&d?.temp&&(()=>{const faits=new Set(d.temp.map(t=>t.equipement)).size,hors=d.temp.filter(t=>(t.temperature_max!=null&&Number(t.temperature)>Number(t.temperature_max))||(t.temperature_min!=null&&Number(t.temperature)<Number(t.temperature_min))).length;
       return{id:"temp",t:"Températures du jour",v:hors?`${hors} écart${hors>1?"s":""}`:faits?`${faits} relevé${faits>1?"s":""}`:"Aucun relevé",s:hors?"à traiter":faits?"équipements relevés":"à faire aujourd'hui",tab:"haccp",viz:<Anneau part={hors?0.25:faits?1:0} texte={hors?"!":faits?"OK":"0"}/>};})(),
     checklist&&checklist.prevu>0&&{id:"check",t:"Check-list du jour",v:`${checklist.fait} sur ${checklist.prevu}`,s:checklist.fait===checklist.prevu?"tout est fait":`${checklist.prevu-checklist.fait} restante${checklist.prevu-checklist.fait>1?"s":""}`,tab:"taches",viz:<Anneau part={checklist.fait/checklist.prevu} texte={`${checklist.fait}/${checklist.prevu}`}/>},
     ...(gerant?[["SALE",rs,ca_s],["SUCRE",rsu,ca_su]].filter(([k])=>params.sectionsActives.some(x=>x.code===k)).map(([k,r,ca])=>({id:k,t:`Ratio ${params.nomSection(k).toLowerCase()}`,
-      v:ca>0?`${(r*100).toFixed(1).replace(".",",")} %`:"CA à saisir",s:ca>0?(r<=obj?`dans l'objectif de ${Math.round(obj*100)} %`:`${((r-obj)*100).toFixed(1).replace(".",",")} pt au-dessus de l'objectif`):"pour calculer le ratio",tab:ca>0?"historique":"settings",
+      v:ca>0?`${(r*100).toFixed(1).replace(".",",")} %`:"CA à saisir",s:ca>0?(r<=obj?`objectif ${Math.round(obj*100)} % · CA ${fmtPrix(ca)}`:`${((r-obj)*100).toFixed(1).replace(".",",")} pt au-dessus de l'objectif`):"pour calculer le ratio",tab:ca>0&&mod.historique!==false?"historique":"settings",
       viz:<Jauge part={ca>0?Math.min(r*100,50)/50:0} texte={ca>0?`${Math.round(r*100)} %`:"–"}/>})):[]),
   ].filter(Boolean);
   const teintes=["pv-g4","pv-g5","pv-g6","pv-g7","pv-g3"];
@@ -107,7 +108,7 @@ export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFA
     </div>
     {zones.length>0&&<>
       <p className="pv-section">Zones à surveiller</p>
-      <div className="pv-zones">{zones.map((z,i)=><button type="button" key={z.id} className={`pv-zone ${teintes[i%teintes.length]}`} style={{animationDelay:`${.15+i*.05}s`}} onClick={()=>onTab(z.tab)}>
+      <div className="pv-zones">{zones.map((z,i)=><button type="button" key={z.id} className={`pv-zone ${z.teinte||teintes[i%teintes.length]}`} aria-label={`${z.t} : ${z.v}, ${z.s}`} style={{animationDelay:`${.15+i*.05}s`}} onClick={()=>onTab(z.tab)}>
         <span className="pv-z-t">{z.t}</span><b>{z.v}</b><span className="pv-z-s">{z.s}</span><span className="pv-viz">{z.viz}</span>
       </button>)}</div>
     </>}
