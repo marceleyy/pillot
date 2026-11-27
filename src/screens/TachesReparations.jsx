@@ -9,7 +9,7 @@ import { jourLocal, enRetard } from "../lib/taches";
 const CATEGORIES = { salle: "Salle", cuisine: "Cuisine", reparation: "Réparation", entretien: "Entretien", deco: "Déco", achat: "Achat" };
 const PRIORITES = { urgente: "Urgente", normale: "Normale", quand_possible: "Quand possible" };
 const STATUTS = { creee: "Créée", en_cours: "En cours", realisee: "Réalisée" };
-const PRIO_COUL = { urgente: C.danger, normale: C.brand, quand_possible: "#9C918A" };
+const PRIO_COUL = { urgente: C.danger, normale: C.brand, quand_possible: C.textMuted };
 const PRIO_RANG = { urgente: 0, normale: 1, quand_possible: 2 };
 const RELANCES = [["Non", 0], ["Dans 1 semaine", 7], ["Dans 1 mois", 30], ["Dans 3 mois", 90]];
 
@@ -28,11 +28,11 @@ const VIDE = { titre: "", categorie: "salle", priorite: "normale", echeance: "",
 const COLS = "id,titre,categorie,priorite,echeance,assignee_id,assignee_nom,detail,statut,historique,realisee_le,created_at";
 
 const lbl = { fontSize: 11, fontWeight: 600, color: C.textSec, display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".5px" };
-const champ = { width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, background: "#FFFFFF0F" };
+const champ = { width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, background: "#fff" };
 const btn = (fond, texte = "#fff") => ({ padding: "8px 14px", background: fond, color: texte, border: fond === "transparent" ? `1px solid ${C.border}` : "none", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" });
 
 function Fenetre({ children, onFermer }) {
-  return <div className="pv-modale" onClick={onFermer} style={{position:"fixed",inset:0,background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+  return <div onClick={onFermer} style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
     <div onClick={e => e.stopPropagation()} role="dialog" style={{background:C.surface,borderRadius:16,padding:22,width:"100%",maxWidth:440,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>{children}</div>
   </div>;
 }
@@ -143,7 +143,7 @@ export default function TachesReparations({ restaurantId, profileId, toast, gera
         <div><label style={lbl} htmlFor="tr-det">Détail</label><textarea id="tr-det" rows={3} maxLength={2000} value={form.detail} onChange={e => setForm(f => ({ ...f, detail: e.target.value }))} placeholder="Ce qu'il faut faire, qui appeler, référence de pièce…" style={{...champ,resize:"vertical"}}/></div>
       </div>
       <div style={{display:"flex",gap:8}}>
-        <button onClick={enregistrer} disabled={occupe || !form.titre.trim()} style={{...btn(form.titre.trim() ? C.brand : "#FFFFFF1F", form.titre.trim() ? "#fff" : C.textMuted),flex:1,padding:11}}>{occupe ? "..." : form.id ? "Enregistrer" : "Créer la tâche"}</button>
+        <button onClick={enregistrer} disabled={occupe || !form.titre.trim()} style={{...btn(form.titre.trim() ? C.brand : "#E2E8F0", form.titre.trim() ? "#fff" : C.textMuted),flex:1,padding:11}}>{occupe ? "..." : form.id ? "Enregistrer" : "Créer la tâche"}</button>
         <button onClick={() => setForm(null)} style={btn("transparent", C.text)}>Annuler</button>
       </div>
     </Fenetre>}
@@ -160,7 +160,7 @@ export default function TachesReparations({ restaurantId, profileId, toast, gera
         <button onClick={() => setOuverte(null)} aria-label="Fermer" style={{background:"none",border:"none",cursor:"pointer",color:C.textMuted}}><Icon n="x" sz={18}/></button>
       </div>
       <p style={{margin:"0 0 10px",fontSize:12,color:C.textSec}}>{[CATEGORIES[ouverte.categorie], PRIORITES[ouverte.priorite], ouverte.echeance && `pour le ${fmtJour(ouverte.echeance)}`, ouverte.assignee_nom && `assignée à ${ouverte.assignee_nom}`].filter(Boolean).join(" · ")}</p>
-      {ouverte.detail && <p style={{margin:"0 0 12px",fontSize:13,whiteSpace:"pre-wrap",background:"#FFFFFF0A",padding:"10px 12px",borderRadius:8}}>{ouverte.detail}</p>}
+      {ouverte.detail && <p style={{margin:"0 0 12px",fontSize:13,whiteSpace:"pre-wrap",background:"#F8FAFC",padding:"10px 12px",borderRadius:8}}>{ouverte.detail}</p>}
       <p style={{...lbl,marginTop:4}}>Historique</p>
       <div style={{marginBottom:14}}>{(ouverte.historique || []).map((h, i) => <div key={i} style={{display:"flex",gap:8,fontSize:12,padding:"5px 0",borderBottom:`1px solid ${C.border}`}}>
         <span style={{fontWeight:700,minWidth:68}}>{STATUTS[h.statut] || h.statut}</span><span style={{flex:1,color:C.textSec}}>{h.nom}</span><span style={{color:C.textMuted}}>{h.le ? fmtQuand(h.le) : ""}</span>
@@ -182,7 +182,7 @@ export default function TachesReparations({ restaurantId, profileId, toast, gera
       {gerant && <button onClick={() => ouvrirForm(null)} style={btn(C.brand)}>+ Tâche</button>}
     </div>
 
-    <div style={{display:"flex",gap:4,background:"#FFFFFF14",padding:4,borderRadius:10,marginBottom:10}}>
+    <div style={{display:"flex",gap:4,background:"#F1F5F9",padding:4,borderRadius:10,marginBottom:10}}>
       {[["afaire", `À faire (${nbAFaire})`], ["realisees", "Réalisées"]].map(([k, l]) => <button key={k} onClick={() => setOnglet(k)} style={{flex:1,padding:"7px 10px",borderRadius:8,border:"none",fontSize:13,fontWeight:600,cursor:"pointer",background:onglet===k?C.surface:"transparent",color:onglet===k?C.text:C.textSec,boxShadow:onglet===k?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{l}</button>)}
     </div>
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>

@@ -86,11 +86,11 @@ const Vide = ({ children }) => <p style={{margin:"4px 0",fontSize:13,color:T.tex
 export function Compteurs({ items }) {
   return <div className="pd-compteurs">
     {items.map((k, i) => <button type="button" key={k.id} className="pv-tuile" onClick={k.tab ? k.onClick : undefined} style={{animationDelay:`${i * .04}s`,cursor:k.tab ? "pointer" : "default"}}>
-      <span style={{display:"flex",alignItems:"center",gap:6,fontSize:11,fontWeight:600,color:T.textSec}}>
+      <span style={{display:"flex",alignItems:"center",gap:6,fontSize:11.5,fontWeight:700,color:T.textSec}}>
         <span style={{width:8,height:8,borderRadius:"50%",background:k.valeur > 0 ? k.couleur : T.track,flexShrink:0}}/>{k.label}
       </span>
       <span style={{fontSize:28,fontWeight:800,lineHeight:1,letterSpacing:"-.5px",color:k.valeur > 0 ? k.couleur : T.textMuted}}>{k.valeur ?? "–"}</span>
-      {k.sous && <span style={{fontSize:11,color:T.textMuted}}>{k.sous}</span>}
+      {k.sous && <span style={{fontSize:12,fontWeight:600,color:T.textSec}}>{k.sous}</span>}
     </button>)}
   </div>;
 }
@@ -266,7 +266,7 @@ export function EtatStock({ products, onTab, commandes = true }) {
 }
 
 // ── Achats : total du mois et répartition par fournisseur ─────
-const TEINTES = ["#9DBBFF", "#4C7DF0", "#60A5FA", "#8FB3FF99", "#8FB3FF66", "#F4EDE780"];
+const TEINTES = ["#1E3A8A", "#2563EB", "#60A5FA", "#93C5FD", "#BFDBFE", "#94A3B8"];
 function Donut({ parts }) {
   const total = parts.reduce((a, p) => a + p.v, 0), R = 38, L = 2 * Math.PI * R;
   let cumul = 0;

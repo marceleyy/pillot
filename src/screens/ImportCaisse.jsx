@@ -9,12 +9,12 @@ import { supabase } from "../lib/supabase";
 import * as XLSX from "xlsx";
 
 const C = {
-  brand:"#4C7DF0",brandLight:"#8FB3FF24",
-  success:"#2FA36B",successLight:"#5FD39A24",
-  warning:"#E0A030",warningLight:"#F2B54524",
-  danger:"#E5485D",dangerLight:"#FF7B8B24",
-  purple:"#9F7AEA",purpleLight:"#A78BFA24",
-  border:"#FFFFFF1F",surface:"#FFFFFF0F",text:"#F4EDE7",textSec:"#F4EDE7B3",textMuted:"#F4EDE780"
+  brand:"#2563EB",brandLight:"#EFF6FF",
+  success:"#16A34A",successLight:"#F0FDF4",
+  warning:"#D97706",warningLight:"#FFFBEB",
+  danger:"#DC2626",dangerLight:"#FEF2F2",
+  purple:"#7C3AED",purpleLight:"#F5F3FF",
+  border:"#E2E8F0",surface:"#FFFFFF",text:"#0F172A",textSec:"#64748B",textMuted:"#94A3B8"
 };
 
 const fmt = n => new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",minimumFractionDigits:2}).format(n||0);
@@ -181,7 +181,7 @@ export default function ImportCaisse({ restaurantId, profileId, toast }) {
         <p style={{margin:"0 0 10px",fontSize:12,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Formats supportés</p>
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {[["Export standard caisse","Colonnes : Produit, QteProduit, CA"],["Lightspeed / Zelty","Export Excel → Rapport ventes → Période"],["L'Addition","Export CSV produits vendus"],["Ton fichier ventes actuel","Le .xlsx que tu viens d'uploader fonctionne"]].map(([n,d])=>(
-            <div key={n} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"8px 10px",background:"#FFFFFF0A",borderRadius:8}}>
+            <div key={n} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"8px 10px",background:"#F8FAFC",borderRadius:8}}>
               <span style={{color:C.success,fontWeight:700,fontSize:16,flexShrink:0}}>✓</span>
               <div><p style={{margin:0,fontSize:13,fontWeight:600}}>{n}</p><p style={{margin:0,fontSize:11,color:C.textSec}}>{d}</p></div>
             </div>
@@ -228,12 +228,12 @@ export default function ImportCaisse({ restaurantId, profileId, toast }) {
 
       {/* Top produits avec consommation glace */}
       <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:"hidden",marginBottom:16}}>
-        <div style={{padding:"11px 16px",borderBottom:`1px solid ${C.border}`,background:"#FFFFFF0A"}}>
+        <div style={{padding:"11px 16px",borderBottom:`1px solid ${C.border}`,background:"#F8FAFC"}}>
           <p style={{margin:0,fontSize:12,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Top ventes</p>
         </div>
         {sales.sort((a,b)=>b.ca-a.ca).slice(0,10).map((s,i) => (
           <div key={i} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
-            <span style={{width:22,height:22,borderRadius:"50%",background:"#FFFFFF14",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:C.textSec,flexShrink:0}}>{i+1}</span>
+            <span style={{width:22,height:22,borderRadius:"50%",background:"#F1F5F9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:C.textSec,flexShrink:0}}>{i+1}</span>
             <div style={{flex:1}}>
               <p style={{margin:0,fontSize:13,fontWeight:500}}>{s.nom}</p>
               {s.poids_theorique_g > 0 && <p style={{margin:0,fontSize:11,color:C.purple}}>{s.qty_sold}× × {s.poids_theorique_g}g = {fmtKg(s.consommation_g/1000)}</p>}

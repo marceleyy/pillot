@@ -19,7 +19,7 @@ export default function Commandes({products,profile,toast,params=PARAMETRES_DEFA
   const copy=(f,msg)=>{navigator.clipboard?.writeText(msg);setCopied(f);toast("Message copié !");setTimeout(()=>setCopied(null),2000);};
   const fenetre=livraison&&<Livraison products={products} fournisseur={livraison.fournisseur} quantites={livraison.quantites} gerant={gerant} toast={toast}
     onClose={()=>setLivraison(null)} onDone={()=>{setLivraison(null);onLivraison?.();}}/>;
-  const boutonLivraison=<button onClick={()=>setLivraison({fournisseur:"",quantites:{}})} style={{padding:"9px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"#FFFFFF0F",cursor:"pointer",fontSize:13,fontWeight:600,color:C.text,display:"flex",alignItems:"center",gap:6}}><Icon n="box" sz={15}/>Enregistrer une livraison</button>;
+  const boutonLivraison=<button onClick={()=>setLivraison({fournisseur:"",quantites:{}})} style={{padding:"9px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"#fff",cursor:"pointer",fontSize:13,fontWeight:600,color:C.text,display:"flex",alignItems:"center",gap:6}}><Icon n="box" sz={15}/>Enregistrer une livraison</button>;
   if(!fourns.length)return<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:300,gap:12}}>
     {fenetre}
     <div style={{width:64,height:64,borderRadius:"50%",background:C.successLight,display:"flex",alignItems:"center",justifyContent:"center"}}><Icon n="check" sz={28} c={C.success}/></div>
@@ -60,7 +60,7 @@ export default function Commandes({products,profile,toast,params=PARAMETRES_DEFA
         </div>}
         <div style={{padding:"12px 14px"}}>
           <p style={{margin:"0 0 7px",fontSize:10,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Message {canal}</p>
-          <div style={{background:"#FFFFFF0A",border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px",fontFamily:"monospace",fontSize:12,whiteSpace:"pre-wrap",lineHeight:1.6,maxHeight:150,overflow:"auto",marginBottom:10}}>{msg}</div>
+          <div style={{background:"#F8FAFC",border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px",fontFamily:"monospace",fontSize:12,whiteSpace:"pre-wrap",lineHeight:1.6,maxHeight:150,overflow:"auto",marginBottom:10}}>{msg}</div>
           <button onClick={()=>copy(f,msg)} style={{width:"100%",padding:11,background:copied===f?C.success:col,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"background .2s",boxShadow:`0 4px 12px ${col}40`}}>
             <Icon n={copied===f?"check":"copy"} sz={16}/>{copied===f?"Copié !":"Copier pour "+canal}
           </button>

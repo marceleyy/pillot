@@ -86,7 +86,7 @@ export default function Dashboard({profile,products,onTab,params=PARAMETRES_DEFA
       <div className="pv-actions">{mod.taches!==false&&<button type="button" className="pv-btn" onClick={()=>onTab("taches")}>Ouvrir la check-list</button>}</div>
     </section>;
 
-  return<div className="pv-verre" data-piste="fume">
+  return<div className="pv-verre" data-piste="clair">
     <style>{STYLE_GRILLE+STYLE_VERRE}</style>
     <div className="pv-fenetre">
     <div style={{marginBottom:16}}>

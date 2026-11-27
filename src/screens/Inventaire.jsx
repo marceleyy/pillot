@@ -70,7 +70,7 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
     toast("Export Excel téléchargé");
   };
 
-  const DOT={rupture:C.danger,commander:C.warning,ok:C.success,non_saisi:"#FFFFFF40",non_suivi:C.textMuted};
+  const DOT={rupture:C.danger,commander:C.warning,ok:C.success,non_saisi:"#CBD5E1",non_suivi:C.textMuted};
 
   const BTN={padding:"8px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:13};
   const ecartStyle=d=>d===null?{c:C.textMuted,t:"nouveau"}:d===0?{c:C.textMuted,t:"="}:{c:d<0?C.danger:C.brand,t:(d>0?"+":"")+Math.round(d*100)/100};
@@ -105,7 +105,7 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
     <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,flexWrap:"wrap"}}>
       <button onClick={()=>setShowHist(false)} style={BTN}>← Retour</button>
       <h1 style={{margin:0,fontSize:20,fontWeight:800,flex:1}}>Historique</h1>
-      <div style={{display:"flex",gap:4,background:"#FFFFFF14",padding:4,borderRadius:10}}>
+      <div style={{display:"flex",gap:4,background:"#F1F5F9",padding:4,borderRadius:10}}>
         {[["inventaires","Inventaires"],["saisies","Saisies"]].map(([k,l])=><button key={k} onClick={()=>setHistTab(k)} style={{padding:"6px 14px",borderRadius:8,border:"none",fontSize:13,fontWeight:600,cursor:"pointer",background:histTab===k?C.surface:"transparent",color:histTab===k?C.text:C.textSec,boxShadow:histTab===k?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{l}</button>)}
       </div>
     </div>
@@ -114,7 +114,7 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
       invs.length===0?<Card style={{padding:40,textAlign:"center"}}><Icon n="history" sz={40} c={C.textMuted}/><p style={{color:C.textSec,marginTop:12}}>Aucun inventaire validé pour l'instant</p></Card>:
       <Card style={{overflow:"hidden"}}>
         {invs.map((inv,i)=>{return<div key={inv.id} onClick={()=>setSelInv(inv)} style={{padding:"12px 18px",borderBottom:i<invs.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:12,cursor:"pointer"}}
-          onMouseEnter={e=>e.currentTarget.style.background="#FFFFFF0A"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+          onMouseEnter={e=>e.currentTarget.style.background="#F8FAFC"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
           <div style={{flex:1}}>
             <p style={{margin:0,fontSize:13,fontWeight:600}}>{fmtDate(inv.created_at)}</p>
             <p style={{margin:0,fontSize:11,color:C.textSec}}>{inv.nb_produits} produit{inv.nb_produits>1?"s":""}{inv.nb_sans_prix>0?` · ${inv.nb_sans_prix} sans prix`:""}</p>
@@ -137,7 +137,7 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
     </Card>}
   </div>;
 
-  const barreCote=!deuxSections?null:<div style={{display:"flex",gap:4,background:"#FFFFFF14",padding:4,borderRadius:10}}>
+  const barreCote=!deuxSections?null:<div style={{display:"flex",gap:4,background:"#F1F5F9",padding:4,borderRadius:10}}>
     {params.sectionsActives.map(({code:k,nom:l})=><button key={k} onClick={()=>setCote(k)} style={{padding:"6px 14px",borderRadius:8,border:"none",fontSize:13,fontWeight:600,cursor:"pointer",background:cote===k?C.surface:"transparent",color:cote===k?C.text:C.textSec,boxShadow:cote===k?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{l}</button>)}
   </div>;
   const barreRecherche=<div style={{position:"relative",marginBottom:14}}>
@@ -198,8 +198,8 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
       {cats.map(cat=>{
         const ps=filtered.filter(p=>p.categorie===cat);if(!ps.length)return null;
         return<div key={cat}>
-          <div style={{padding:"8px 18px",background:"#FFFFFF0A",borderBottom:`1px solid ${C.border}`}}><span style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".8px",color:C.textSec}}>{cat}</span></div>
-          {ps.map(p=>{const v=counts[p.id]??"",q=qteNum(v),bad=v!==""&&(q===null||q<0);return<div key={p.id} style={{padding:"10px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12,background:v!==""&&!bad?"#5FD39A24":"transparent"}}>
+          <div style={{padding:"8px 18px",background:"#F8FAFC",borderBottom:`1px solid ${C.border}`}}><span style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".8px",color:C.textSec}}>{cat}</span></div>
+          {ps.map(p=>{const v=counts[p.id]??"",q=qteNum(v),bad=v!==""&&(q===null||q<0);return<div key={p.id} style={{padding:"10px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12,background:v!==""&&!bad?"#F0FDF4":"transparent"}}>
             <div style={{flex:1,minWidth:0}}>
               <p style={{margin:0,fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.nom}</p>
               <p style={{margin:0,fontSize:11,color:C.textSec}}>avant : {p.stock??"—"} {p.unite}</p>
@@ -259,7 +259,7 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
         const ps=filtered.filter(p=>p.categorie===cat);if(!ps.length)return null;
         const rc=ps.filter(p=>gst(p)==="rupture").length,cc=ps.filter(p=>gst(p)==="commander").length,vc=valeurProduits(products.filter(p=>dansSection(p)&&p.categorie===cat)).total;
         return<div key={cat}>
-          <div style={{padding:"8px 18px",background:"#FFFFFF0A",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{padding:"8px 18px",background:"#F8FAFC",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".8px",color:C.textSec,flex:1}}>{cat}</span>
             {rc>0&&<span style={{fontSize:10,fontWeight:700,color:C.danger,background:C.dangerLight,padding:"2px 7px",borderRadius:10}}>{rc} rupture{rc>1?"s":""}</span>}
             {cc>0&&<span style={{fontSize:10,fontWeight:700,color:C.warning,background:C.warningLight,padding:"2px 7px",borderRadius:10}}>{cc} cmd</span>}
@@ -267,7 +267,7 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
           </div>
           {ps.map(p=>{
             const st=gst(p);
-            if(editId===p.id)return<div key={p.id} style={{padding:"13px 18px",borderBottom:`1px solid ${C.border}`,background:"#8FB3FF24"}}>
+            if(editId===p.id)return<div key={p.id} style={{padding:"13px 18px",borderBottom:`1px solid ${C.border}`,background:"#EFF6FF"}}>
               <p style={{margin:"0 0 10px",fontSize:14,fontWeight:700}}>{p.nom}</p>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
                 <input type="number" defaultValue={p.stock??""} min="0" step="0.5" autoFocus onChange={e=>setEditVal(e.target.value)}
@@ -280,8 +280,8 @@ export default function Inventaire({products,restaurantId,onStockUpdate,toast,pa
               {gerant&&<button onClick={()=>setFiche(p)} style={{marginTop:8,background:"none",border:"none",padding:0,color:C.brand,fontSize:12,fontWeight:600,cursor:"pointer"}}>Modifier la fiche produit</button>}
             </div>;
             return<div key={p.id} onClick={()=>{setEditId(p.id);setEditVal(String(p.stock??""));}}
-              style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12,cursor:"pointer",background:st==="rupture"?"#FF7B8B24":st==="commander"?"#F2B54524":"transparent"}}
-              onMouseEnter={e=>e.currentTarget.style.background="#FFFFFF0A"} onMouseLeave={e=>e.currentTarget.style.background=st==="rupture"?"#FF7B8B24":st==="commander"?"#F2B54524":"transparent"}>
+              style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12,cursor:"pointer",background:st==="rupture"?"#FFF9F9":st==="commander"?"#FFFDF5":"transparent"}}
+              onMouseEnter={e=>e.currentTarget.style.background="#F8FAFC"} onMouseLeave={e=>e.currentTarget.style.background=st==="rupture"?"#FFF9F9":st==="commander"?"#FFFDF5":"transparent"}>
               <span style={{width:9,height:9,borderRadius:"50%",background:DOT[st],display:"inline-block",flexShrink:0}}/>
               <div style={{flex:1,minWidth:0}}>
                 <p style={{margin:0,fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.nom}</p>

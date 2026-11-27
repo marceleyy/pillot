@@ -8,8 +8,7 @@ body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
-  background: transparent;
-  color: #F4EDE7;
+  background: #F8FAFC;
 }
 
 input, button, textarea, select {

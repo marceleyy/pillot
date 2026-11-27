@@ -24,7 +24,7 @@ export default function Demarrage({profile,onCree,onLogout,toast}){
     if(error){setErr(error.code==="PGRST202"?"L'ouverture d'un commerce n'est pas encore disponible. Contactez-nous.":error.message||"Création impossible, réessayez");return;}
     toast?.("Votre commerce est prêt");onCree?.();
   };
-  const champ={width:"100%",boxSizing:"border-box",padding:"11px 14px",borderRadius:10,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none",background:"#FFFFFF0F"};
+  const champ={width:"100%",boxSizing:"border-box",padding:"11px 14px",borderRadius:10,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none",background:"#fff"};
   const lab={fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px",display:"block",marginBottom:5};
   return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.bg,padding:20}}>
     <Card style={{width:"100%",maxWidth:480,padding:"32px 28px"}}>
@@ -36,7 +36,7 @@ export default function Demarrage({profile,onCree,onLogout,toast}){
         <div><span style={lab}>Type de commerce</span>
           <div role="radiogroup" aria-label="Type de commerce" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
             {TYPES.map(t=><button type="button" role="radio" aria-checked={type===t.id} key={t.id} onClick={()=>setType(t.id)}
-              style={{padding:"10px 12px",borderRadius:10,border:`1.5px solid ${type===t.id?C.brand:C.border}`,background:type===t.id?C.brandLight:"#FFFFFF0F",color:type===t.id?C.brand:C.text,fontSize:13,fontWeight:600,cursor:"pointer",textAlign:"left"}}>{t.nom}</button>)}
+              style={{padding:"10px 12px",borderRadius:10,border:`1.5px solid ${type===t.id?C.brand:C.border}`,background:type===t.id?C.brandLight:"#fff",color:type===t.id?C.brand:C.text,fontSize:13,fontWeight:600,cursor:"pointer",textAlign:"left"}}>{t.nom}</button>)}
           </div></div>
         {err&&<p role="alert" style={{margin:0,fontSize:13,color:C.danger}}>{err}</p>}
         <button type="submit" disabled={!nom.trim()||busy} style={{padding:13,background:C.brand,color:"#fff",border:"none",borderRadius:10,fontSize:15,fontWeight:700,cursor:"pointer",opacity:!nom.trim()||busy?.6:1}}>{busy?"Création...":"Ouvrir mon commerce"}</button>
