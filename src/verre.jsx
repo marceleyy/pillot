@@ -48,7 +48,7 @@ export const STYLE_VERRE = `
 .pv-mini b{font-size:13px;line-height:1.3}
 .pv-g1{background:linear-gradient(135deg,#7a1532,#d0436f)}.pv-g2{background:linear-gradient(135deg,#6e440a,#a8740f)}.pv-g3{background:linear-gradient(135deg,#1d4ed8,#3b82f6)}
 .pv-g4{background:linear-gradient(135deg,#6e440a,#a8740f)}.pv-gok{background:linear-gradient(135deg,#1d4f17,#3f8a2a)}.pv-g5{background:linear-gradient(135deg,#142a6b,#3a6fe0)}.pv-g6{background:linear-gradient(135deg,#1d4f17,#4b9d33)}.pv-g7{background:linear-gradient(135deg,#2e1772,#7a4fe0)}
-.pv-hero{border-radius:22px;padding:22px;color:#fff;position:relative;overflow:hidden;min-height:270px;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;
+.pv-hero{border-radius:22px;padding:58px 22px 22px;color:#fff;position:relative;overflow:hidden;min-height:270px;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;
  background:radial-gradient(120% 120% at 85% 15%,var(--pv-hero-b) 0%,transparent 55%),linear-gradient(135deg,var(--pv-hero-a) 35%,color-mix(in srgb,var(--pv-hero-b) 55%,var(--pv-hero-a)));animation:pv-up .6s .05s cubic-bezier(.2,.8,.2,1) both}
 .pv-hero .pv-flags{position:absolute;top:16px;left:18px;display:flex;gap:6px;flex-wrap:wrap}
 .pv-hero .pv-flags span{font-size:11px;font-weight:700;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:999px}
