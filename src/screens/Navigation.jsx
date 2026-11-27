@@ -14,7 +14,7 @@ export function Sidebar({tab,onTab,profile,onLogout,params=PARAMETRES_DEFAUT,com
     ["scan",      "Scan facture",   "camera"],
     ["appareils", "Équipements",    "device-desktop"],];
   const menu=isAdmin?tabs:visibles(tabs,params,estGerant(profile?.role));
-  return<div style={{width:230,background:C.navy,display:"flex",flexDirection:"column",minHeight:"100vh",flexShrink:0,position:"sticky",top:0,maxHeight:"100vh",overflowY:"auto"}}>
+  return<div style={{width:230,background:C.navy,display:"flex",flexDirection:"column",minHeight:"calc(100vh - 32px)",flexShrink:0,position:"sticky",top:16,maxHeight:"calc(100vh - 32px)",overflowY:"auto",borderRadius:24}}>
     <div style={{padding:"22px 18px 14px"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
         <div style={{width:38,height:38,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center"}}>
