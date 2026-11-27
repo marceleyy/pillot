@@ -3,16 +3,19 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { C, Card, Icon } from "../ui";
+import { T } from "../verre";
+// Carte du tableau de bord (verre) : fond et bord suivent le thème.
+const Carte = ({ children, style }) => <div className="pv-bloc" style={style}>{children}</div>;
 import { jourLocal, enRetard } from "../lib/taches";
 
 // Accepte une date ou une chaîne « AAAA-MM-JJ » (lue à midi, heure locale).
 const ajouterJours = (d, n) => { const x = typeof d === "string" ? new Date(d + "T12:00") : new Date(d); x.setHours(12,0,0,0); x.setDate(x.getDate()+n); return x; };
 
 const COUL = {
-  vert:   { c: C.success, bg: C.successLight, l: "Conforme" },
-  orange: { c: C.warning, bg: C.warningLight, l: "À surveiller" },
-  rouge:  { c: C.danger,  bg: C.dangerLight,  l: "À corriger" },
-  gris:   { c: C.textMuted, bg: "#F8FAFC",    l: "Pas de données" },
+  vert:   { c: T.success, bg: T.successBg, l: "Conforme" },
+  orange: { c: T.warning, bg: T.warningBg, l: "À surveiller" },
+  rouge:  { c: T.danger,  bg: T.dangerBg,  l: "À corriger" },
+  gris:   { c: T.textMuted, bg: T.chip,    l: "Pas de données" },
 };
 const RANG = { gris: 0, vert: 1, orange: 2, rouge: 3 };
 // Jours renseignés sur 7 : 6 ou 7 = vert (un jour de fermeture toléré), 4 ou 5 = orange, moins = rouge.
@@ -101,44 +104,44 @@ export function CarteConformite({ restaurantId, onTab, modules = {} }) {
     return () => { fini = true; };
   }, [restaurantId]);
 
-  if (erreur) return <Card style={{padding:"14px 18px",marginBottom:20}}><p style={{margin:0,fontSize:13,color:C.textSec}}>Conformité indisponible pour le moment.</p></Card>;
-  if (!res) return <Card style={{padding:"14px 18px",marginBottom:20}}><p style={{margin:0,fontSize:13,color:C.textMuted}}>Conformité : chargement…</p></Card>;
+  if (erreur) return <Carte style={{padding:"14px 18px",marginBottom:20}}><p style={{margin:0,fontSize:13,color:T.textSec}}>Conformité indisponible pour le moment.</p></Carte>;
+  if (!res) return <Carte style={{padding:"14px 18px",marginBottom:20}}><p style={{margin:0,fontSize:13,color:T.textMuted}}>Conformité : chargement…</p></Carte>;
   const lignes = res.lignes.filter(l => modules[l.tab] !== false);
   const avecTaches = modules.taches !== false;
   const globale = lignes.reduce((m, l) => RANG[l.couleur] > RANG[m] ? l.couleur : m, "gris");
   const JOURS = ["L", "M", "M", "J", "V", "S", "D"];
 
   return <>
-    <Card style={{overflow:"hidden",marginBottom:20}}>
-      <div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-        <div style={{display:"flex",alignItems:"center",gap:8}}><Icon n="check" sz={15} c={COUL[globale].c}/><span style={{fontSize:14,fontWeight:700}}>Conformité HACCP</span><span style={{fontSize:11,color:C.textMuted}}>7 derniers jours</span></div>
+    <Carte style={{overflow:"hidden",marginBottom:20}}>
+      <div style={{padding:"12px 18px",borderBottom:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}><Icon n="check" sz={15} c={COUL[globale].c}/><span style={{fontSize:14,fontWeight:700}}>Conformité HACCP</span><span style={{fontSize:11,color:T.textMuted}}>7 derniers jours</span></div>
         <Pastille couleur={globale}/>
       </div>
-      {lignes.map(l => <button key={l.id} onClick={() => onTab(l.tab)} style={{width:"100%",padding:"10px 18px",border:"none",borderBottom:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
+      {lignes.map(l => <button key={l.id} onClick={() => onTab(l.tab)} style={{width:"100%",padding:"10px 18px",border:"none",borderBottom:`1px solid ${T.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
         <span style={{width:10,height:10,borderRadius:"50%",background:COUL[l.couleur].c,flexShrink:0}}/>
-        <div style={{flex:1,minWidth:0}}><p style={{margin:0,fontSize:13,fontWeight:600,color:C.text}}>{l.nom}</p><p style={{margin:0,fontSize:11,color:C.textSec}}>{l.detail}</p></div>
+        <div style={{flex:1,minWidth:0}}><p style={{margin:0,fontSize:13,fontWeight:600,color:T.text}}>{l.nom}</p><p style={{margin:0,fontSize:11,color:T.textSec}}>{l.detail}</p></div>
         <Pastille couleur={l.couleur} petit/>
       </button>)}
-    </Card>
-    {avecTaches && res.semaine.some(j => j.prevu) && <Card style={{overflow:"hidden",marginBottom:20}}>
-      <div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+    </Carte>
+    {avecTaches && res.semaine.some(j => j.prevu) && <Carte style={{overflow:"hidden",marginBottom:20}}>
+      <div style={{padding:"12px 18px",borderBottom:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <span style={{fontSize:14,fontWeight:700}}>Check-list de la semaine</span>
-        <button onClick={() => onTab("taches")} style={{fontSize:12,color:C.brand,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Voir →</button>
+        <button onClick={() => onTab("taches")} style={{fontSize:12,color:T.brand,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Voir →</button>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:6,padding:"12px 14px"}}>
-        {res.semaine.map((j, i) => <button key={j.d} onClick={() => onTab("taches")} title={j.d} style={{padding:"8px 2px",borderRadius:10,border:j.auj?`2px solid ${C.brand}`:`1px solid ${C.border}`,background:COUL[j.etat].bg,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-          <span style={{fontSize:11,fontWeight:700,color:C.textSec}}>{JOURS[i]}</span>
-          <span style={{fontSize:12,fontWeight:800,color:j.futur?C.textMuted:j.etat==="gris"?C.text:COUL[j.etat].c}}>{j.futur || !j.prevu ? "–" : `${j.n}/${j.prevu}`}</span>
+        {res.semaine.map((j, i) => <button key={j.d} onClick={() => onTab("taches")} title={j.d} style={{padding:"8px 2px",borderRadius:10,border:j.auj?`2px solid ${T.brand}`:`1px solid ${T.border}`,background:COUL[j.etat].bg,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+          <span style={{fontSize:11,fontWeight:700,color:T.textSec}}>{JOURS[i]}</span>
+          <span style={{fontSize:12,fontWeight:800,color:j.futur?T.textMuted:j.etat==="gris"?T.text:COUL[j.etat].c}}>{j.futur || !j.prevu ? "–" : `${j.n}/${j.prevu}`}</span>
         </button>)}
       </div>
-      {res.listeAuj.length > 0 && <div style={{borderTop:`1px solid ${C.border}`}}>
+      {res.listeAuj.length > 0 && <div style={{borderTop:`1px solid ${T.border}`}}>
         {res.listeAuj.map(t => <div key={t.id} style={{padding:"8px 18px",display:"flex",alignItems:"center",gap:10,fontSize:13}}>
-          <span style={{width:8,height:8,borderRadius:"50%",background:t.fait?C.success:C.borderStrong,flexShrink:0}}/>
-          <span style={{flex:1,color:t.fait?C.textSec:C.text}}>{t.nom}</span>
-          <span style={{fontSize:11,fontWeight:600,color:t.fait?C.success:C.textMuted}}>{t.fait ? (t.heure ? `Fait à ${t.heure}` : "Fait") : "À faire"}</span>
+          <span style={{width:8,height:8,borderRadius:"50%",background:t.fait?T.success:C.borderStrong,flexShrink:0}}/>
+          <span style={{flex:1,color:t.fait?T.textSec:T.text}}>{t.nom}</span>
+          <span style={{fontSize:11,fontWeight:600,color:t.fait?T.success:T.textMuted}}>{t.fait ? (t.heure ? `Fait à ${t.heure}` : "Fait") : "À faire"}</span>
         </div>)}
       </div>}
-    </Card>}
+    </Carte>}
   </>;
 }
 
@@ -165,15 +168,15 @@ export function CarteTachesReparations({ restaurantId, profileId, gerant, onTab 
     ? [retard.length && `${retard.length} tâche${retard.length>1?"s":""} en retard`, urgentes.length && `${urgentes.length} urgente${urgentes.length>1?"s":""}`].filter(Boolean).join(" · ")
     : `Mes tâches (${miennes.length})`;
   const rouge = gerant && retard.length > 0;
-  return <Card style={{overflow:"hidden",marginBottom:20,borderColor:rouge?"#FECACA":C.border}}>
-    <div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,background:rouge?C.dangerLight:"transparent"}}>
-      <div style={{display:"flex",alignItems:"center",gap:8}}><Icon n={rouge?"alert":"clipboard"} sz={15} c={rouge?C.danger:C.warning}/><span style={{fontSize:14,fontWeight:700}}>{titre}</span></div>
-      <button onClick={() => onTab("reparations")} style={{fontSize:12,color:C.brand,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Ouvrir →</button>
+  return <Card style={{overflow:"hidden",marginBottom:20,borderColor:rouge?"#FECACA":T.border}}>
+    <div style={{padding:"12px 18px",borderBottom:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,background:rouge?T.dangerBg:"transparent"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8}}><Icon n={rouge?"alert":"clipboard"} sz={15} c={rouge?T.danger:T.warning}/><span style={{fontSize:14,fontWeight:700}}>{titre}</span></div>
+      <button onClick={() => onTab("reparations")} style={{fontSize:12,color:T.brand,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Ouvrir →</button>
     </div>
-    {liste.slice(0, 5).map(t => <button key={t.id} onClick={() => onTab("reparations")} style={{width:"100%",padding:"10px 18px",border:"none",borderBottom:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
-      <span style={{width:8,height:8,borderRadius:"50%",background:enRetard(t)?C.danger:t.priorite==="urgente"?C.warning:C.brand,flexShrink:0}}/>
-      <div style={{flex:1,minWidth:0}}><p style={{margin:0,fontSize:13,fontWeight:600,color:C.text}}>{t.titre}</p>
-        <p style={{margin:0,fontSize:11,color:C.textSec}}>{[t.echeance && `Pour le ${new Date(t.echeance+"T12:00").toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}`, t.assignee_nom, t.statut==="en_cours"&&"En cours"].filter(Boolean).join(" · ")}</p></div>
+    {liste.slice(0, 5).map(t => <button key={t.id} onClick={() => onTab("reparations")} style={{width:"100%",padding:"10px 18px",border:"none",borderBottom:`1px solid ${T.border}`,background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
+      <span style={{width:8,height:8,borderRadius:"50%",background:enRetard(t)?T.danger:t.priorite==="urgente"?T.warning:T.brand,flexShrink:0}}/>
+      <div style={{flex:1,minWidth:0}}><p style={{margin:0,fontSize:13,fontWeight:600,color:T.text}}>{t.titre}</p>
+        <p style={{margin:0,fontSize:11,color:T.textSec}}>{[t.echeance && `Pour le ${new Date(t.echeance+"T12:00").toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}`, t.assignee_nom, t.statut==="en_cours"&&"En cours"].filter(Boolean).join(" · ")}</p></div>
     </button>)}
   </Card>;
 }
