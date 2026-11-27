@@ -5,14 +5,14 @@ import { C, Icon } from "../ui";
 // ── LOGIN ─────────────────────────────────────────────────────
 const LAB={fontSize:11,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px",display:"block",marginBottom:5};
 const INP={width:"100%",boxSizing:"border-box",padding:"11px 14px",borderRadius:10,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none"};
-const BTN={padding:13,background:"linear-gradient(135deg,#4C7DF0,#3D6BE0)",color:"#fff",border:"none",borderRadius:10,fontSize:15,fontWeight:700,cursor:"pointer",marginTop:4,boxShadow:"0 4px 14px rgba(37,99,235,.4)"};
+const BTN={padding:13,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",color:"#fff",border:"none",borderRadius:10,fontSize:15,fontWeight:700,cursor:"pointer",marginTop:4,boxShadow:"0 4px 14px rgba(37,99,235,.4)"};
 const LIEN={background:"none",border:"none",color:C.brand,fontSize:13,fontWeight:600,cursor:"pointer",padding:0};
 
 function Cadre({children}){
-  return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#1A1214 0%,#3A2A2E 100%)",padding:20}}>
+  return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0F172A 0%,#1E3A5F 100%)",padding:20}}>
     <div style={{background:C.surface,borderRadius:20,padding:"40px 36px",width:"100%",maxWidth:380,boxShadow:"0 25px 60px rgba(0,0,0,.3)"}}>
       <div style={{textAlign:"center",marginBottom:28}}>
-        <div style={{width:60,height:60,background:"linear-gradient(135deg,#4C7DF0,#1A1214)",borderRadius:18,display:"inline-flex",alignItems:"center",justifyContent:"center",marginBottom:14,boxShadow:"0 8px 24px rgba(37,99,235,.4)"}}>
+        <div style={{width:60,height:60,background:"linear-gradient(135deg,#2563EB,#0F172A)",borderRadius:18,display:"inline-flex",alignItems:"center",justifyContent:"center",marginBottom:14,boxShadow:"0 8px 24px rgba(37,99,235,.4)"}}>
           <span style={{color:"#fff",fontSize:26,fontWeight:800}}>P</span>
         </div>
         <h1 style={{margin:0,fontSize:28,fontWeight:800,color:C.text,letterSpacing:"-1px"}}>Pillot</h1>

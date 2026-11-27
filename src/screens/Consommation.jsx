@@ -74,12 +74,12 @@ export default function Consommation({restaurantId,params=PARAMETRES_DEFAUT,toas
     toast?.("Export Excel téléchargé");
   };
 
-  const champ={padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:13,outline:"none",background:"#FFFFFF0F"};
+  const champ={padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:13,outline:"none",background:"#fff"};
   return<div>
     <Card style={{padding:16,marginBottom:14}}>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
         {rapides.map(p=><button key={p.id} onClick={()=>setPeriode({id:p.id,debut:p.debut,fin:p.fin})}
-          style={{padding:"6px 12px",borderRadius:20,border:`1px solid ${periode.id===p.id?C.brand:C.border}`,background:periode.id===p.id?C.brandLight:"#FFFFFF0F",color:periode.id===p.id?C.brand:C.textSec,fontSize:12,fontWeight:600,cursor:"pointer"}}>{p.nom}</button>)}
+          style={{padding:"6px 12px",borderRadius:20,border:`1px solid ${periode.id===p.id?C.brand:C.border}`,background:periode.id===p.id?C.brandLight:"#fff",color:periode.id===p.id?C.brand:C.textSec,fontSize:12,fontWeight:600,cursor:"pointer"}}>{p.nom}</button>)}
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",fontSize:13,color:C.textSec}}>
         Du <input type="date" value={jour(periode.debut)} aria-label="Début de la période" onChange={e=>e.target.value&&setPeriode(p=>({id:"libre",debut:debutJour(e.target.value),fin:p.fin}))} style={champ}/>

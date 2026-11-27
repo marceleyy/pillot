@@ -7,13 +7,13 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 
 const C = {
-  brand:"#4C7DF0",brandLight:"#8FB3FF24",
-  success:"#2FA36B",successLight:"#5FD39A24",
-  warning:"#E0A030",warningLight:"#F2B54524",
-  danger:"#E5485D",dangerLight:"#FF7B8B24",
-  orange:"#EA580C",orangeLight:"#F2B54524",
-  border:"#FFFFFF1F",surface:"#FFFFFF0F",bg:"#FFFFFF14",
-  text:"#F4EDE7",textSec:"#F4EDE7B3",textMuted:"#F4EDE780"
+  brand:"#2563EB",brandLight:"#EFF6FF",
+  success:"#16A34A",successLight:"#F0FDF4",
+  warning:"#D97706",warningLight:"#FFFBEB",
+  danger:"#DC2626",dangerLight:"#FEF2F2",
+  orange:"#EA580C",orangeLight:"#FFF7ED",
+  border:"#E2E8F0",surface:"#FFFFFF",bg:"#F1F5F9",
+  text:"#0F172A",textSec:"#64748B",textMuted:"#94A3B8"
 };
 
 const fmt = d => d ? new Date(d).toLocaleDateString("fr-FR") : "—";
@@ -140,7 +140,7 @@ function TemperaturesTab({ logs, restaurantId, profileId, toast, onRefresh }) {
   return (
     <div>
       {adding && (
-        <div className="pv-modale" style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(15,23,42,.5)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:C.surface, borderRadius:16, padding:24, maxWidth:340, width:"100%", boxShadow:"0 20px 50px rgba(0,0,0,.3)" }}>
             <p style={{ margin:"0 0 4px", fontSize:16, fontWeight:800 }}>{adding}</p>
             <p style={{ margin:"0 0 16px", fontSize:13, color:C.textSec }}>Norme : {EQUIPEMENTS.find(e=>e.nom===adding)?.min}°C à {EQUIPEMENTS.find(e=>e.nom===adding)?.max}°C</p>
@@ -166,7 +166,7 @@ function TemperaturesTab({ logs, restaurantId, profileId, toast, onRefresh }) {
           const ok = last ? isOk(e.nom, last.temperature) : null;
           return (
             <Card key={e.nom} style={{ padding:"14px 16px", display:"flex", alignItems:"center", gap:12 }}>
-              <div style={{ width:46, height:46, borderRadius:13, background:ok===null?"#FFFFFF14":ok?C.successLight:C.dangerLight, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>{e.icon}</div>
+              <div style={{ width:46, height:46, borderRadius:13, background:ok===null?"#F1F5F9":ok?C.successLight:C.dangerLight, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>{e.icon}</div>
               <div style={{ flex:1 }}>
                 <p style={{ margin:0, fontSize:14, fontWeight:700 }}>{e.nom}</p>
                 <p style={{ margin:0, fontSize:11, color:C.textSec }}>{e.min}°C à {e.max}°C</p>
@@ -185,7 +185,7 @@ function TemperaturesTab({ logs, restaurantId, profileId, toast, onRefresh }) {
       </div>
       {/* Historique */}
       {logs.length > 0 && <Card style={{ overflow:"hidden" }}>
-        <div style={{ padding:"11px 16px", borderBottom:`1px solid ${C.border}`, background:"#FFFFFF0A" }}>
+        <div style={{ padding:"11px 16px", borderBottom:`1px solid ${C.border}`, background:"#F8FAFC" }}>
           <p style={{ margin:0, fontSize:12, fontWeight:700, color:C.textSec, textTransform:"uppercase", letterSpacing:".5px" }}>Historique récent</p>
         </div>
         {logs.slice(0,10).map((l,i) => (
@@ -220,12 +220,12 @@ function NettoyageTab({ logs, restaurantId, profileId, toast, onRefresh }) {
 
   const ListTaches = ({ tasks, title }) => (
     <Card style={{ marginBottom:12, overflow:"hidden" }}>
-      <div style={{ padding:"10px 16px", borderBottom:`1px solid ${C.border}`, background:"#FFFFFF0A" }}><p style={{ margin:0, fontSize:12, fontWeight:700, color:C.textSec, textTransform:"uppercase", letterSpacing:".5px" }}>{title}</p></div>
+      <div style={{ padding:"10px 16px", borderBottom:`1px solid ${C.border}`, background:"#F8FAFC" }}><p style={{ margin:0, fontSize:12, fontWeight:700, color:C.textSec, textTransform:"uppercase", letterSpacing:".5px" }}>{title}</p></div>
       {tasks.map((t, i) => {
         const done = doneTasks.includes(t), checked = checks[t];
         return (
           <div key={t} onClick={() => !done && toggle(t)}
-            style={{ padding:"12px 16px", borderBottom:i<tasks.length-1?`1px solid ${C.border}`:"none", display:"flex", alignItems:"center", gap:12, cursor:done?"default":"pointer", background:done?C.successLight:checked?"#8FB3FF24":"transparent" }}>
+            style={{ padding:"12px 16px", borderBottom:i<tasks.length-1?`1px solid ${C.border}`:"none", display:"flex", alignItems:"center", gap:12, cursor:done?"default":"pointer", background:done?C.successLight:checked?"#EFF6FF":"transparent" }}>
             <div style={{ width:22, height:22, borderRadius:6, border:`2px solid ${done?C.success:checked?C.brand:C.border}`, background:done?C.success:checked?C.brand:"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
               {(done||checked) && <span style={{ color:"#fff", fontSize:12, fontWeight:800 }}>✓</span>}
             </div>
@@ -279,7 +279,7 @@ function DLCTab({ entries, restaurantId, profileId, toast, onRefresh, onExport }
   return (
     <div>
       {modal && (
-        <div className="pv-modale" style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(15,23,42,.5)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:C.surface, borderRadius:16, padding:24, maxWidth:400, width:"100%", boxShadow:"0 20px 50px rgba(0,0,0,.3)" }}>
             <h3 style={{ margin:"0 0 16px", fontSize:16, fontWeight:800 }}>Nouvelle DLC</h3>
             <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:14 }}>
@@ -366,7 +366,7 @@ function ReceptionTab({ receptions, restaurantId, profileId, toast, onRefresh, o
   return (
     <div>
       {modal && (
-        <div className="pv-modale" style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(15,23,42,.5)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:C.surface, borderRadius:16, padding:24, maxWidth:420, width:"100%", boxShadow:"0 20px 50px rgba(0,0,0,.3)" }}>
             <h3 style={{ margin:"0 0 16px", fontSize:16, fontWeight:800 }}>Contrôle de réception</h3>
             <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:16 }}>
@@ -459,7 +459,7 @@ function HuileTab({ oils, restaurantId, profileId, toast, onRefresh }) {
   return (
     <div>
       {modal && (
-        <div className="pv-modale" style={{ position:"fixed", inset:0, background:"rgba(14,9,11,.62)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(15,23,42,.5)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:C.surface, borderRadius:16, padding:24, maxWidth:380, width:"100%", boxShadow:"0 20px 50px rgba(0,0,0,.3)" }}>
             <h3 style={{ margin:"0 0 16px", fontSize:16, fontWeight:800 }}>Changement d'huile</h3>
             <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:14 }}>
@@ -492,7 +492,7 @@ function HuileTab({ oils, restaurantId, profileId, toast, onRefresh }) {
         const alert = days !== null && days > 10;
         return (
           <Card key={f} style={{ padding:"16px", marginBottom:12, display:"flex", alignItems:"center", gap:14 }}>
-            <div style={{ width:48, height:48, borderRadius:14, background:alert?"#F2B54524":"#5FD39A24", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, flexShrink:0 }}>🛢️</div>
+            <div style={{ width:48, height:48, borderRadius:14, background:alert?"#FFF7ED":"#F0FDF4", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, flexShrink:0 }}>🛢️</div>
             <div style={{ flex:1 }}>
               <p style={{ margin:0, fontSize:15, fontWeight:700 }}>{f}</p>
               {last ? <>
@@ -508,7 +508,7 @@ function HuileTab({ oils, restaurantId, profileId, toast, onRefresh }) {
 
       {oils.length > 0 && (
         <Card style={{ overflow:"hidden", marginTop:16 }}>
-          <div style={{ padding:"10px 16px", borderBottom:`1px solid ${C.border}`, background:"#FFFFFF0A" }}>
+          <div style={{ padding:"10px 16px", borderBottom:`1px solid ${C.border}`, background:"#F8FAFC" }}>
             <p style={{ margin:0, fontSize:11, fontWeight:700, color:C.textSec, textTransform:"uppercase", letterSpacing:".5px" }}>Historique</p>
           </div>
           {oils.map((o, i) => (

@@ -168,7 +168,7 @@ export function CarteTachesReparations({ restaurantId, profileId, gerant, onTab 
     ? [retard.length && `${retard.length} tâche${retard.length>1?"s":""} en retard`, urgentes.length && `${urgentes.length} urgente${urgentes.length>1?"s":""}`].filter(Boolean).join(" · ")
     : `Mes tâches (${miennes.length})`;
   const rouge = gerant && retard.length > 0;
-  return <Card style={{overflow:"hidden",marginBottom:20,borderColor:rouge?"#FF7B8B66":T.border}}>
+  return <Card style={{overflow:"hidden",marginBottom:20,borderColor:rouge?"#FECACA":T.border}}>
     <div style={{padding:"12px 18px",borderBottom:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,background:rouge?T.dangerBg:"transparent"}}>
       <div style={{display:"flex",alignItems:"center",gap:8}}><Icon n={rouge?"alert":"clipboard"} sz={15} c={rouge?T.danger:T.warning}/><span style={{fontSize:14,fontWeight:700}}>{titre}</span></div>
       <button onClick={() => onTab("reparations")} style={{fontSize:12,color:T.brand,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Ouvrir →</button>

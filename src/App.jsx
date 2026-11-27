@@ -17,7 +17,6 @@ import { Sidebar, BottomNav } from "./screens/Navigation";
 import { supabase } from "./lib/supabase";
 import { C, Toast } from "./ui";
 import { lireParametres } from "./parametres";
-import { STYLE_APP } from "./verre";
 import { estGerant, ONGLETS_GERANT } from "./roles";
 import { COLS_PRODUIT, COLS_COMMERCE, lirePrix, lireChiffres } from "./lib/donnees";
 
@@ -113,9 +112,9 @@ export default function App(){
     return<Dashboard key={profile?.restaurant_id||"aucun"} profile={profile} products={products} onTab={setTab} params={params} gerant={gerant} toast={showToast}/>;
   };
 
-  const STYLE=`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');*{font-family:'Inter',sans-serif;box-sizing:border-box;margin:0;}${STYLE_APP}input,button,textarea,select{font-family:inherit;}button:focus-visible{outline:2px solid ${C.brand};outline-offset:2px;}`;
+  const STYLE=`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');*{font-family:'Inter',sans-serif;box-sizing:border-box;margin:0;}body{background:${C.bg};}::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:#f1f5f9;}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}input,button,textarea,select{font-family:inherit;}button:focus-visible{outline:2px solid ${C.brand};outline-offset:2px;}`;
 
-  if(loading)return<><style>{STYLE}</style><div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#1A1214,#3A2A2E)",flexDirection:"column",gap:14}}><div style={{width:52,height:52,background:"linear-gradient(135deg,#4C7DF0,#3D6BE0)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"#fff",fontSize:24,fontWeight:800}}>P</span></div><p style={{color:"rgba(255,255,255,.5)",fontSize:14}}>Chargement...</p></div></>;
+  if(loading)return<><style>{STYLE}</style><div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0F172A,#1E3A5F)",flexDirection:"column",gap:14}}><div style={{width:52,height:52,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"#fff",fontSize:24,fontWeight:800}}>P</span></div><p style={{color:"rgba(255,255,255,.5)",fontSize:14}}>Chargement...</p></div></>;
   if(recuperation&&session)return<><style>{STYLE}</style><NouveauMotDePasse onFini={()=>{setRecuperation(false);showToast("Mot de passe changé");}} onAnnuler={()=>setRecuperation(false)}/>{toast&&<Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}</>;
   if(!session)return<><style>{STYLE}</style><Login/></>;
   // Compte sans commerce : il ouvre le sien (ou attend qu'un gérant l'ajoute).
@@ -124,9 +123,9 @@ export default function App(){
 
   return<><style>{STYLE}</style>
     {toast&&<Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
-    <div style={{display:"flex",minHeight:"100vh",gap:isMobile?0:16,padding:isMobile?0:16}}>
+    <div style={{display:"flex",minHeight:"100vh"}}>
       {!isMobile&&<Sidebar tab={tab} onTab={setTab} profile={profile} onLogout={logout} params={params} commerces={commerces} onChangeCommerce={changerCommerce}/>}
-      <main className={"pv-app-main"+(isMobile?" pv-mobile":"")} style={{flex:1,padding:isMobile?"16px 14px 80px":"28px 32px",overflowY:"auto",maxWidth:isMobile?"100%":(tab==="dashboard"||tabCoupe?1200:860),minWidth:0}}>
+      <main style={{flex:1,padding:isMobile?"16px 14px 80px":"28px 32px",overflowY:"auto",maxWidth:isMobile?"100%":(tab==="dashboard"||tabCoupe?1200:860),minWidth:0}}>
         {renderScreen()}
       </main>
     </div>

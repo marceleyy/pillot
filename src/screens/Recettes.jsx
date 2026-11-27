@@ -52,7 +52,7 @@ export default function Recettes({restaurantId,products,toast,params=PARAMETRES_
         ))}
       </div>
       <Card style={{overflow:"hidden"}}>
-        <div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,background:"#FFFFFF0A"}}><p style={{margin:0,fontSize:13,fontWeight:700}}>Ingrédients</p></div>
+        <div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,background:"#F8FAFC"}}><p style={{margin:0,fontSize:13,fontWeight:700}}>Ingrédients</p></div>
         {(r.recipe_items||[]).map((it,i)=><div key={it.id} style={{padding:"11px 18px",borderBottom:i<r.recipe_items.length-1?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center",gap:10}}>
           <div style={{flex:1}}><p style={{margin:0,fontSize:13,fontWeight:500}}>{it.product_nom||it.products?.nom}</p><p style={{margin:0,fontSize:11,color:C.textSec}}>{it.quantite} {it.unite||it.products?.unite}</p></div>
           <span style={{fontSize:13,fontWeight:700,color:C.warning}}>{fmt((it.quantite||0)*prixDe(it.product_id))}</span>
@@ -75,7 +75,7 @@ export default function Recettes({restaurantId,products,toast,params=PARAMETRES_
           <input type="number" value={newPrix} onChange={e=>setNewPrix(e.target.value)} placeholder="0.00" style={{width:"100%",boxSizing:"border-box",padding:"10px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:14,outline:"none"}} onFocus={e=>e.target.style.borderColor=C.brand} onBlur={e=>e.target.style.borderColor=C.border}/></div>
       </div>
       <p style={{margin:"0 0 10px",fontSize:12,fontWeight:700,color:C.textSec,textTransform:"uppercase",letterSpacing:".5px"}}>Ingrédients</p>
-      {items.map((it,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 10px",background:"#FFFFFF0A",borderRadius:8,marginBottom:5}}>
+      {items.map((it,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 10px",background:"#F8FAFC",borderRadius:8,marginBottom:5}}>
         <span style={{fontSize:13}}>{it.nom} — {it.qte} {it.unite}</span>
         <span style={{fontSize:13,color:C.warning,fontWeight:700}}>{fmt(it.qte*it.pa)}</span>
       </div>)}
@@ -92,7 +92,7 @@ export default function Recettes({restaurantId,products,toast,params=PARAMETRES_
         <p style={{margin:0,fontSize:13,fontWeight:700,color:C.success}}>Coût estimé : {fmt(items.reduce((a,it)=>a+it.qte*it.pa,0))} · Ratio : {newPrix>0?((items.reduce((a,it)=>a+it.qte*it.pa,0)/parseFloat(newPrix))*100).toFixed(1)+"%":"—"}</p>
       </div>}
     </Card>
-    <button onClick={saveRecette} disabled={saving||!newNom} style={{width:"100%",padding:13,background:newNom?C.brand:"#FFFFFF1F",color:newNom?"#fff":C.textMuted,border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:newNom?"pointer":"not-allowed"}}>
+    <button onClick={saveRecette} disabled={saving||!newNom} style={{width:"100%",padding:13,background:newNom?C.brand:"#E2E8F0",color:newNom?"#fff":C.textMuted,border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:newNom?"pointer":"not-allowed"}}>
       {saving?"Enregistrement...":"Créer la fiche technique"}</button>
   </div>;
 
